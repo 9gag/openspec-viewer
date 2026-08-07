@@ -1,0 +1,124 @@
+/*
+ * Astryx supplies the reset, the components, and every design token as CSS custom
+ * properties, so this file holds only what a design system has no opinion about: the
+ * page background, and two spots where the store's own text needs monospace.
+ *
+ * Order matters — reset, then components, then the theme that fills in the tokens.
+ */
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "@astryxdesign/theme-neutral/theme.css";
+
+body {
+  margin: 0;
+  background: var(--astryx-color-background-wash, #fff);
+  /* The <Theme> root carries the real typography; this is only so anything rendered
+     outside it does not fall back to the browser default, which is a serif. */
+  font-family: var(--font-family-body);
+}
+
+/* Store paths and task ids: long, structural, and read character by character. */
+.mono {
+  font-family: var(
+    --astryx-font-family-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace
+  );
+  font-size: 0.9em;
+}
+
+/* Artifacts are long documents; keep them readable rather than full-bleed. */
+.artifact {
+  max-width: 74ch;
+}
+
+/* The status strip: as many tiles as fit, never fewer than two across.
+   Astryx has no grid primitive with auto-fit, and this is layout, not design. */
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+/*
+ * Scenario keywords, coloured from the theme's own syntax tokens rather than literal
+ * blue/green/grey — they are declared with light-dark(), so both modes and any theme swap
+ * come for free. The mapping is the conventional Gherkin one: trigger blue, outcome
+ * green, conjunction muted, obligation warm.
+ */
+.bdd-keyword {
+  font-family: var(--font-family-code);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  min-width: 4.5rem;
+  text-align: right;
+  flex: none;
+}
+
+.bdd-trigger {
+  color: var(--color-syntax-function);
+}
+
+.bdd-outcome {
+  color: var(--color-syntax-string);
+}
+
+.bdd-conjunction {
+  color: var(--color-syntax-comment);
+}
+
+/* SHALL / MUST inside requirement prose: the words that make it a requirement. */
+.bdd-obligation {
+  color: var(--color-syntax-constant);
+  font-weight: 600;
+}
+
+/*
+ * Document + "On this page" rail. Below 1100px the rail is dropped rather than stacked
+ * above the content: a table of contents you have to scroll past to reach the thing it
+ * indexes is worse than no table of contents.
+ */
+.with-outline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+}
+
+.outline-rail {
+  display: none;
+}
+
+@media (min-width: 1100px) {
+  .with-outline {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+
+  .outline-rail {
+    display: block;
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+
+/*
+ * Overriding Markdown's heading renderer to attach anchor ids also replaces its spacing,
+ * so the rhythm is restored here. Relative units so it tracks the theme's type scale.
+ */
+.artifact :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.4em;
+  margin-bottom: 0.45em;
+}
+
+.artifact :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
+
+.artifact p {
+  margin-bottom: 0.75em;
+}

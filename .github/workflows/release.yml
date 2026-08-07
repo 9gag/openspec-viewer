@@ -1,0 +1,42 @@
+name: release
+
+# Publishing happens here rather than from a laptop. GitHub Packages needs
+# `write:packages`, which the Actions token carries for this repo on request — so
+# nobody has to hold a personal token with publish rights on their machine.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: "@seankcw"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+      # The tag is the version. Publishing a v0.2.0 tag as 0.1.9 because the manifest
+      # was not bumped is the one release mistake that cannot be taken back.
+      - name: Check the tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json version $pkg" >&2
+            exit 1
+          fi
+
+      # `prepack` builds dist/, so the published tarball carries the page.
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

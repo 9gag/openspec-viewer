@@ -1,0 +1,261 @@
+# @seankcw/openspec-viewer
+
+A read-only dashboard over an [OpenSpec](https://github.com/Fission-AI/OpenSpec) store,
+for the three people who read one for different reasons.
+
+```bash
+pnpm add -D @seankcw/openspec-viewer
+pnpm exec openspec-viewer          # opens http://localhost:5175
+```
+
+**The directory you run it in is the whole configuration.** The store is resolved by the
+`openspec` CLI, which must be on PATH — so run it in a repo whose `openspec/config.yaml`
+declares `store: <id>` and you get that registered clone, or run it inside a store and
+you get the store itself. The viewer never resolves a path of its own, which is what
+stops it and the CLI disagreeing about what they are looking at.
+
+| Variable | Default | For |
+|---|---|---|
+| `OPENSPEC_VIEWER_CLI` | `openspec` | The command the board prints for claim, unclaim and sync. Set it to your wrapper — `OPENSPEC_VIEWER_CLI="pnpm plan"` — so the commands on the page can be pasted as they are. |
+| `OPENSPEC_VIEWER_CWD` | cwd | Where to resolve the store from, when the process cannot be started in the right directory. |
+
+`--port <n>` moves it off 5175; `--no-open` leaves the browser alone.
+
+## Design
+
+Built with [Astryx](https://astryx.atmeta.com/) (`@astryxdesign/core` + the neutral
+theme). The app supplies no visual design of its own — `src/app.css` is three imports,
+a page background, and one monospace class. The published package has **no runtime
+dependencies**: Astryx and React are bundled into `dist/` at pack time, and the servers
+under `server/` are Node built-ins only, so installing this adds nothing to a consumer's
+own tree.
+
+**Setup is two halves, and both are required.** The stylesheets define the design tokens;
+`<Theme>` in `src/main.jsx` applies the root class that reads them. With the CSS alone
+every component still resolves to the browser default and the whole page renders in
+Times. `npx astryx init` was skipped deliberately — it writes AI-agent instructions into
+`CLAUDE.md` / `AGENTS.md` at the project root, which is not what this package needed.
+
+The theme package's README calls the wrapper `XDSTheme`; 0.1.9 exports it as `Theme`.
+
+## The strip
+
+Five tiles across the top of the board. Four are queues — **collisions, idle claims, ready
+to archive, unclaimed** — and the fifth is the store's sync state, which is not a queue
+and so does not filter anything.
+
+The design rule is that **every tile is zero when there is nothing to do.** Inventory
+counts ("48 specs, 81 archived, 100% complete") describe a store at rest and read most
+reassuring exactly when the tool has nothing useful to say. These read the other way.
+
+Selecting a tile narrows the board to what it counts: group-level queues drop the
+non-matching groups rather than only the non-matching changes, so clicking "2 idle claims"
+gives two rows, not two tables you still have to read. `?filter=idle` does the same from a
+link. The counts and the panels below come from one function, because a tile reading 2
+over a list showing 3 is how a status strip stops being believed.
+
+**Ready to archive** is the only tile that is new information rather than a re-ranking: a
+change at 20/20 still in flight. `plan done` says so when the last box is ticked, but only
+to whoever ticked it, and archiving is PM's call alone.
+
+Unclaimed work is collapsed by default — it is the longest list and the least urgent,
+and expanded it put six rows of shell commands between the reader and the board.
+
+## What it shows
+
+| View | Answers |
+|---|---|
+| **Board** | Every change in flight, its task groups, who owns each, and how long each claim has been idle |
+| **Change** | All four artifacts rendered, the capabilities it deltas, the designer's files, artifact completeness, `validate --strict` |
+| **Capabilities** | An index of every capability, shipped or in flight, with the changes that touched it |
+| **Capability** | One spec in full, with its history and an outline rail |
+| **Shipped changes** | The archive, and which capability each shipped change produced |
+
+### Lenses
+
+A segmented control switches what leads: **Engineer** (unclaimed work and your own idle
+claims, changes open on Tasks), **PM** (capability collisions, idle claims, opens on
+Proposal), **Designer** (design coverage, opens on the design artifacts).
+
+It is a view preference, not access control — everyone can see everything, which is the
+premise of a shared store. The choice persists per browser, and `?lens=pm` overrides it
+for one visit so a link can carry the view it was written for.
+
+### Appearance
+
+Auto / Light / Dark sits at the foot of the sidebar and drives Astryx's `<Theme mode>`.
+Auto follows the OS. It persists per browser and takes `?mode=dark` the same way the lens
+does. The three values are Astryx's own `ThemeMode` union — `Theme` acts on `light` and
+`dark` and treats anything else as "follow the system", so a typo would quietly behave
+like Auto rather than fail, and a test pins them to the published type.
+
+## The two things it infers
+
+Everything else on the page is a file read. These two are derived, so both are tested
+against fixtures rather than trusted.
+
+**Idle claims.** The CLI can tell you @dana owns group 5; it cannot tell you the
+claim landed nine days ago and nothing has been checked off since — the exact failure
+claim-at-pickup exists to prevent, since a name on idle work reads as "covered". Every
+claim and checkmark is a commit against one `tasks.md`, so each group's clock is the
+later of *when the current owner's unbroken hold began* and *the newest commit that
+raised its checked count*, the latter searched only within that owner's stretch so
+nobody inherits their predecessor's activity. Past 3 days it is worth asking about; past
+7 it is called out with the `plan unclaim` command.
+
+It reads the file's *state* at each commit, not commit messages. Subjects like
+`Claim add-guest-checkout group 3 for @dana` are parseable, but staleness derived from
+them breaks the day someone rewords or amends a commit — and this store's fixtures were
+authored in bulk commits no subject pattern matches.
+
+When history cannot account for the current owner, the column shows `—`. An age inferred
+from missing history would aim the nudge at the wrong person.
+
+**Capability collisions.** Two in-flight changes deltaing the same capability never
+conflict in git — each change is its own folder, so both push cleanly. It breaks at
+archive time, when the second is written against a baseline the first already rewrote,
+and a `## MODIFIED` block whose headers no longer match silently drops the rest of the
+requirement. Nothing else warns about this, so the board names the overlap early.
+
+## Getting around
+
+Two pieces of navigation, both borrowed from [spek](https://github.com/spekhq/spek):
+
+**An "On this page" rail** beside every artifact — the proposal's *Why → What Changes →
+Capabilities → Impact*, or a spec's requirements and scenarios. Astryx renders markdown
+headings without ids and its `useOutlineFromDOM` only collects headings that have one, so
+the heading renderer is overridden to attach an anchor derived from the heading's own
+text. That makes the rendered DOM the single source of truth: the rail cannot list a
+heading that is not on the page, and switching tabs re-reads it with no wiring. Anchors are
+namespaced per document, because the specs view stacks several capabilities and every spec
+has a "Purpose". The slug scheme is Astryx's own, and a test executes their function to
+prove the two still agree.
+
+**An index, not a wall.** `#/specs` lists capabilities — name, size, when it last changed,
+and what is changing it — grouped by whether they have shipped. The text lives one click
+away at `#/spec/<capability>`. Rendering all four specs end to end made the one you wanted
+the hardest thing to find, and the page grew with the store; the list endpoint no longer
+ships the bodies either.
+
+**Changed by**, on each capability — which changes touched it, newest first, in flight or
+archived. In front of a spec the question is always "what put this here, and what is about
+to change it"; both directions were in the tree already and only the index was missing.
+
+That view also lists capabilities that have **not** shipped. `openspec/specs/` holds only
+archived behavior, so a catalogue built from it alone silently omits everything in flight —
+which on a store early in its life is most of what anyone wants to read.
+
+## Reading a spec
+
+Specs are the one artifact every role reads, and as plain markdown they are a wall of grey
+with the load-bearing words indistinguishable from the sentences around them. So scenario
+steps are pulled into an aligned keyword column and obligations are marked in prose:
+
+```
+Requirement: Cart holds line items
+The cart SHALL hold one line item per distinct product.        ← warm
+
+  WHEN   a shopper adds a product that is not in the cart      ← blue
+  THEN   the cart contains one line for that product           ← green
+   AND   the subtotal is recomputed                            ← muted
+```
+
+Colours come from the theme's own syntax tokens, not literal blue/green/grey. Those tokens
+are declared with `light-dark()`, so both modes and any theme swap come for free.
+
+Two things worth knowing about the implementation:
+
+- **Astryx's Markdown cannot do this alone.** It lets you override the paragraph, heading,
+  code and link renderers but not lists — and OpenSpec writes every step as a list item
+  (`- **WHEN** …`), which is exactly where the keywords are. So `bdd.js` splits a spec into
+  step runs and everything else; the steps are rendered here and the rest still goes
+  through Markdown untouched. The tests' load-bearing case is the round trip — every line
+  in, every line out — because a parser that quietly drops a paragraph makes the page say
+  something false about the spec.
+- **It is opt-in.** Proposals and design docs render as ordinary prose; colouring a stray
+  "must" in a proposal would imply a normative weight the document does not carry.
+
+## Read-only, deliberately
+
+No writes, and no write endpoint. Claims and checkmarks stay git commits made by the
+CLI, because an unpushed claim is not a claim and `git log` on a change's `tasks.md` is
+the build log. A dashboard that could edit the store would break both. It prints the
+command to run instead — under whatever name `OPENSPEC_VIEWER_CLI` gives it — so the
+action still lands as a commit someone can push.
+
+## Layout
+
+```
+openspec-viewer/
+├── bin/openspec-viewer.mjs  # the installed command: serves dist/ + the API over node:http
+├── server/                  # all disk + git access. Node only, never bundled.
+│   ├── store.mjs            # store resolution (cached), git helpers, sync status
+│   ├── api.mjs              # the read-only JSON routes, shared by the binary and Vite
+│   ├── board.mjs            # changes, task groups, idle inference
+│   ├── change.mjs           # one change: artifacts, capabilities, completeness, validate
+│   ├── design.mjs           # design/<change-id>/ — bodies for a page, summary for the board
+│   └── catalog.mjs          # baseline specs, archive, capability collisions
+├── vite.config.js           # the React plugin, and the API mounted for dev + preview
+├── src/
+│   ├── App.jsx              # AppShell, nav, lens, store warnings
+│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive)
+│   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
+│   ├── lens.js              # the three roles and which panels each leads with
+│   └── time.js              # idle thresholds and relative formatting
+└── test/                    # the inferences, and the lens/panel coupling
+```
+
+`GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`.
+
+The store path is never hardcoded and never derived from this package's location:
+`store.mjs` asks `openspec list --json` in the directory the viewer was started from. If
+the id is not registered on your machine, or the CLI is not on PATH, the page says so and
+passes the CLI's own message through.
+
+## Notes
+
+- **Spawning the openspec CLI costs ~2s**, which made the board slower than its own poll
+  interval. The resolved store is cached for the life of the process — restart the dev
+  server after `openspec store register`. Artifact completeness is still schema-driven
+  from `openspec status --json`, cached against the change's file list so it re-runs only
+  when files actually appear or disappear. `validate --strict` has its own endpoint so
+  the artifacts never wait on it.
+- **It does not fetch.** Polling every 5s while shelling out to the network would hammer
+  the remote, so the page shows your clone as of the last fetch somebody did — and says
+  loudly when that clone is behind or dirty.
+- **It polls rather than watching.** The store changes when someone runs git, not while
+  the page is open. Artifact bodies are fetched once per visit — re-rendering a proposal
+  under the reader's cursor every 5s is worse than being 5s stale.
+- `pnpm build && pnpm preview` works: the API is mounted on the preview server too. It
+  is still a local tool — the bundle needs a Node server with the store on disk, which is
+  what `bin/openspec-viewer.mjs` is.
+
+## Tests
+
+```bash
+pnpm test
+```
+
+CI runs them on every push, and again before a tag publishes, so the inferences below are
+checked by the pipeline rather than by whoever last opened the tool.
+
+Staleness is tested by building real git histories in a temp repo with backdated commits;
+collisions by building stores that actually overlap, since the real store has none and
+would return an empty list whether the check worked or not. The lens test pins each
+role's panels to the panels the board renders — a lens naming a panel nobody renders
+produces a silently empty board, which is how the designer lens first shipped.
+
+## Releasing
+
+Publishing happens in CI, not from a laptop: bump `version` in `package.json`, commit,
+then push a matching `v<version>` tag. `.github/workflows/release.yml` runs the tests,
+refuses a tag that disagrees with the manifest, builds `dist/` through `prepack`, and
+publishes with the Actions token — so nobody needs `write:packages` on their own account.
+
+Installing from GitHub Packages needs authentication even though the package is public.
+A consumer repo wants an `.npmrc` with the scope and a token:
+
+```
+@seankcw:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```

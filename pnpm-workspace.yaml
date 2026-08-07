@@ -1,0 +1,8 @@
+# Not a workspace — this file is here for pnpm's build allowlist, which lives in
+# pnpm-workspace.yaml even for a single package.
+#
+# Astryx ships dist/ and its CSS prebuilt; its only install script is a postinstall
+# that prints a "run astryx init" nudge. Nothing to build.
+allowBuilds:
+  esbuild: true
+  "@astryxdesign/core": false

@@ -1,0 +1,43 @@
+{
+  "name": "@seankcw/openspec-viewer",
+  "version": "0.1.0",
+  "description": "A read-only web view of an OpenSpec store: changes in flight, capability specs, idle claims, and archive collisions.",
+  "license": "MIT",
+  "author": "seankcw",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seankcw/openspec-viewer.git"
+  },
+  "homepage": "https://github.com/seankcw/openspec-viewer#readme",
+  "bugs": "https://github.com/seankcw/openspec-viewer/issues",
+  "keywords": ["openspec", "spec-driven", "dashboard", "planning"],
+  "bin": {
+    "openspec-viewer": "bin/openspec-viewer.mjs"
+  },
+  "files": ["bin", "server", "dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node bin/openspec-viewer.mjs",
+    "prepack": "vite build"
+  },
+  "devDependencies": {
+    "@astryxdesign/core": "^0.1.9",
+    "@astryxdesign/theme-neutral": "^0.1.9",
+    "@stylexjs/stylex": "^0.19.0",
+    "@vitejs/plugin-react": "^6.0.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "vite": "^8.1.5"
+  }
+}
