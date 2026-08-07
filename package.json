@@ -5,6 +5,7 @@
   "license": "MIT",
   "author": "seankcw",
   "type": "module",
+  "packageManager": "pnpm@11.5.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/seankcw/openspec-viewer.git"
