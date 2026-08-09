@@ -33,4 +33,25 @@ export default defineConfig({
   plugins: [react(), storeApi()],
   server: { port: 5175, open: true },
   preview: { port: 5175 },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Split by how often the code changes, not by route. The page is ~30 kB of app
+        // code sitting on ~500 kB of runtime and design system, so lazy-loading views
+        // would defer almost nothing and buy it with a spinner. Cutting the two
+        // dependencies out instead means a release that touches only this repo
+        // reprints one small chunk and leaves the other two on their old hashes, still
+        // cached from the reader's last visit.
+        codeSplitting: {
+          groups: [
+            { name: "react", test: /node_modules\/(react|react-dom|scheduler)\// },
+            {
+              name: "design-system",
+              test: /node_modules\/(@astryxdesign|@stylexjs|@formatjs|intl-messageformat|lucide-react)/,
+            },
+          ],
+        },
+      },
+    },
+  },
 });
