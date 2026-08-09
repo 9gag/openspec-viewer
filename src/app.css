@@ -29,6 +29,19 @@ body {
   font-size: 0.9em;
 }
 
+/*
+ * A link in the store's markdown that points at something this viewer cannot serve — a
+ * non-markdown file, or a path that climbs out of the store. Underlined as text rather
+ * than styled as a link: it still marks the phrase the author meant to point somewhere,
+ * and its title carries the resolved path, but nothing about it invites a click that
+ * would only 404.
+ */
+.dead-link {
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+  cursor: help;
+}
+
 /* Artifacts are long documents; keep them readable rather than full-bleed. */
 .artifact {
   max-width: 74ch;

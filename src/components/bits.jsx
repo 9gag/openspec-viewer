@@ -144,11 +144,15 @@ export function Artifact({ text, commit, path, bdd = false, prefix = "" }) {
     <VStack gap={3}>
       <FileMeta path={path} commit={commit} />
       <div className="artifact">
-        {/* headingLevelStart=2: the page already owns the h1. */}
+        {/* headingLevelStart=2: the page already owns the h1. `path` doubles as the base
+            for resolving this document's own relative links. */}
         {bdd ? (
-          <SpecText text={text} prefix={prefix} />
+          <SpecText text={text} prefix={prefix} base={path} />
         ) : (
-          <Markdown headingLevelStart={2} components={mdComponents({ prefix })}>
+          <Markdown
+            headingLevelStart={2}
+            components={mdComponents({ prefix, base: path })}
+          >
             {text}
           </Markdown>
         )}

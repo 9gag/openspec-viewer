@@ -194,18 +194,21 @@ openspec-viewer/
 │   ├── board.mjs            # changes, task groups, idle inference
 │   ├── change.mjs           # one change: artifacts, capabilities, completeness, validate
 │   ├── design.mjs           # design/<change-id>/ — bodies for a page, summary for the board
-│   └── catalog.mjs          # baseline specs, archive, capability collisions
+│   ├── catalog.mjs          # baseline specs, archive, capability collisions
+│   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
 ├── src/
 │   ├── App.jsx              # AppShell, nav, lens, store warnings
-│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive)
+│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
+│   ├── links.js             # resolving a document's relative links into routes
 │   ├── lens.js              # the three roles and which panels each leads with
 │   └── time.js              # idle thresholds and relative formatting
 └── test/                    # the inferences, and the lens/panel coupling
 ```
 
-`GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`.
+`GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`,
+`/api/doc?path=`.
 
 The store path is never hardcoded and never derived from this package's location:
 `store.mjs` asks `openspec list --json` in the directory the viewer was started from. If
@@ -226,6 +229,14 @@ passes the CLI's own message through.
 - **It polls rather than watching.** The store changes when someone runs git, not while
   the page is open. Artifact bodies are fetched once per visit — re-rendering a proposal
   under the reader's cursor every 5s is worse than being 5s stale.
+- **A document's links are rewritten as it renders.** The store's markdown is written to
+  be read on disk, so a spec cites its PRD as `../../../docs/prds/x.md`. Left alone the
+  browser resolves that against the page URL — always `/` under hash routing — and asks
+  for a path no route owns. `src/links.js` resolves each link against the document it
+  came from and points it at `#/doc/<path>`, which `/api/doc` serves. A link the viewer
+  cannot serve renders as text carrying its resolved path, never as a click that 404s.
+  The path is data from a document, so `storeRelative` confines it: inside the store,
+  markdown, and not absolute — anything else is a 404 rather than a file.
 - `pnpm build && pnpm preview` works: the API is mounted on the preview server too. It
   is still a local tool — the bundle needs a Node server with the store on disk, which is
   what `bin/openspec-viewer.mjs` is.

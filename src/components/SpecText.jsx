@@ -34,8 +34,8 @@ function Steps({ steps }) {
   );
 }
 
-export default function SpecText({ text, prefix = "" }) {
-  const components = mdComponents({ prefix, bdd: true });
+export default function SpecText({ text, prefix = "", base = "" }) {
+  const components = mdComponents({ prefix, bdd: true, base });
   return (
     <VStack gap={0}>
       {splitSpec(text).map((block, i) =>

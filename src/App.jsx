@@ -25,6 +25,7 @@ import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
 import { Archive, SpecDetail, Specs } from "./views/Catalog.jsx";
 import ChangeDetail from "./views/ChangeDetail.jsx";
+import DocDetail from "./views/Doc.jsx";
 
 /** Sync state of the store clone, which everything else on the page is read from. */
 function StoreStatus({ store }) {
@@ -262,6 +263,9 @@ export default function App() {
           {view === "specs" && <Specs />}
           {view === "spec" && <SpecDetail id={arg} />}
           {view === "archive" && <Archive />}
+          {/* No nav entry: a store document is reached by following a link out of an
+              artifact, never from a list. */}
+          {view === "doc" && <DocDetail id={arg} />}
 
           <HStack gap={2} align="center" wrap="wrap">
             <Text size="sm" color="secondary">

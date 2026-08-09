@@ -17,6 +17,7 @@ import {
   collisions,
 } from "./catalog.mjs";
 import { change, validate } from "./change.mjs";
+import { doc } from "./doc.mjs";
 import { changeIds, resolveRoot } from "./store.mjs";
 
 const ROUTES = {
@@ -46,6 +47,13 @@ const ROUTES = {
     return capability(id) ?? { error: `no capability named '${id}'` };
   },
   "/api/archive": () => ({ archive: archive() }),
+  // Addressed by path rather than by id, because a document outside `openspec/` has no
+  // id — what a spec's link gives us is where the file is, and that is the whole key.
+  "/api/doc": (url) => {
+    const path = url.searchParams.get("path");
+    if (!path) return { error: "missing ?path" };
+    return doc(path) ?? { error: `no document at '${path}'` };
+  },
 };
 
 /** True for any path this handler owns, so a static server knows what not to answer. */
