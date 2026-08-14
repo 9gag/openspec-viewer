@@ -21,6 +21,7 @@ import {
   openspecText,
   read,
   resolveRoot,
+  specDirs,
 } from "./store.mjs";
 
 const statusCache = new Map();
@@ -37,7 +38,7 @@ function fileSignature(storePath, dir) {
   const specs = join(base, "specs");
   return [
     ...files(base),
-    ...dirs(specs).flatMap((cap) =>
+    ...specDirs(specs).flatMap((cap) =>
       files(join(specs, cap)).map((f) => `specs/${cap}/${f}`),
     ),
   ].join("|");
@@ -84,7 +85,7 @@ export function capabilities(storePath, changeId, archived = false) {
     ? join(storePath, "openspec", "changes", "archive", changeId, "specs")
     : join(storePath, "openspec", "changes", changeId, "specs");
 
-  return dirs(base).map((cap) => {
+  return specDirs(base).map((cap) => {
     const text = read(join(base, cap, "spec.md")) ?? "";
     // A delta that rewrites shipped behavior carries `## MODIFIED Requirements`; a new
     // capability opens with `## Purpose`. This is the distinction that decides whether

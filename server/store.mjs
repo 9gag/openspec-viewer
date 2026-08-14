@@ -115,6 +115,24 @@ export function dirs(abs) {
     .sort();
 }
 
+/**
+ * Capability directories under a specs root, as `/`-joined relative paths.
+ *
+ * A capability is any directory holding a `spec.md`, however deep: stores group specs
+ * by product (`specs/<product>/<capability>/spec.md`), and a flat store is just the
+ * zero-groups case. Listing first-level directories instead would present a product as
+ * an empty capability and hide everything inside it.
+ */
+export function specDirs(abs, prefix = "") {
+  const out = [];
+  for (const name of dirs(abs)) {
+    const rel = prefix ? `${prefix}/${name}` : name;
+    if (existsSync(join(abs, name, "spec.md"))) out.push(rel);
+    else out.push(...specDirs(join(abs, name), rel));
+  }
+  return out;
+}
+
 export function files(abs, ext = ".md") {
   if (!existsSync(abs)) return [];
   return readdirSync(abs, { withFileTypes: true })

@@ -6,7 +6,14 @@
 import { join } from "node:path";
 
 import { capabilities } from "./change.mjs";
-import { changeIds, dirs, lastCommit, read, resolveRoot } from "./store.mjs";
+import {
+  changeIds,
+  dirs,
+  lastCommit,
+  read,
+  resolveRoot,
+  specDirs,
+} from "./store.mjs";
 
 /**
  * Capabilities two or more in-flight changes both touch.
@@ -97,7 +104,7 @@ export function capabilityCatalog({ withText = false } = {}) {
     }
   }
 
-  const shipped = dirs(join(root.path, "openspec", "specs"));
+  const shipped = specDirs(join(root.path, "openspec", "specs"));
   const all = [...new Set([...shipped, ...touched.keys()])].sort();
 
   return all.map((cap) => {
