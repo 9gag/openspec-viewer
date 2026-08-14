@@ -1,17 +1,17 @@
 {
-  "name": "@seankcw/openspec-viewer",
+  "name": "@9gag/openspec-viewer",
   "version": "0.2.0",
   "description": "A read-only web view of an OpenSpec store: changes in flight, capability specs, idle claims, and archive collisions.",
   "license": "MIT",
-  "author": "seankcw",
+  "author": "9gag",
   "type": "module",
   "packageManager": "pnpm@11.5.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seankcw/openspec-viewer.git"
+    "url": "git+https://github.com/9gag/openspec-viewer.git"
   },
-  "homepage": "https://github.com/seankcw/openspec-viewer#readme",
-  "bugs": "https://github.com/seankcw/openspec-viewer/issues",
+  "homepage": "https://github.com/9gag/openspec-viewer#readme",
+  "bugs": "https://github.com/9gag/openspec-viewer/issues",
   "keywords": ["openspec", "spec-driven", "dashboard", "planning"],
   "bin": {
     "openspec-viewer": "bin/openspec-viewer.mjs"

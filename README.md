@@ -1,10 +1,10 @@
-# @seankcw/openspec-viewer
+# @9gag/openspec-viewer
 
 A read-only dashboard over an [OpenSpec](https://github.com/Fission-AI/OpenSpec) store,
 for the three people who read one for different reasons.
 
 ```bash
-pnpm add -D @seankcw/openspec-viewer
+pnpm add -D @9gag/openspec-viewer
 pnpm exec openspec-viewer          # opens http://localhost:5175
 ```
 
@@ -267,6 +267,6 @@ Installing from GitHub Packages needs authentication even though the package is 
 A consumer repo wants an `.npmrc` with the scope and a token:
 
 ```
-@seankcw:registry=https://npm.pkg.github.com
+@9gag:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
