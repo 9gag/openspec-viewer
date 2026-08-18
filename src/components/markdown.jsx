@@ -104,13 +104,11 @@ export function mdComponents({
   // Astryx sizes inline code off `--text-code-size`, which is body size — right inside
   // a document, wrong anywhere the surrounding text is not body size. A task row is
   // small text, and code that keeps its own size renders a third larger than the words
-  // around it, on its own line-height. Colour follows too, so a finished task's command
-  // fades and gets struck through with the rest of the sentence.
+  // around it, on its own line-height. Size only: code keeps its own colour, which is
+  // what marks it as code once it no longer stands out by being bigger.
   if (inheritTextSize)
     components.inlineCode = ({ children }) => (
-      <Code size="inherit" color="inherit">
-        {children}
-      </Code>
+      <Code size="inherit">{children}</Code>
     );
 
   // Only when the document's own path is known: resolving `../x.md` against nothing
