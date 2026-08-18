@@ -162,7 +162,7 @@ function Tasks({ groups, archived, dir }) {
   // requirement names in bold and commands in backticks, and the markers are noise once
   // they are on screen. Rendered inline so the row stays one line of text: `display`
   // block would put each task in its own paragraph box.
-  const md = mdComponents({ base: `${dir}/tasks.md` });
+  const md = mdComponents({ base: `${dir}/tasks.md`, inheritTextSize: true });
 
   return (
     <VStack gap={4}>

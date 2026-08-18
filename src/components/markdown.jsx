@@ -1,3 +1,4 @@
+import { Code } from "@astryxdesign/core/Code";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Link } from "@astryxdesign/core/Link";
 import { Text } from "@astryxdesign/core/Text";
@@ -55,8 +56,11 @@ function highlightObligations(children) {
  * path in its tooltip, rather than as a link that navigates to a 404. The reader still
  * learns where the thing lives, which is what the link was for, and nothing on the page
  * makes a promise the server will not keep.
+ *
+ * `inheritTextSize` is the same concern as inline code: Link types itself as body text
+ * unless told to inherit, which is a size jump anywhere the surrounding text is smaller.
  */
-function linkRenderer(base) {
+function linkRenderer(base, inheritTextSize) {
   return function MarkdownLink({ href, children }) {
     const target = resolveLink(href, base);
 
@@ -69,14 +73,23 @@ function linkRenderer(base) {
     }
 
     return (
-      <Link href={target.href} isExternalLink={target.kind === "external"}>
+      <Link
+        href={target.href}
+        isExternalLink={target.kind === "external"}
+        type={inheritTextSize ? "inherit" : undefined}
+      >
         {children}
       </Link>
     );
   };
 }
 
-export function mdComponents({ prefix = "", bdd = false, base = "" } = {}) {
+export function mdComponents({
+  prefix = "",
+  bdd = false,
+  base = "",
+  inheritTextSize = false,
+} = {}) {
   const components = {
     heading: ({ level, children }) => (
       <Heading
@@ -88,10 +101,22 @@ export function mdComponents({ prefix = "", bdd = false, base = "" } = {}) {
     ),
   };
 
+  // Astryx sizes inline code off `--text-code-size`, which is body size — right inside
+  // a document, wrong anywhere the surrounding text is not body size. A task row is
+  // small text, and code that keeps its own size renders a third larger than the words
+  // around it, on its own line-height. Colour follows too, so a finished task's command
+  // fades and gets struck through with the rest of the sentence.
+  if (inheritTextSize)
+    components.inlineCode = ({ children }) => (
+      <Code size="inherit" color="inherit">
+        {children}
+      </Code>
+    );
+
   // Only when the document's own path is known: resolving `../x.md` against nothing
   // would invent a destination, and a confidently wrong link is worse than the dead one
   // this replaces.
-  if (base) components.link = linkRenderer(base);
+  if (base) components.link = linkRenderer(base, inheritTextSize);
 
   // Only for specs: a stray "must" in a proposal is prose, not an obligation.
   if (bdd)
