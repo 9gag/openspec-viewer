@@ -21,9 +21,17 @@ import { changeIds, git, read, resolveRoot, storeStatus } from "./store.mjs";
 /**
  * Task groups for one change. Same three regexes as scripts/openspec/plan.mjs — the
  * ownership convention is a text convention, and this is the third place that parses it.
+ *
+ * A task is one markdown list item, not one line: authors hard-wrap tasks.md at the
+ * usual column, so the indented lines under a `- [ ]` carry the rest of the sentence.
+ * Reading only the first line cut every wrapped task off mid-phrase, which is exactly
+ * where the instruction lives.
  */
 export function parse(text) {
   const groups = [];
+  // The task still open for continuation lines. Anything that starts a new block —
+  // a heading, another list item, a blank line — closes it.
+  let current = null;
   for (const line of text.split("\n")) {
     const heading = line.match(/^##\s+(\d+)\.\s*(.+?)\s*$/);
     if (heading) {
@@ -36,16 +44,26 @@ export function parse(text) {
         owner: handle && handle !== "unassigned" ? handle : null,
         tasks: [],
       });
+      current = null;
       continue;
     }
     const task = line.match(/^\s*-\s*\[([ xX])\]\s*(\S+)\s+(.*)$/);
     if (task && groups.length) {
-      groups.at(-1).tasks.push({
+      current = {
         done: task[1].toLowerCase() === "x",
         id: task[2],
         text: task[3].trim(),
-      });
+      };
+      groups.at(-1).tasks.push(current);
+      continue;
     }
+    // Indented and not a list item of its own: the wrapped remainder of the task
+    // above. Unindented prose is a paragraph between items, and ends the task.
+    if (current && /^\s+\S/.test(line) && !/^\s*[-*+]\s/.test(line)) {
+      current.text = `${current.text} ${line.trim()}`.trim();
+      continue;
+    }
+    current = null;
   }
   return groups;
 }

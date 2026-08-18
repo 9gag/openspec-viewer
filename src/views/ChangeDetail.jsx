@@ -5,12 +5,14 @@ import { CodeBlock } from "@astryxdesign/core/CodeBlock";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Markdown } from "@astryxdesign/core/Markdown";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
 import { useEffect, useState } from "react";
 import { useApi } from "../api.js";
 import { Artifact, FileMeta, Owner } from "../components/bits.jsx";
+import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 
 /** Which of the four artifacts exist, per the schema's own expectations. */
@@ -143,7 +145,7 @@ function DesignArtifacts({ design }) {
   );
 }
 
-function Tasks({ groups, archived }) {
+function Tasks({ groups, archived, dir }) {
   // Only an in-flight change reaches this without groups: tasks.md is the last artifact
   // written, so a change still being planned has none yet. An archived one always has it.
   if (!groups) {
@@ -155,6 +157,12 @@ function Tasks({ groups, archived }) {
       />
     );
   }
+
+  // Task text is markdown the same as every other line in the file — the store writes
+  // requirement names in bold and commands in backticks, and the markers are noise once
+  // they are on screen. Rendered inline so the row stays one line of text: `display`
+  // block would put each task in its own paragraph box.
+  const md = mdComponents({ base: `${dir}/tasks.md` });
 
   return (
     <VStack gap={4}>
@@ -177,17 +185,23 @@ function Tasks({ groups, archived }) {
             </HStack>
             <VStack gap={1}>
               {g.tasks.map((t) => (
+                // A wrapped task is one paragraph, not one line: the text column has
+                // to take the leftover width and wrap inside it, or the sentence runs
+                // off the card instead of down it.
                 <HStack key={t.id} gap={2} align="start">
                   <Text color="secondary">{t.done ? "☑" : "☐"}</Text>
-                  <Text size="sm" className="mono">
+                  <Text size="sm" className="mono task-id">
                     {t.id}
                   </Text>
                   <Text
                     size="sm"
                     color={t.done ? "secondary" : "primary"}
                     hasStrikethrough={t.done}
+                    className="task-text"
                   >
-                    {t.text}
+                    <Markdown display="inline" components={md}>
+                      {t.text}
+                    </Markdown>
                   </Text>
                 </HStack>
               ))}
@@ -284,7 +298,7 @@ export default function ChangeDetail({ id, defaultTab }) {
         )}
         {tab === "design-artifacts" && <DesignArtifacts design={data.design} />}
         {tab === "tasks" && (
-          <Tasks groups={data.groups} archived={data.archived} />
+          <Tasks groups={data.groups} archived={data.archived} dir={data.dir} />
         )}
       </WithOutline>
     </VStack>

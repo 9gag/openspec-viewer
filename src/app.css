@@ -56,6 +56,22 @@ body {
 }
 
 /*
+ * A task row: checkbox, number, then the task itself. Tasks are hard-wrapped in
+ * tasks.md and read back as one sentence, so the text column takes whatever width is
+ * left and wraps inside it — including mid-token, since a task routinely ends in a
+ * path or a command with no space to break at.
+ */
+.task-id {
+  flex: none;
+}
+
+.task-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
  * Scenario keywords, coloured from the theme's own syntax tokens rather than literal
  * blue/green/grey — they are declared with light-dark(), so both modes and any theme swap
  * come for free. The mapping is the conventional Gherkin one: trigger blue, outcome
