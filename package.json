@@ -5,18 +5,29 @@
   "license": "MIT",
   "author": "seankcw",
   "type": "module",
-  "packageManager": "pnpm@11.5.1",
+  "packageManager": "pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/seankcw/openspec-viewer.git"
   },
   "homepage": "https://github.com/seankcw/openspec-viewer#readme",
   "bugs": "https://github.com/seankcw/openspec-viewer/issues",
-  "keywords": ["openspec", "spec-driven", "dashboard", "planning"],
+  "keywords": [
+    "openspec",
+    "spec-driven",
+    "dashboard",
+    "planning"
+  ],
   "bin": {
     "openspec-viewer": "bin/openspec-viewer.mjs"
   },
-  "files": ["bin", "server", "dist", "README.md", "LICENSE"],
+  "files": [
+    "bin",
+    "server",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20"
   },
