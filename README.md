@@ -245,6 +245,25 @@ passes the CLI's own message through.
   is still a local tool — the bundle needs a Node server with the store on disk, which is
   what `bin/openspec-viewer.mjs` is.
 
+## Planning its own work
+
+This repo is an OpenSpec store as well as the tool that reads one. `openspec/config.yaml`
+carries the context and the per-artifact rules a change here is written against; the
+proposals, specs, and task lists themselves live under `openspec/changes/` and
+`openspec/specs/` once there are any, and `.claude/` holds the skills and `/opsx:`
+commands `openspec init` installed.
+
+Which means the viewer can be pointed at itself, and that is the loop to develop in:
+
+```bash
+pnpm dev          # started here, it resolves this repo as its store
+```
+
+`store.mjs` runs `openspec list --json` in the directory the viewer was started from, so
+there is nothing to configure — the board you are looking at is this repo's own changes.
+Run `pnpm dev` from another repo's directory, or set `OPENSPEC_VIEWER_CWD`, to read that
+store instead.
+
 ## Tests
 
 ```bash
