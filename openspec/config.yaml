@@ -1,0 +1,67 @@
+schema: spec-driven
+
+# This repo is both an OpenSpec project and the tool that reads one: openspec-viewer
+# renders a store in a browser, and it resolves its store by running the CLI in the
+# directory it was started from — so started here, it reads this file and shows its own
+# changes. That is the loop to use when working on it.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  openspec-viewer - a read-only web view of an OpenSpec store: the changes in
+  flight and their artifacts, the capability specs behind them, idle claims, and
+  the collisions two changes are heading for at archive time. Published to GitHub
+  Packages as @seankcw/openspec-viewer and run as a command in the directory of a
+  repo that has a store, or of a store itself.
+
+  Stack: Node >= 20, plain JavaScript with no TypeScript, React 19 through Vite 8,
+  pnpm, node:test for tests. All UI comes from Astryx (@astryxdesign/core plus the
+  neutral theme) - the app supplies no visual design of its own, and src/app.css is
+  imports plus a handful of layout rules.
+
+  Two halves that never mix. server/ touches disk and git and runs only in Node,
+  behind one connect-style handler mounted three ways (the published binary, the
+  Vite dev server, the preview server) so an endpoint cannot work in development
+  and 404 in the shipped tool. src/ is the browser app and reaches the store only
+  through /api. Nothing in server/ is ever bundled into the client.
+
+  Read-only, on purpose. Every claim and every checkmark is a git commit made by
+  the openspec CLI, and an unpushed claim is not a claim - a viewer that could
+  write would break the convention it exists to show. What it adds over the CLI is
+  inference the CLI has no place to put: how long a claim has sat without progress,
+  which capabilities two in-flight changes both delta, which artifacts a change is
+  missing.
+
+  Audience: whoever is working on the viewer. There is no second implementing repo
+  - a change here is planned and built in this repo.
+
+# Per-artifact rules (optional)
+rules:
+  proposal:
+    - Open with what a reader of the store cannot see today, not with the code that would change.
+    - "Say whether the change is inference, presentation, or plumbing: the three have different bars. Inference that is confidently wrong is worse than a page that is missing."
+    - Always list Non-goals. Writing to the store is permanently one of them.
+  specs:
+    - Use Given/When/Then, and write scenarios a node:test case can check.
+    - "Requirements are about what the viewer shows and refuses to show, never about which component renders it - Astryx choices are design's business and belong in design.md."
+    - "State the empty and the broken case for anything read from a store: a store with no git history, a change with no tasks.md, a schema this machine cannot resolve. Those are the states real stores are in."
+  design:
+    - "Name the alternatives you rejected and why. The comments in this codebase carry that reasoning and are expected to; a design doc that only describes the chosen path leaves them nothing to cite."
+    - "Say what a reading costs. Anything on the board runs on every poll, so a git spawn per change per poll is a design decision, not an implementation detail."
+    - Keep it to the seam between server/ and src/ - what the endpoint returns, and what the view does with it.
+  tasks:
+    - "Order groups server-first: the payload, then the view that reads it, then the README. A view cannot be built against an endpoint that does not return the field yet."
+    - "Pair every inference with the fixture that proves it. Staleness is tested against real git histories in a temp repo, collisions against stores that actually overlap - a check that returns an empty list on the real store passes whether it works or not."
+    - Keep each task to something one person finishes in a session, and end each group with the command that verifies it.
+
+# Per-operation guidance (optional)
+operations:
+  apply:
+    guidance:
+      - "Run `pnpm test` and `pnpm build` as you go, and both at the end of every group. The build is not a formality here: the client is bundled, so an import that reaches server/ from src/ fails there and nowhere else."
+      - "Comments explain why, in the voice the file around them already uses. A comment restating what the line does is noise; the reasoning behind a threshold, a cache key, or a refusal is the thing worth keeping."
+      - Commit to the current branch as tasks complete, with conventional-commit subjects in the imperative mood.
+  archive:
+    guidance:
+      - Archive once the change is released to GitHub Packages, not when it merges.
+      - Re-read the updated specs afterward and confirm they describe what the tool now does.

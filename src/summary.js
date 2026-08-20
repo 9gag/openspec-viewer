@@ -17,8 +17,8 @@ export const FILTERS = ["collisions", "idle", "ready", "unclaimed"];
 
 /**
  * `?filter=idle` so a link can point at the work, not just the page — the same reason the
- * lens and the appearance take one. Transient: selecting a tile does not rewrite the URL,
- * and nothing is persisted.
+ * appearance takes one. Transient: selecting a tile does not rewrite the URL, and nothing
+ * is persisted.
  */
 export function initialFilter() {
   const value = new URLSearchParams(window.location.search).get("filter");

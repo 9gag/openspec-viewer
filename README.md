@@ -66,26 +66,30 @@ and expanded it put six rows of shell commands between the reader and the board.
 | View | Answers |
 |---|---|
 | **Board** | Every change in flight, its task groups, who owns each, and how long each claim has been idle |
-| **Change** | All four artifacts rendered, the capabilities it deltas, the designer's files, artifact completeness, `validate --strict` |
+| **Change** | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
 | **Capabilities** | An index of every capability, shipped or in flight, with the changes that touched it |
 | **Capability** | One spec in full, with its history and an outline rail |
 | **Shipped changes** | The archive, and which capability each shipped change produced |
 
-### Lenses
+### Tabs on a change
 
-A segmented control switches what leads: **Engineer** (unclaimed work and your own idle
-claims, changes open on Tasks), **PM** (capability collisions, idle claims, opens on
-Proposal), **Designer** (design coverage, opens on the design artifacts).
+The tabs are that change's own files. Which files a change is supposed to have is decided
+by the workflow schema it was created under — `spec-driven` writes proposal / specs /
+design / tasks, `full-planning` adds a `ui.md`, and a store can fork its own. Two changes
+in one store can sit on different schemas, so the tab set is read per change: the schema
+gives the order, the directory gives which of them exist, and a file the schema never
+declared (a `README.md` beside the proposal) is still shown, last. What is *missing* is
+the Artifacts card at the top of the page, not a tab onto a file nobody has written.
 
-It is a view preference, not access control — everyone can see everything, which is the
-premise of a shared store. The choice persists per browser, and `?lens=pm` overrides it
-for one visit so a link can carry the view it was written for.
+Everyone sees the same board in the same order, and every panel is absent when it has
+nothing to say — including artifact coverage, which lists only the changes missing
+something.
 
 ### Appearance
 
 Auto / Light / Dark sits at the foot of the sidebar and drives Astryx's `<Theme mode>`.
-Auto follows the OS. It persists per browser and takes `?mode=dark` the same way the lens
-does. The three values are Astryx's own `ThemeMode` union — `Theme` acts on `light` and
+Auto follows the OS. It persists per browser, and `?mode=dark` overrides it for one visit
+so a link can carry the view it was written for. The three values are Astryx's own `ThemeMode` union — `Theme` acts on `light` and
 `dark` and treats anything else as "follow the system", so a typo would quietly behave
 like Auto rather than fail, and a test pins them to the published type.
 
@@ -192,19 +196,19 @@ openspec-viewer/
 │   ├── store.mjs            # store resolution (cached), git helpers, sync status
 │   ├── api.mjs              # the read-only JSON routes, shared by the binary and Vite
 │   ├── board.mjs            # changes, task groups, idle inference
-│   ├── change.mjs           # one change: artifacts, capabilities, completeness, validate
-│   ├── design.mjs           # design/<change-id>/ — bodies for a page, summary for the board
+│   ├── change.mjs           # one change: artifact bodies, capabilities, completeness, validate
+│   ├── artifacts.mjs        # which files a change has, ordered by its workflow schema
 │   ├── catalog.mjs          # baseline specs, archive, capability collisions
 │   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
 ├── src/
-│   ├── App.jsx              # AppShell, nav, lens, store warnings
+│   ├── App.jsx              # AppShell, nav, appearance, store warnings
 │   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
 │   ├── links.js             # resolving a document's relative links into routes
-│   ├── lens.js              # the three roles and which panels each leads with
+│   ├── tabs.js              # which artifact a change page opens on
 │   └── time.js              # idle thresholds and relative formatting
-└── test/                    # the inferences, and the lens/panel coupling
+└── test/                    # the inferences, and the readings they are built on
 ```
 
 `GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`,
@@ -241,6 +245,25 @@ passes the CLI's own message through.
   is still a local tool — the bundle needs a Node server with the store on disk, which is
   what `bin/openspec-viewer.mjs` is.
 
+## Planning its own work
+
+This repo is an OpenSpec store as well as the tool that reads one. `openspec/config.yaml`
+carries the context and the per-artifact rules a change here is written against; the
+proposals, specs, and task lists themselves live under `openspec/changes/` and
+`openspec/specs/` once there are any, and `.claude/` holds the skills and `/opsx:`
+commands `openspec init` installed.
+
+Which means the viewer can be pointed at itself, and that is the loop to develop in:
+
+```bash
+pnpm dev          # started here, it resolves this repo as its store
+```
+
+`store.mjs` runs `openspec list --json` in the directory the viewer was started from, so
+there is nothing to configure — the board you are looking at is this repo's own changes.
+Run `pnpm dev` from another repo's directory, or set `OPENSPEC_VIEWER_CWD`, to read that
+store instead.
+
 ## Tests
 
 ```bash
@@ -252,9 +275,10 @@ checked by the pipeline rather than by whoever last opened the tool.
 
 Staleness is tested by building real git histories in a temp repo with backdated commits;
 collisions by building stores that actually overlap, since the real store has none and
-would return an empty list whether the check worked or not. The lens test pins each
-role's panels to the panels the board renders — a lens naming a panel nobody renders
-produces a silently empty board, which is how the designer lens first shipped.
+would return an empty list whether the check worked or not. The artifact test writes
+schemas and change directories that disagree with each other, since a file the viewer
+does not know about is not rendered wrong, it is simply absent, and nothing on the page
+says half the change is missing.
 
 ## Releasing
 
