@@ -15,7 +15,7 @@
 
 import { join } from "node:path";
 
-import { designSummary } from "./design.mjs";
+import { changeArtifacts } from "./artifacts.mjs";
 import { changeIds, git, read, resolveRoot, storeStatus } from "./store.mjs";
 
 /**
@@ -176,6 +176,12 @@ export function board(now = Date.now()) {
     store,
     changes: ids.map((id) => {
       const groups = readGroups(root.path, id);
+      // Names and presence only. This runs for every change on every poll, so it stays
+      // two readdirs — no file bodies, no git.
+      const artifacts = changeArtifacts(
+        root.path,
+        join("openspec", "changes", id),
+      ).map(({ name, present }) => ({ name, present }));
       if (!groups) {
         return {
           id,
@@ -184,7 +190,7 @@ export function board(now = Date.now()) {
           total: 0,
           groups: [],
           lastActivity: null,
-          design: designSummary(root.path, id),
+          artifacts,
         };
       }
 
@@ -199,7 +205,7 @@ export function board(now = Date.now()) {
         ),
         total: groups.reduce((n, g) => n + g.tasks.length, 0),
         lastActivity: snaps[0]?.at ?? null,
-        design: designSummary(root.path, id),
+        artifacts,
         groups: groups.map((g) => {
           const done = g.tasks.filter((t) => t.done).length;
           return {

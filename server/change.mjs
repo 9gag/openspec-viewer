@@ -1,17 +1,17 @@
 /**
- * One change, in full: the four OpenSpec artifacts, the designer's files for it, and
- * whether it validates.
+ * One change, in full: every artifact its schema asked for and every file it actually
+ * carries, plus whether it validates.
  *
  * The point of rendering all of it here is that today the artifacts are only reachable
- * through `openspec show` in a terminal, and `design/<change-id>/` is reachable only by
- * knowing it exists. PM writes them, engineering builds from them, design owns half of
- * them, and nobody outside a terminal can see them side by side.
+ * through `openspec show` in a terminal, one at a time. PM writes the proposal,
+ * engineering builds from the tasks, design owns the ui spec — and nobody outside a
+ * terminal can see them side by side.
  */
 
 import { join } from "node:path";
 
+import { changeArtifacts } from "./artifacts.mjs";
 import { readGroups } from "./board.mjs";
-import { designArtifacts } from "./design.mjs";
 import {
   changeIds,
   dirs,
@@ -45,8 +45,8 @@ function fileSignature(storePath, dir) {
 }
 
 /**
- * Which of the four artifacts exist, straight from the CLI rather than by guessing at
- * filenames — `openspec status --json` reports the schema's expected output path for each
+ * Which of the artifacts the schema expects exist, straight from the CLI rather than by
+ * guessing at filenames — `openspec status --json` reports the schema's expected output path for each
  * artifact and which files actually match it, so a schema change cannot silently make
  * this wrong. Cached against the file signature so the cost is paid once per real change.
  */
@@ -139,32 +139,31 @@ export function change(changeId) {
   const dir = archived
     ? join("openspec", "changes", "archive", changeId)
     : join("openspec", "changes", changeId);
-  const abs = (name) => join(root.path, dir, name);
   const groups = readGroups(root.path, changeId, archived);
 
   return {
     id: changeId,
     archived,
     dir,
-    artifacts: {
-      proposal: {
-        text: read(abs("proposal.md")),
-        commit: lastCommit(root.path, join(dir, "proposal.md")),
-      },
-      design: {
-        text: read(abs("design.md")),
-        commit: lastCommit(root.path, join(dir, "design.md")),
-      },
-      tasks: {
-        text: read(abs("tasks.md")),
-        commit: lastCommit(root.path, join(dir, "tasks.md")),
-      },
-    },
+    // Only the artifacts that exist — this is what the page turns into tabs, and a tab
+    // onto a file nobody has written is a dead end. What is *missing* is a different
+    // question, and `completeness` below answers it against the schema's own list.
+    artifacts: changeArtifacts(root.path, dir)
+      .filter((a) => a.present)
+      .map(({ name, label, kind, file }) => {
+        const entry = { name, label, kind };
+        if (!file) return entry;
+        entry.path = `${dir}/${file}`;
+        entry.commit = lastCommit(root.path, join(dir, file));
+        // Only prose is shipped as text: specs and tasks are already on the payload,
+        // read structurally, and sending tasks.md twice helps nobody.
+        if (kind === "doc") entry.text = read(join(root.path, dir, file));
+        return entry;
+      }),
     completeness: archived
       ? null
       : artifactStatus(changeId, fileSignature(root.path, dir)),
     capabilities: capabilities(root.path, changeId, archived),
-    design: designArtifacts(root.path, changeId),
     groups: groups?.map((g) => ({
       num: g.num,
       title: g.title,

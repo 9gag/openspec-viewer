@@ -25,10 +25,11 @@ export const LENSES = {
   },
   designer: {
     label: "Designer",
-    // Opens on the design artifacts, which nothing else in the toolchain surfaces.
-    defaultTab: "design-artifacts",
-    panels: ["design-status", "collisions"],
-    blurb: "Flows and copy decks, next to the specs they inform.",
+    // Opens on the UI spec — screens, components, states — which is design's half of the
+    // change. Not every schema has one, and `resolveTab` falls back when it does not.
+    defaultTab: "ui",
+    panels: ["coverage", "collisions"],
+    blurb: "Screens and states, next to the specs they inform.",
   },
 };
 
@@ -39,7 +40,20 @@ export const DEFAULT_LENS = "engineer";
  * pins the two lists together — a lens naming a panel nobody renders silently produces an
  * empty board, which is how the designer lens shipped showing "nothing to chase".
  */
-export const PANELS = ["collisions", "design-status", "idle", "unclaimed"];
+export const PANELS = ["collisions", "coverage", "idle", "unclaimed"];
+
+/**
+ * Which tab a change page opens on.
+ *
+ * A lens names a preference, not a guarantee: the tabs are the change's own files, and
+ * which files a change has is decided by the schema it was created under. A designer
+ * opening a change whose schema has no ui.md gets its first artifact rather than a blank
+ * page, and the preference still applies on the next change that does have one.
+ */
+export function resolveTab(artifacts, preferred) {
+  if (artifacts.some((a) => a.name === preferred)) return preferred;
+  return artifacts[0]?.name ?? null;
+}
 
 /** Remembered per browser: a role is a property of the person, not of the session. */
 const KEY = "openspec-viewer.lens";

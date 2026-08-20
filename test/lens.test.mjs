@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { DEFAULT_LENS, LENSES, PANELS } from "../src/lens.js";
+import { DEFAULT_LENS, LENSES, PANELS, resolveTab } from "../src/lens.js";
 import { DEFAULT_MODE, MODES } from "../src/mode.js";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
@@ -51,13 +51,6 @@ const rendered = new Set(
   ),
 );
 
-/** Tab values ChangeDetail.jsx actually offers. */
-const tabs = new Set(
-  [
-    ...source("views/ChangeDetail.jsx").matchAll(/\{ value: (['"])([^'"]+)\1/g),
-  ].map((m) => m[2]),
-);
-
 describe("lens definitions", () => {
   it("declares the same panel names the board renders", () => {
     assert.deepEqual([...rendered].sort(), [...PANELS].sort());
@@ -74,13 +67,11 @@ describe("lens definitions", () => {
     }
   });
 
-  it("opens each role on a tab the change page has", () => {
-    assert.ok(tabs.size >= 5, "expected to find the change page tabs");
+  it("names a default tab for every role", () => {
+    // Not checked against a fixed list: the tabs on a change page are that change's own
+    // files, and which files it has is the schema's call, not this module's.
     for (const [name, lens] of Object.entries(LENSES)) {
-      assert.ok(
-        tabs.has(lens.defaultTab),
-        `${name} lens opens on unknown tab '${lens.defaultTab}'`,
-      );
+      assert.ok(lens.defaultTab, `${name} lens has no default tab`);
     }
   });
 
@@ -125,5 +116,28 @@ describe("appearance modes", () => {
       MODES.some((m) => m.value === DEFAULT_MODE),
       `default mode '${DEFAULT_MODE}' is not offered`,
     );
+  });
+});
+
+describe("resolveTab", () => {
+  const artifacts = [
+    { name: "proposal" },
+    { name: "specs" },
+    { name: "design" },
+    { name: "tasks" },
+  ];
+
+  it("honours the lens when the change has that artifact", () => {
+    assert.equal(resolveTab(artifacts, "tasks"), "tasks");
+  });
+
+  it("falls back to the first artifact rather than showing nothing", () => {
+    // The designer lens opens on 'ui', which only some schemas declare. Landing on a
+    // blank page is how a role stops opening changes at all.
+    assert.equal(resolveTab(artifacts, "ui"), "proposal");
+  });
+
+  it("survives a change with no artifacts at all", () => {
+    assert.equal(resolveTab([], "proposal"), null);
   });
 });

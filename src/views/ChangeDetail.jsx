@@ -14,8 +14,9 @@ import { useApi } from "../api.js";
 import { Artifact, FileMeta, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
+import { resolveTab } from "../lens.js";
 
-/** Which of the four artifacts exist, per the schema's own expectations. */
+/** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id }) {
   // Hook before the early return, and a null path instead of a skipped call: an archived
   // change has no completeness to show, and navigating from one to an in-flight change
@@ -51,9 +52,9 @@ function Completeness({ completeness, id }) {
         </HStack>
         {missing.length > 0 && (
           <Text size="sm" color="secondary">
-            Written in dependency order — proposal, then specs and design, then
-            tasks. Engineering cannot start from a change whose tasks.md does
-            not exist yet.
+            Still to write: {missing.map((a) => a.expected).join(", ")}. The
+            schema declares them in dependency order, each built on the one
+            before — engineering cannot start from a change with no tasks.md.
           </Text>
         )}
         {validation && !validation.ok && <CodeBlock code={validation.output} />}
@@ -100,43 +101,6 @@ function Capabilities({ capabilities }) {
               path={cap.path}
               bdd
               prefix={cap.capability}
-            />
-          </VStack>
-        </Card>
-      ))}
-    </VStack>
-  );
-}
-
-/**
- * The designer's files for this change. Nothing else in the toolchain surfaces these —
- * they live in `design/<change-id>/`, joined to the change by directory name.
- */
-function DesignArtifacts({ design }) {
-  if (design.length === 0) {
-    return (
-      <EmptyState
-        title="No design artifacts"
-        description="Nothing in design/<change-id>/ for this change. Flows and copy decks live there, keyed by change id."
-        isCompact
-      />
-    );
-  }
-
-  return (
-    <VStack gap={4}>
-      {design.map((d) => (
-        <Card key={d.name} padding={4}>
-          <VStack gap={3}>
-            <HStack gap={2} align="center" wrap="wrap">
-              <Heading level={2}>{d.title}</Heading>
-              {d.status && <Badge variant="info" label={d.status} />}
-            </HStack>
-            <Artifact
-              text={d.text}
-              path={d.path}
-              commit={d.commit}
-              prefix={d.name.replace(/\.md$/, "")}
             />
           </VStack>
         </Card>
@@ -213,14 +177,6 @@ function Tasks({ groups, archived, dir }) {
   );
 }
 
-const TABS = [
-  { value: "proposal", label: "Proposal" },
-  { value: "specs", label: "Specs" },
-  { value: "design", label: "Design doc" },
-  { value: "design-artifacts", label: "Design artifacts" },
-  { value: "tasks", label: "Tasks" },
-];
-
 export default function ChangeDetail({ id, defaultTab }) {
   // No polling: a proposal does not change while you read it, and re-fetching the full
   // text every 5s would re-render a document under the reader's cursor.
@@ -246,6 +202,14 @@ export default function ChangeDetail({ id, defaultTab }) {
     );
   }
 
+  // The tabs are the change's own files: the schema a change was created under decides
+  // which artifacts it has, and two changes in one store can sit on different schemas.
+  // The lens still says which one to open on, but only as a preference — a designer
+  // opening a change with no ui.md lands on its first artifact rather than on nothing.
+  const artifacts = data.artifacts;
+  const active = resolveTab(artifacts, tab);
+  const current = artifacts.find((a) => a.name === active);
+
   return (
     <VStack gap={4}>
       <VStack gap={2}>
@@ -258,47 +222,38 @@ export default function ChangeDetail({ id, defaultTab }) {
 
       <Completeness completeness={data.completeness} id={data.id} />
 
-      <TabList value={tab} onChange={setTab} hasDivider>
-        {TABS.map((t) => (
-          <Tab
-            key={t.value}
-            value={t.value}
-            label={
-              t.value === "design-artifacts"
-                ? `${t.label} (${data.design.length})`
-                : t.label
-            }
-          />
+      {artifacts.length === 0 && (
+        <EmptyState
+          title="Nothing written yet"
+          description={`No markdown in ${data.dir}. A change starts as an empty directory and its schema says what goes in it.`}
+          isCompact
+        />
+      )}
+
+      <TabList value={active} onChange={setTab} hasDivider>
+        {artifacts.map((a) => (
+          <Tab key={a.name} value={a.name} label={a.label} />
         ))}
       </TabList>
 
       {/* One rail per tab body: the outline is read from the DOM, so switching tabs
           re-reads it without any wiring. Tasks has its own structure and no prose. */}
       <WithOutline>
-        {tab === "proposal" && (
-          <Card padding={4}>
-            <Artifact
-              text={data.artifacts.proposal.text}
-              commit={data.artifacts.proposal.commit}
-              path={`${data.dir}/proposal.md`}
-              prefix="proposal"
-            />
-          </Card>
+        {current?.kind === "specs" && (
+          <Capabilities capabilities={data.capabilities} />
         )}
-        {tab === "specs" && <Capabilities capabilities={data.capabilities} />}
-        {tab === "design" && (
-          <Card padding={4}>
-            <Artifact
-              text={data.artifacts.design.text}
-              commit={data.artifacts.design.commit}
-              path={`${data.dir}/design.md`}
-              prefix="design"
-            />
-          </Card>
-        )}
-        {tab === "design-artifacts" && <DesignArtifacts design={data.design} />}
-        {tab === "tasks" && (
+        {current?.kind === "tasks" && (
           <Tasks groups={data.groups} archived={data.archived} dir={data.dir} />
+        )}
+        {current?.kind === "doc" && (
+          <Card padding={4}>
+            <Artifact
+              text={current.text}
+              commit={current.commit}
+              path={current.path}
+              prefix={current.name}
+            />
+          </Card>
         )}
       </WithOutline>
     </VStack>

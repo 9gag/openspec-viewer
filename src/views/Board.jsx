@@ -129,44 +129,46 @@ function ChangeCard({ change, ready }) {
 }
 
 /**
- * Design coverage across the changes in flight.
+ * Which artifacts each change in flight actually has.
  *
- * The designer's half of a change lives in `design/<change-id>/` and nothing in the
- * OpenSpec toolchain knows it exists — not `openspec status`, not `validate`, not the
- * board. A change with specs and no flow is a normal state; a change being *built* with
- * no flow is the thing worth spotting early.
+ * A change is a directory of markdown files, and which files belong there is decided by
+ * the schema it was created under — so this is read from the change, not from a list
+ * kept here. A change still missing an artifact is a normal state while it is being
+ * planned; a change being *built* with one missing is the thing worth spotting early.
  */
-function DesignStatus({ changes }) {
+function Coverage({ changes }) {
   return (
     <Card padding={4}>
       <VStack gap={3}>
-        <Heading level={2}>Design coverage</Heading>
+        <Heading level={2}>Artifact coverage</Heading>
         <VStack gap={3}>
-          {changes.map((ch) => (
-            <VStack key={ch.id} gap={1}>
-              <HStack gap={2} align="center" wrap="wrap">
-                <Link href={href("change", ch.id)}>{ch.id}</Link>
-                {ch.design.length === 0 ? (
-                  <Badge variant="warning" label="no design artifacts" />
-                ) : (
-                  ch.design.map((d) => (
+          {changes.map((ch) => {
+            const missing = ch.artifacts
+              .filter((a) => !a.present)
+              .map((a) => a.name)
+              .join(", ");
+            return (
+              <VStack key={ch.id} gap={1}>
+                <HStack gap={2} align="center" wrap="wrap">
+                  <Link href={href("change", ch.id)}>{ch.id}</Link>
+                  {ch.artifacts.map((a) => (
                     <Badge
-                      key={d.name}
-                      variant={d.status ? "info" : "neutral"}
-                      label={d.status ? `${d.name} — ${d.status}` : d.name}
+                      key={a.name}
+                      variant={a.present ? "info" : "warning"}
+                      label={a.present ? a.name : `${a.name} missing`}
                     />
-                  ))
+                  ))}
+                </HStack>
+                {missing && (
+                  <Text size="sm" color="secondary">
+                    {ch.done > 0
+                      ? `Being built already (${ch.done}/${ch.total} tasks) with no ${missing}.`
+                      : `No ${missing} yet.`}
+                  </Text>
                 )}
-              </HStack>
-              {ch.design.length === 0 && (
-                <Text size="sm" color="secondary">
-                  {ch.done > 0
-                    ? `Being built already (${ch.done}/${ch.total} tasks) with nothing in design/${ch.id}/.`
-                    : `Nothing in design/${ch.id}/ yet.`}
-                </Text>
-              )}
-            </VStack>
-          ))}
+              </VStack>
+            );
+          })}
         </VStack>
       </VStack>
     </Card>
@@ -312,8 +314,8 @@ export default function Board({ board, panels }) {
         />
       );
     }
-    if (name === "design-status")
-      return <DesignStatus key={name} changes={board.changes} />;
+    if (name === "coverage")
+      return <Coverage key={name} changes={board.changes} />;
     return null;
   };
 

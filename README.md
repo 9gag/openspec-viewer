@@ -66,7 +66,7 @@ and expanded it put six rows of shell commands between the reader and the board.
 | View | Answers |
 |---|---|
 | **Board** | Every change in flight, its task groups, who owns each, and how long each claim has been idle |
-| **Change** | All four artifacts rendered, the capabilities it deltas, the designer's files, artifact completeness, `validate --strict` |
+| **Change** | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
 | **Capabilities** | An index of every capability, shipped or in flight, with the changes that touched it |
 | **Capability** | One spec in full, with its history and an outline rail |
 | **Shipped changes** | The archive, and which capability each shipped change produced |
@@ -75,7 +75,14 @@ and expanded it put six rows of shell commands between the reader and the board.
 
 A segmented control switches what leads: **Engineer** (unclaimed work and your own idle
 claims, changes open on Tasks), **PM** (capability collisions, idle claims, opens on
-Proposal), **Designer** (design coverage, opens on the design artifacts).
+Proposal), **Designer** (artifact coverage, opens on the UI spec).
+
+A lens names a preferred tab, not a guaranteed one. The tabs on a change page are that
+change's own files, and which files a change is supposed to have is decided by the
+workflow schema it was created under — `spec-driven` writes proposal / specs / design /
+tasks, `full-planning` adds a `ui.md`, and a store can fork its own. Two changes in one
+store can sit on different schemas, so a lens whose tab a change does not have opens on
+that change's first artifact instead.
 
 It is a view preference, not access control — everyone can see everything, which is the
 premise of a shared store. The choice persists per browser, and `?lens=pm` overrides it
@@ -192,8 +199,8 @@ openspec-viewer/
 │   ├── store.mjs            # store resolution (cached), git helpers, sync status
 │   ├── api.mjs              # the read-only JSON routes, shared by the binary and Vite
 │   ├── board.mjs            # changes, task groups, idle inference
-│   ├── change.mjs           # one change: artifacts, capabilities, completeness, validate
-│   ├── design.mjs           # design/<change-id>/ — bodies for a page, summary for the board
+│   ├── change.mjs           # one change: artifact bodies, capabilities, completeness, validate
+│   ├── artifacts.mjs        # which files a change has, ordered by its workflow schema
 │   ├── catalog.mjs          # baseline specs, archive, capability collisions
 │   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
@@ -254,7 +261,10 @@ Staleness is tested by building real git histories in a temp repo with backdated
 collisions by building stores that actually overlap, since the real store has none and
 would return an empty list whether the check worked or not. The lens test pins each
 role's panels to the panels the board renders — a lens naming a panel nobody renders
-produces a silently empty board, which is how the designer lens first shipped.
+produces a silently empty board, which is how the designer lens first shipped. The
+artifact test writes schemas and change directories that disagree with each other, since
+a file the viewer does not know about is not rendered wrong, it is simply absent, and
+nothing on the page says half the change is missing.
 
 ## Releasing
 
