@@ -129,12 +129,13 @@ function ChangeCard({ change, ready }) {
 }
 
 /**
- * Which artifacts each change in flight actually has.
+ * The changes in flight that are missing an artifact.
  *
  * A change is a directory of markdown files, and which files belong there is decided by
  * the schema it was created under — so this is read from the change, not from a list
- * kept here. A change still missing an artifact is a normal state while it is being
- * planned; a change being *built* with one missing is the thing worth spotting early.
+ * kept here. Missing one while a change is still being planned is a normal state; being
+ * *built* with one missing is the thing worth spotting early, which is why the count of
+ * checked-off tasks is on the line.
  */
 function Coverage({ changes }) {
   return (
@@ -159,13 +160,11 @@ function Coverage({ changes }) {
                     />
                   ))}
                 </HStack>
-                {missing && (
-                  <Text size="sm" color="secondary">
-                    {ch.done > 0
-                      ? `Being built already (${ch.done}/${ch.total} tasks) with no ${missing}.`
-                      : `No ${missing} yet.`}
-                  </Text>
-                )}
+                <Text size="sm" color="secondary">
+                  {ch.done > 0
+                    ? `Being built already (${ch.done}/${ch.total} tasks) with no ${missing}.`
+                    : `No ${missing} yet.`}
+                </Text>
               </VStack>
             );
           })}
@@ -289,37 +288,40 @@ function Unclaimed({ unclaimed, isOpen, cli }) {
   );
 }
 
-export default function Board({ board, panels }) {
+export default function Board({ board }) {
   const [filter, setFilter] = useState(initialFilter);
   const summary = summarize(board);
   const changes = applyFilter(board.changes, filter, summary);
 
-  // A filter is an explicit request, so it outranks the lens: ask for idle claims as a
-  // designer and you get them, even though that lens does not lead with the panel.
-  const order = filter ? [filter] : panels;
+  // Every panel that has something to say, in one order for everyone. A tile is a
+  // request for one queue, so selecting it narrows the panels to that queue as well as
+  // the board below.
+  const only = (name) => !filter || filter === name;
+  const uncovered = board.changes.filter((ch) =>
+    ch.artifacts.some((a) => !a.present),
+  );
 
-  const panel = (name) => {
-    if (name === "collisions" && summary.collisions.length > 0) {
-      return <Collisions key={name} collisions={summary.collisions} />;
-    }
-    if (name === "idle" && summary.idle.length > 0)
-      return <IdleClaims key={name} idle={summary.idle} cli={board.store.cli} />;
-    if (name === "unclaimed" && summary.unclaimed.length > 0) {
-      return (
-        <Unclaimed
-          key={name}
-          unclaimed={summary.unclaimed}
-          isOpen={filter === "unclaimed"}
-          cli={board.store.cli}
-        />
-      );
-    }
-    if (name === "coverage")
-      return <Coverage key={name} changes={board.changes} />;
-    return null;
-  };
-
-  const rendered = order.map((name) => panel(name)).filter(Boolean);
+  const rendered = [
+    only("collisions") && summary.collisions.length > 0 && (
+      <Collisions key="collisions" collisions={summary.collisions} />
+    ),
+    only("idle") && summary.idle.length > 0 && (
+      <IdleClaims key="idle" idle={summary.idle} cli={board.store.cli} />
+    ),
+    only("unclaimed") && summary.unclaimed.length > 0 && (
+      <Unclaimed
+        key="unclaimed"
+        unclaimed={summary.unclaimed}
+        isOpen={filter === "unclaimed"}
+        cli={board.store.cli}
+      />
+    ),
+    // No tile counts this one, so no filter selects it — it appears when some change is
+    // missing an artifact its schema asked for, and goes away when none is.
+    !filter && uncovered.length > 0 && (
+      <Coverage key="coverage" changes={uncovered} />
+    ),
+  ].filter(Boolean);
 
   return (
     <VStack gap={4}>

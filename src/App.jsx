@@ -19,7 +19,6 @@ import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
-import { LENSES, loadLens, saveLens } from "./lens.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
 import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
@@ -159,14 +158,8 @@ function Nav({ view, arg, changes, mode, onMode }) {
 
 export default function App() {
   const { view, arg } = useRoute();
-  const [lens, setLens] = useState(loadLens);
   const [mode, setMode] = useState(loadMode);
   const { data, error, at } = useApi("/api/board");
-
-  const chooseLens = (next) => {
-    setLens(next);
-    saveLens(next);
-  };
 
   const chooseMode = (next) => {
     setMode(next);
@@ -204,8 +197,6 @@ export default function App() {
     );
   }
 
-  const { panels, defaultTab, blurb } = LENSES[lens];
-
   return (
     <Theme theme={neutralTheme} mode={mode}>
       <AppShell
@@ -231,35 +222,12 @@ export default function App() {
         }
       >
         <VStack gap={4}>
-          <HStack gap={4} align="center" justify="between" wrap="wrap">
-            <StoreStatus store={data.store} />
-            <VStack gap={1} hAlign="end">
-              <SegmentedControl
-                value={lens}
-                onChange={chooseLens}
-                label="Read the store as"
-                size="sm"
-              >
-                {Object.entries(LENSES).map(([value, l]) => (
-                  <SegmentedControlItem
-                    key={value}
-                    value={value}
-                    label={l.label}
-                  />
-                ))}
-              </SegmentedControl>
-              <Text size="sm" color="secondary">
-                {blurb}
-              </Text>
-            </VStack>
-          </HStack>
+          <StoreStatus store={data.store} />
 
           <StoreWarnings store={data.store} />
 
-          {view === "board" && <Board board={data} panels={panels} />}
-          {view === "change" && (
-            <ChangeDetail id={arg} defaultTab={defaultTab} />
-          )}
+          {view === "board" && <Board board={data} />}
+          {view === "change" && <ChangeDetail id={arg} />}
           {view === "specs" && <Specs />}
           {view === "spec" && <SpecDetail id={arg} />}
           {view === "archive" && <Archive />}

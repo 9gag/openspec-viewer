@@ -71,28 +71,25 @@ and expanded it put six rows of shell commands between the reader and the board.
 | **Capability** | One spec in full, with its history and an outline rail |
 | **Shipped changes** | The archive, and which capability each shipped change produced |
 
-### Lenses
+### Tabs on a change
 
-A segmented control switches what leads: **Engineer** (unclaimed work and your own idle
-claims, changes open on Tasks), **PM** (capability collisions, idle claims, opens on
-Proposal), **Designer** (artifact coverage, opens on the UI spec).
+The tabs are that change's own files. Which files a change is supposed to have is decided
+by the workflow schema it was created under — `spec-driven` writes proposal / specs /
+design / tasks, `full-planning` adds a `ui.md`, and a store can fork its own. Two changes
+in one store can sit on different schemas, so the tab set is read per change: the schema
+gives the order, the directory gives which of them exist, and a file the schema never
+declared (a `README.md` beside the proposal) is still shown, last. What is *missing* is
+the Artifacts card at the top of the page, not a tab onto a file nobody has written.
 
-A lens names a preferred tab, not a guaranteed one. The tabs on a change page are that
-change's own files, and which files a change is supposed to have is decided by the
-workflow schema it was created under — `spec-driven` writes proposal / specs / design /
-tasks, `full-planning` adds a `ui.md`, and a store can fork its own. Two changes in one
-store can sit on different schemas, so a lens whose tab a change does not have opens on
-that change's first artifact instead.
-
-It is a view preference, not access control — everyone can see everything, which is the
-premise of a shared store. The choice persists per browser, and `?lens=pm` overrides it
-for one visit so a link can carry the view it was written for.
+Everyone sees the same board in the same order, and every panel is absent when it has
+nothing to say — including artifact coverage, which lists only the changes missing
+something.
 
 ### Appearance
 
 Auto / Light / Dark sits at the foot of the sidebar and drives Astryx's `<Theme mode>`.
-Auto follows the OS. It persists per browser and takes `?mode=dark` the same way the lens
-does. The three values are Astryx's own `ThemeMode` union — `Theme` acts on `light` and
+Auto follows the OS. It persists per browser, and `?mode=dark` overrides it for one visit
+so a link can carry the view it was written for. The three values are Astryx's own `ThemeMode` union — `Theme` acts on `light` and
 `dark` and treats anything else as "follow the system", so a typo would quietly behave
 like Auto rather than fail, and a test pins them to the published type.
 
@@ -205,13 +202,13 @@ openspec-viewer/
 │   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
 ├── src/
-│   ├── App.jsx              # AppShell, nav, lens, store warnings
+│   ├── App.jsx              # AppShell, nav, appearance, store warnings
 │   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
 │   ├── links.js             # resolving a document's relative links into routes
-│   ├── lens.js              # the three roles and which panels each leads with
+│   ├── tabs.js              # which artifact a change page opens on
 │   └── time.js              # idle thresholds and relative formatting
-└── test/                    # the inferences, and the lens/panel coupling
+└── test/                    # the inferences, and the readings they are built on
 ```
 
 `GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`,
@@ -259,12 +256,10 @@ checked by the pipeline rather than by whoever last opened the tool.
 
 Staleness is tested by building real git histories in a temp repo with backdated commits;
 collisions by building stores that actually overlap, since the real store has none and
-would return an empty list whether the check worked or not. The lens test pins each
-role's panels to the panels the board renders — a lens naming a panel nobody renders
-produces a silently empty board, which is how the designer lens first shipped. The
-artifact test writes schemas and change directories that disagree with each other, since
-a file the viewer does not know about is not rendered wrong, it is simply absent, and
-nothing on the page says half the change is missing.
+would return an empty list whether the check worked or not. The artifact test writes
+schemas and change directories that disagree with each other, since a file the viewer
+does not know about is not rendered wrong, it is simply absent, and nothing on the page
+says half the change is missing.
 
 ## Releasing
 

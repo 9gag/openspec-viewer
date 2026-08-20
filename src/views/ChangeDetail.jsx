@@ -14,7 +14,7 @@ import { useApi } from "../api.js";
 import { Artifact, FileMeta, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
-import { resolveTab } from "../lens.js";
+import { resolveTab } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id }) {
@@ -177,18 +177,19 @@ function Tasks({ groups, archived, dir }) {
   );
 }
 
-export default function ChangeDetail({ id, defaultTab }) {
+export default function ChangeDetail({ id }) {
   // No polling: a proposal does not change while you read it, and re-fetching the full
   // text every 5s would re-render a document under the reader's cursor.
   const { data, error, loading } = useApi(
     `/api/change?id=${encodeURIComponent(id)}`,
     { poll: false },
   );
-  const [tab, setTab] = useState(defaultTab);
+  const [tab, setTab] = useState(null);
 
-  // Follow the lens when it changes, but never yank the tab out from under a click.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `id` is the point — a different change reopens on its lens tab rather than keeping the one you left
-  useEffect(() => setTab(defaultTab), [defaultTab, id]);
+  // Every change opens on its own first artifact rather than on the tab you left, which
+  // may not be a tab this one has.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `id` is the whole dependency — the tab it resets is deliberately not one
+  useEffect(() => setTab(null), [id]);
 
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
@@ -204,8 +205,6 @@ export default function ChangeDetail({ id, defaultTab }) {
 
   // The tabs are the change's own files: the schema a change was created under decides
   // which artifacts it has, and two changes in one store can sit on different schemas.
-  // The lens still says which one to open on, but only as a preference — a designer
-  // opening a change with no ui.md lands on its first artifact rather than on nothing.
   const artifacts = data.artifacts;
   const active = resolveTab(artifacts, tab);
   const current = artifacts.find((a) => a.name === active);
