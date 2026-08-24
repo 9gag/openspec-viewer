@@ -212,6 +212,12 @@ body {
   padding-bottom: 10px;
 }
 
+/* Entries that run to more than one line need more between them than the line spacing
+   inside them, or the rows read as one block instead of as a sequence. */
+.timeline-roomy :is(.timeline-when, .timeline-body) {
+  padding-bottom: 20px;
+}
+
 /* Nothing follows the oldest change, so neither does the line. */
 .timeline-item:last-child .timeline-line {
   display: none;
