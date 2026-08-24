@@ -11,6 +11,11 @@ import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { href, useApi } from "../api.js";
 import { Artifact } from "../components/bits.jsx";
+import {
+  Timeline,
+  TimelineEntry,
+  TimelineHead,
+} from "../components/Timeline.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
 
@@ -218,6 +223,10 @@ export function SpecDetail({ id }) {
  * The link nothing else in the toolchain provides. In front of a spec the question is
  * always "what put this here, and what is about to change it" — the tree holds both
  * directions and only the index was missing.
+ *
+ * Drawn as a timeline because that is what the list is: dates down one column, a dot per
+ * change on a running line, the change itself on the other side. Squaring the dates off
+ * lets the sequence be read at a glance, which a flat row of ragged ids never allowed.
  */
 function ChangedBy({ history, capability, compact = false }) {
   if (history.length === 0) {
@@ -229,38 +238,55 @@ function ChangedBy({ history, capability, compact = false }) {
   }
 
   return (
-    <VStack gap={1}>
+    <VStack gap={2}>
       {!compact && (
         <Text size="sm" weight="medium">
           Changed by
         </Text>
       )}
-      {history.map((h) => (
-        <HStack key={h.change} gap={2} align="center" wrap="wrap">
-          {compact ? (
-            <Text size="sm" className="mono">
-              {h.changeId}
-            </Text>
-          ) : (
-            <Link href={href("change", h.change)}>{h.changeId}</Link>
-          )}
-          {h.kinds.map((k) => (
-            <Badge
-              key={k}
-              variant={k === "MODIFIED" ? "warning" : "info"}
-              label={k}
-            />
-          ))}
-          {h.archived ? (
-            <Text size="sm" color="secondary">
-              archived {h.archivedOn}
-            </Text>
-          ) : (
-            <Badge variant="neutral" label="in flight" />
-          )}
-        </HStack>
-      ))}
+      <Timeline>
+        {history.map((h) => (
+          <Entry key={h.change} entry={h} compact={compact} />
+        ))}
+      </Timeline>
     </VStack>
+  );
+}
+
+/**
+ * One change on the timeline.
+ *
+ * The when column carries the archive date, or "in flight" for a change that has not
+ * landed — the same column, because both answer "where in the sequence is this". That
+ * leaves the state to the dot alone, which is enough once the word is already in the
+ * column beside it.
+ */
+function Entry({ entry, compact }) {
+  const state = entry.archived ? "archived" : "in flight";
+  return (
+    <TimelineEntry
+      when={entry.archivedOn ?? state}
+      state={state}
+      variant={entry.archived ? "neutral" : "accent"}
+    >
+      <TimelineHead>
+        {/* On the index every card is itself a link, so the id stays text there. */}
+        {compact ? (
+          <Text size="sm" className="mono">
+            {entry.changeId}
+          </Text>
+        ) : (
+          <Link href={href("change", entry.change)}>{entry.changeId}</Link>
+        )}
+        {entry.kinds.map((k) => (
+          <Badge
+            key={k}
+            variant={k === "MODIFIED" ? "warning" : "info"}
+            label={k}
+          />
+        ))}
+      </TimelineHead>
+    </TimelineEntry>
   );
 }
 
@@ -298,43 +324,58 @@ export function Archive() {
         </Text>
       </VStack>
 
-      {data.archive.map((a) => (
-        <Card key={a.id} padding={4}>
-          <VStack gap={2}>
-            <HStack gap={3} align="center" wrap="wrap">
-              <Heading level={2}>
-                <Link href={href("change", a.id)}>{a.changeId}</Link>
-              </Heading>
-              {a.archivedOn && <Badge variant="neutral" label={a.archivedOn} />}
-              <Text size="sm" color="secondary" hasTabularNumbers>
-                {a.tasks} tasks
-              </Text>
-              {a.commit && (
-                <HStack gap={1} align="center">
-                  <Text size="sm" color="secondary">
-                    archived
+      {/* One timeline rather than a card apiece: the archive is a sequence, and the
+          dates it is ordered by belong in a column of their own. */}
+      <Card padding={4}>
+        <Timeline roomy>
+          {data.archive.map((a) => (
+            <TimelineEntry
+              key={a.id}
+              when={a.archivedOn ?? "archived"}
+              state="archived"
+            >
+              <VStack gap={1}>
+                <TimelineHead>
+                  <Link href={href("change", a.id)}>{a.changeId}</Link>
+                  <Text size="sm" color="secondary" hasTabularNumbers>
+                    {a.tasks} tasks
                   </Text>
-                  <Timestamp
-                    value={iso(a.commit.at)}
-                    format="relative"
-                    size="sm"
-                    color="secondary"
-                    hasTooltip
-                  />
-                </HStack>
-              )}
-            </HStack>
-            <HStack gap={2} wrap="wrap">
-              <Text size="sm" color="secondary">
-                produced:
-              </Text>
-              {a.capabilities.map((c) => (
-                <Badge key={c} variant="info" label={c} />
-              ))}
-            </HStack>
-          </VStack>
-        </Card>
-      ))}
+                  {a.commit && (
+                    <HStack gap={1} align="center">
+                      <Text size="sm" color="secondary">
+                        archived
+                      </Text>
+                      <Timestamp
+                        value={iso(a.commit.at)}
+                        format="relative"
+                        size="sm"
+                        color="secondary"
+                        hasTooltip
+                      />
+                    </HStack>
+                  )}
+                </TimelineHead>
+                {/* A change can archive without touching a spec — say so, rather than
+                    trailing a "produced:" that nothing follows. */}
+                {a.capabilities.length === 0 ? (
+                  <Text size="sm" color="secondary">
+                    no capability deltas
+                  </Text>
+                ) : (
+                  <HStack gap={2} align="center" wrap="wrap">
+                    <Text size="sm" color="secondary">
+                      produced:
+                    </Text>
+                    {a.capabilities.map((c) => (
+                      <Badge key={c} variant="info" label={c} />
+                    ))}
+                  </HStack>
+                )}
+              </VStack>
+            </TimelineEntry>
+          ))}
+        </Timeline>
+      </Card>
     </VStack>
   );
 }
