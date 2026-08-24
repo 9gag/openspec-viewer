@@ -7,6 +7,7 @@ import { Heading } from "@astryxdesign/core/Heading";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
 import { Spinner } from "@astryxdesign/core/Spinner";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { href, useApi } from "../api.js";
@@ -218,6 +219,10 @@ export function SpecDetail({ id }) {
  * The link nothing else in the toolchain provides. In front of a spec the question is
  * always "what put this here, and what is about to change it" — the tree holds both
  * directions and only the index was missing.
+ *
+ * Drawn as a timeline because that is what the list is: dates down one column, a dot per
+ * change on a running line, the change itself on the other side. Squaring the dates off
+ * lets the sequence be read at a glance, which a flat row of ragged ids never allowed.
  */
 function ChangedBy({ history, capability, compact = false }) {
   if (history.length === 0) {
@@ -229,38 +234,64 @@ function ChangedBy({ history, capability, compact = false }) {
   }
 
   return (
-    <VStack gap={1}>
+    <VStack gap={2}>
       {!compact && (
         <Text size="sm" weight="medium">
           Changed by
         </Text>
       )}
-      {history.map((h) => (
-        <HStack key={h.change} gap={2} align="center" wrap="wrap">
+      <ol className="timeline">
+        {history.map((h) => (
+          <Entry key={h.change} entry={h} compact={compact} />
+        ))}
+      </ol>
+    </VStack>
+  );
+}
+
+/**
+ * One change on the timeline.
+ *
+ * The when column carries the archive date, or "in flight" for a change that has not
+ * landed — the same column, because both answer "where in the sequence is this", and a
+ * change still in flight sits at the live end of the line. That leaves the state to the
+ * dot alone, which is enough once the word is already in the column beside it.
+ */
+function Entry({ entry, compact }) {
+  return (
+    <li className="timeline-item">
+      <div className="timeline-when">
+        <Text size="sm" color="secondary" hasTabularNumbers>
+          {entry.archivedOn ?? (entry.archived ? "archived" : "in flight")}
+        </Text>
+      </div>
+      <div className="timeline-track">
+        <StatusDot
+          variant={entry.archived ? "neutral" : "accent"}
+          label={entry.archived ? "archived" : "in flight"}
+        />
+        <span className="timeline-line" aria-hidden="true" />
+      </div>
+      <div className="timeline-body">
+        <HStack gap={2} align="center" wrap="wrap">
+          {/* On the index every card is itself a link, so the id stays text there. */}
           {compact ? (
             <Text size="sm" className="mono">
-              {h.changeId}
+              {entry.changeId}
             </Text>
           ) : (
-            <Link href={href("change", h.change)}>{h.changeId}</Link>
+            <Link href={href("change", entry.change)}>{entry.changeId}</Link>
           )}
-          {h.kinds.map((k) => (
+          {entry.kinds.map((k) => (
             <Badge
               key={k}
               variant={k === "MODIFIED" ? "warning" : "info"}
               label={k}
             />
           ))}
-          {h.archived ? (
-            <Text size="sm" color="secondary">
-              archived {h.archivedOn}
-            </Text>
-          ) : (
-            <Badge variant="neutral" label="in flight" />
-          )}
         </HStack>
-      ))}
-    </VStack>
+      </div>
+    </li>
   );
 }
 
