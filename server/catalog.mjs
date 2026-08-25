@@ -16,6 +16,24 @@ import {
 } from "./store.mjs";
 
 /**
+ * When a shipped change actually shipped, as YYYY-MM-DD.
+ *
+ * The archive directory's date prefix is assigned by whoever ran `openspec archive`, and
+ * on a change whose folder was created days before it shipped it names the wrong day.
+ * The commit that moved the folder into the archive is the real one, so it wins; the
+ * prefix is the fallback for a store whose archive predates its git history.
+ */
+function shippedOn(commit, prefix) {
+  if (!commit) return prefix;
+  const d = new Date(commit.at);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+/**
  * Capabilities two or more in-flight changes both touch.
  *
  * This is the archive-time hazard, and it never shows up as a git conflict: each change
@@ -99,7 +117,7 @@ export function capabilityCatalog({ withText = false } = {}) {
         kinds: cap.kinds,
         archived: true,
         at,
-        archivedOn: date?.[1] ?? null,
+        archivedOn: shippedOn(at === null ? null : { at }, date?.[1] ?? null),
       });
     }
   }
@@ -133,9 +151,13 @@ export function capabilityCatalog({ withText = false } = {}) {
 }
 
 /**
- * Shipped changes, newest first. Archive directories are named `<date>-<change-id>`,
- * so the date is in the name — but the commit that moved it there is the more reliable
- * "when did this ship", since the prefix is assigned when someone runs archive.
+ * Shipped changes, newest first.
+ *
+ * Not directory order: archive directories are named `<date>-<change-id>`, so listing
+ * them sorts a day's changes by name rather than by when they shipped, and a folder
+ * whose prefix was set days before it archived sorts under the wrong day entirely. The
+ * commit that moved the folder into the archive is what "shipped" means here, so both
+ * the order and the date shown come from it, with the name's prefix as the fallback.
  */
 export function archive() {
   const root = resolveRoot();
@@ -146,19 +168,22 @@ export function archive() {
       const date = name.match(/^(\d{4}-\d{2}-\d{2})-(.+)$/);
       const dir = `openspec/changes/archive/${name}`;
       const groups = read(join(root.path, dir, "tasks.md")) ?? "";
+      const commit = lastCommit(root.path, dir);
       return {
         id: name,
         changeId: date?.[2] ?? name,
-        archivedOn: date?.[1] ?? null,
+        archivedOn: shippedOn(commit, date?.[1] ?? null),
+        // Undated and uncommitted sorts last rather than pretending to be oldest-known.
+        at: commit?.at ?? (date ? Date.parse(date[1]) : 0),
         dir,
         capabilities: capabilities(root.path, name, true).map(
           (c) => c.capability,
         ),
         tasks: (groups.match(/^\s*-\s*\[[xX ]\]/gim) ?? []).length,
-        commit: lastCommit(root.path, dir),
+        commit,
       };
     })
-    .reverse();
+    .sort((a, b) => b.at - a.at || (a.id < b.id ? 1 : -1));
 }
 
 /** One capability, with its baseline text. Null when the store has never heard of it. */
