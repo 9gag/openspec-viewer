@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { collisions } from "../server/catalog.mjs";
+import { collisions, inFlightDeltas } from "../server/catalog.mjs";
 
 let store;
 
@@ -97,5 +97,50 @@ describe("collisions", () => {
       recursive: true,
     });
     assert.deepEqual(collisions(store, ["has-specs", "still-planning"]), []);
+  });
+});
+
+/**
+ * The catalog marks a row contested by counting its own in-flight deltas rather than
+ * calling `collisions()` — the same fact, reached two ways, and the whole point of not
+ * walking the store twice is lost if the two ever answer differently. The board's tile and
+ * the catalog's chip would then disagree about the same capability, with nothing to say
+ * which was right.
+ */
+describe("contested capabilities match the collision check", () => {
+  const contested = (ids) =>
+    [...inFlightDeltas(store, ids)]
+      .filter(([, deltas]) => deltas.length > 1)
+      .map(([capability]) => capability)
+      .sort();
+
+  const collided = (ids) =>
+    collisions(store, ids)
+      .map((c) => c.capability)
+      .sort();
+
+  it("agree on a store where two changes overlap", () => {
+    delta("rewrites", "cart", "## MODIFIED Requirements");
+    delta("extends", "cart", "## ADDED Requirements");
+    delta("solo", "guest-checkout", "## ADDED Requirements");
+
+    const ids = ["rewrites", "extends", "solo"];
+    assert.deepEqual(contested(ids), ["cart"]);
+    assert.deepEqual(contested(ids), collided(ids));
+  });
+
+  it("agree on a store with nothing overlapping", () => {
+    delta("a", "cart", "## ADDED Requirements");
+    delta("b", "guest-checkout", "## ADDED Requirements");
+
+    assert.deepEqual(contested(["a", "b"]), []);
+    assert.deepEqual(contested(["a", "b"]), collided(["a", "b"]));
+  });
+
+  it("agree on a three-way overlap", () => {
+    for (const id of ["a", "b", "c"])
+      delta(id, "cart", "## MODIFIED Requirements");
+
+    assert.deepEqual(contested(["a", "b", "c"]), collided(["a", "b", "c"]));
   });
 });
