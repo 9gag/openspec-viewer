@@ -9,8 +9,8 @@ import {
 } from "@astryxdesign/core/SegmentedControl";
 import {
   SideNav,
-  SideNavHeading,
   SideNavItem,
+  SideNavSection,
 } from "@astryxdesign/core/SideNav";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Text } from "@astryxdesign/core/Text";
@@ -19,6 +19,7 @@ import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
+import { groupChangesByNamespace } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
 import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
@@ -121,36 +122,58 @@ function Nav({ view, arg, changes, mode, onMode }) {
         </VStack>
       }
     >
-      <SideNavHeading label="Overview" />
-      <SideNavItem
-        href={href("board")}
-        label="Board"
-        isSelected={view === "board"}
-      />
-      <SideNavItem
-        href={href("specs")}
-        label="Capabilities"
-        isSelected={view === "specs" || view === "spec"}
-      />
-      <SideNavItem
-        href={href("archive")}
-        label="Shipped changes"
-        isSelected={view === "archive"}
-      />
-
-      <SideNavHeading label="In flight" />
-      {changes.map((ch) => (
+      <SideNavSection title="Overview" className="nav-section">
         <SideNavItem
-          key={ch.id}
-          href={href("change", ch.id)}
-          label={ch.id}
-          isSelected={view === "change" && arg === ch.id}
+          href={href("board")}
+          label="Board"
+          isSelected={view === "board"}
+        />
+        <SideNavItem
+          href={href("specs")}
+          label="Capabilities"
+          isSelected={view === "specs" || view === "spec"}
+        />
+        <SideNavItem
+          href={href("archive")}
+          label="Shipped changes"
+          isSelected={view === "archive"}
+        />
+      </SideNavSection>
+
+      {/* One band over all the namespace sections, because "in flight" is what they have
+          in common and the namespaces are a level inside it. Deliberately not another
+          section title: it would then be competing with the names a reader is scanning
+          for, at the same size, right above them. */}
+      <div className="nav-band">In flight</div>
+
+      {/* Under the namespaces each change deltas — the same grouping the catalog reads by.
+          A change touching two namespaces appears under both, so the key carries the
+          section: one change can be two items. */}
+      {groupChangesByNamespace(changes).map((group) => (
+        <SideNavSection
+          key={group.name}
+          className="nav-section nav-section-ns"
+          title={group.name}
           endContent={
             <Text size="sm" color="secondary" hasTabularNumbers>
-              {ch.done}/{ch.total}
+              {group.changes.length}
             </Text>
           }
-        />
+        >
+          {group.changes.map((ch) => (
+            <SideNavItem
+              key={`${group.name}/${ch.id}`}
+              href={href("change", ch.id)}
+              label={ch.id}
+              isSelected={view === "change" && arg === ch.id}
+              endContent={
+                <Text size="sm" color="secondary" hasTabularNumbers>
+                  {ch.done}/{ch.total}
+                </Text>
+              }
+            />
+          ))}
+        </SideNavSection>
       ))}
     </SideNav>
   );

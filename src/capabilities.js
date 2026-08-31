@@ -1,8 +1,9 @@
 /**
- * How the catalog is arranged, kept out of the view so the ordering rules can be tested.
+ * The namespace rule, and the two lists arranged by it: the catalog, and the in-flight
+ * changes in the nav. Kept out of the views so the ordering can be tested.
  *
  * OpenSpec writes the grouping into the capability path itself — `shared-ui/cart`,
- * `checkout/guest-checkout` — and the catalog used to sort it away into one
+ * `checkout/guest-checkout` — and both lists used to sort it away into one
  * alphabetical run. On a store of fifty-odd capabilities that run is the page.
  */
 
@@ -77,4 +78,50 @@ export function summarise(caps) {
     // against the capability it will break.
     contested: caps.filter((c) => c.inFlight > 1).length,
   };
+}
+
+/** A change that deltas nothing yet has no namespace to sit under. */
+export const NO_CAPABILITY = "no capability yet";
+
+/**
+ * In-flight changes grouped by the namespaces they delta.
+ *
+ * A change that touches two namespaces is listed under both. The nav is for finding a
+ * change from the area you have in mind, and a change that rewrites `shared-ui` really is
+ * shared-ui work however much checkout work it also does — filing it under one of the two
+ * would hide it from anyone looking under the other. The repeat is the honest shape.
+ *
+ * `caps` are the capability paths the change deltas, which is all the payload carries: the
+ * nav needs the namespaces, and a namespace is in the path.
+ */
+export function groupChangesByNamespace(changes) {
+  const by = new Map();
+  const put = (key, change) => {
+    if (!by.has(key)) by.set(key, []);
+    by.get(key).push(change);
+  };
+
+  for (const change of changes) {
+    const spaces = new Set(
+      (change.capabilities ?? []).map((c) => namespaceOf(c) ?? TOP_LEVEL),
+    );
+    if (spaces.size === 0) put(NO_CAPABILITY, change);
+    else for (const ns of spaces) put(ns, change);
+  }
+
+  // Named namespaces first, then the store's cross-cutting conventions, then the changes
+  // that have not said what they touch yet — least settled last, in every sense.
+  const rank = (name) =>
+    name === NO_CAPABILITY ? 2 : name === TOP_LEVEL ? 1 : 0;
+  const order = [...by.keys()].sort(
+    (a, b) => rank(a) - rank(b) || a.localeCompare(b),
+  );
+
+  return order.map((name) => ({
+    name,
+    changes: by
+      .get(name)
+      .slice()
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  }));
 }

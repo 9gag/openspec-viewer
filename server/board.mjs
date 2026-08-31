@@ -16,7 +16,14 @@
 import { join } from "node:path";
 
 import { changeArtifacts } from "./artifacts.mjs";
-import { changeIds, git, read, resolveRoot, storeStatus } from "./store.mjs";
+import {
+  changeIds,
+  git,
+  read,
+  resolveRoot,
+  specDirs,
+  storeStatus,
+} from "./store.mjs";
 
 /**
  * Task groups for one change. Same three regexes as scripts/openspec/plan.mjs — the
@@ -174,6 +181,11 @@ export function board(now = Date.now()) {
   return {
     generatedAt: now,
     store,
+    // `capabilities` is the paths only, walked with specDirs rather than read with
+    // capabilities() from change.mjs: the nav groups a change by the namespaces it deltas,
+    // and a namespace is in the directory name. Reading the deltas for their kinds as well
+    // would put a file read per capability per change on every poll to learn nothing this
+    // needs.
     changes: ids.map((id) => {
       const groups = readGroups(root.path, id);
       // Names and presence only. This runs for every change on every poll, so it stays
@@ -182,6 +194,9 @@ export function board(now = Date.now()) {
         root.path,
         join("openspec", "changes", id),
       ).map(({ name, present }) => ({ name, present }));
+      const capabilities = specDirs(
+        join(root.path, "openspec", "changes", id, "specs"),
+      );
       if (!groups) {
         return {
           id,
@@ -191,6 +206,7 @@ export function board(now = Date.now()) {
           groups: [],
           lastActivity: null,
           artifacts,
+          capabilities,
         };
       }
 
@@ -206,6 +222,7 @@ export function board(now = Date.now()) {
         total: groups.reduce((n, g) => n + g.tasks.length, 0),
         lastActivity: snaps[0]?.at ?? null,
         artifacts,
+        capabilities,
         groups: groups.map((g) => {
           const done = g.tasks.filter((t) => t.done).length;
           return {
