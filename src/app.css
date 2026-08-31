@@ -284,6 +284,15 @@ body {
   overflow-y: auto;
 }
 
+/*
+ * Off the button rather than against it. Astryx's Popover has no offset of its own, so the
+ * gap is a margin — on both sides, since the popover flips to the other side of the button
+ * when the window has no room to its right and the gap has to survive the flip.
+ */
+.cap-changes-pop {
+  margin-inline: 10px;
+}
+
 /* Narrow enough that the data columns leave the name nothing: they drop to their own line
    rather than truncating the one thing the row exists to say. */
 @media (max-width: 700px) {

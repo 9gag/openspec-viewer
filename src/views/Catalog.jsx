@@ -242,6 +242,7 @@ function Row({ cap, isOpen, onOpen }) {
             answer belongs beside the question, and a panel pinned to the top of the
             scrollport left a reader forty rows down looking for it. */}
         <Popover
+          className="cap-changes-pop"
           placement="end"
           alignment="start"
           width={340}
