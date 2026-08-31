@@ -34,6 +34,89 @@ function shippedOn(commit, prefix) {
 }
 
 /**
+ * Every in-flight delta in the store, by capability.
+ *
+ * Split out of `capabilityCatalog()` because the contested count needs a seam a test can
+ * reach: the catalog resolves its own root and cannot be pointed at a fixture, and a rule
+ * about archive-time hazards that only ever runs against the real store passes whether it
+ * works or not.
+ */
+export function inFlightDeltas(storePath, ids = changeIds(storePath)) {
+  const byCapability = new Map();
+
+  for (const id of ids) {
+    const at =
+      lastCommit(storePath, join("openspec", "changes", id))?.at ?? null;
+    for (const cap of capabilities(storePath, id)) {
+      if (!byCapability.has(cap.capability))
+        byCapability.set(cap.capability, []);
+      byCapability.get(cap.capability).push({
+        change: id,
+        changeId: id,
+        kinds: cap.kinds,
+        archived: false,
+        at,
+        archivedOn: null,
+      });
+    }
+  }
+
+  return byCapability;
+}
+
+/**
+ * The delta that decides a capability's state.
+ *
+ * In flight sorts ahead of everything archived whatever the dates say — it has not landed,
+ * so it is the newest thing that happened to the capability. Among archived deltas the
+ * commit that moved the change into the archive wins, with the directory's date prefix
+ * behind it: a store whose archive predates its git history has no commit at all, and
+ * without the fallback the order there is whatever readdir happened to return.
+ */
+function newestDelta(history) {
+  const rank = (h) => [
+    h.archived ? 0 : 1,
+    h.at ?? (h.archivedOn ? Date.parse(h.archivedOn) : 0),
+  ];
+
+  let best = null;
+  for (const h of history) {
+    if (best === null) {
+      best = h;
+      continue;
+    }
+    const [ar, at] = rank(h);
+    const [br, bt] = rank(best);
+    if (ar > br || (ar === br && at > bt)) best = h;
+  }
+  return best;
+}
+
+/**
+ * Which of the three states a capability is in.
+ *
+ * Shipped is a fact: there is a baseline in `openspec/specs/`. The other two are the
+ * inference. A capability with no baseline is normally behavior a change is still bringing
+ * in — but one whose newest delta did nothing except remove requirements is behavior the
+ * store withdrew, and filing that under "in flight" points a reader at work nobody is
+ * doing.
+ *
+ * REMOVED has to be alone to count. A delta that both adds and removes is a capability
+ * being rewritten, not withdrawn, and one re-added after a removal is arriving again — so
+ * the newest delta decides and the older ones do not get a vote. RENAMED is deliberately
+ * not a withdrawal: a renamed-away capability is left in a state the store does not really
+ * describe, and guessing at it would be the confidently-wrong inference this is avoiding.
+ *
+ * Pure over the entry `capabilityCatalog()` has already built, so every edge is testable
+ * without a store on disk.
+ */
+export function capabilityState({ shipped, history }) {
+  if (shipped) return "shipped";
+  const kinds = newestDelta(history)?.kinds ?? [];
+  return kinds.length === 1 && kinds[0] === "REMOVED" ? "retired" : "unshipped";
+}
+
+/**
  * Capabilities two or more in-flight changes both touch.
  *
  * This is the archive-time hazard, and it never shows up as a git conflict: each change
@@ -90,20 +173,8 @@ export function capabilityCatalog({ withText = false } = {}) {
     touched.get(cap).push(entry);
   };
 
-  for (const id of changeIds(root.path)) {
-    const at =
-      lastCommit(root.path, join("openspec", "changes", id))?.at ?? null;
-    for (const cap of capabilities(root.path, id)) {
-      add(cap.capability, {
-        change: id,
-        changeId: id,
-        kinds: cap.kinds,
-        archived: false,
-        at,
-        archivedOn: null,
-      });
-    }
-  }
+  for (const [cap, entries] of inFlightDeltas(root.path))
+    for (const entry of entries) add(cap, entry);
 
   for (const name of dirs(join(root.path, "openspec", "changes", "archive"))) {
     const date = name.match(/^(\d{4}-\d{2}-\d{2})-(.+)$/);
@@ -131,9 +202,19 @@ export function capabilityCatalog({ withText = false } = {}) {
       ? (read(join(root.path, rel)) ?? "")
       : null;
 
+    // Newest first: what is happening to this capability now matters more than what
+    // shipped it. Undated entries sort last rather than pretending to be oldest.
+    const history = (touched.get(cap) ?? []).sort(
+      (a, b) => (b.at ?? 0) - (a.at ?? 0),
+    );
+
     return {
       capability: cap,
       shipped: text !== null,
+      state: capabilityState({ shipped: text !== null, history }),
+      // Two in-flight changes on one capability is the collision `collisions()` reports,
+      // counted here from the walk already done rather than by walking every change again.
+      inFlight: history.filter((h) => !h.archived).length,
       path: text === null ? null : rel,
       requirements:
         text === null ? 0 : (text.match(/^###\s+Requirement:/gim) ?? []).length,
@@ -141,11 +222,7 @@ export function capabilityCatalog({ withText = false } = {}) {
         text === null ? 0 : (text.match(/^####\s+Scenario:/gim) ?? []).length,
       commit: text === null ? null : lastCommit(root.path, rel),
       ...(withText ? { text } : {}),
-      // Newest first: what is happening to this capability now matters more than what
-      // shipped it. Undated entries sort last rather than pretending to be oldest.
-      history: (touched.get(cap) ?? []).sort(
-        (a, b) => (b.at ?? 0) - (a.at ?? 0),
-      ),
+      history,
     };
   });
 }
