@@ -88,25 +88,38 @@ a real store because that is the signature `collisions()` has.
 one needs, and it would leave two ways to resolve a root in a module whose whole job is that
 there is one.
 
-### Namespace groups flow with CSS multi-column, not grid
+### One column, capped — the width was never the problem
 
-Reading order is the whole point of grouping, and it is what a grid gets wrong: a
-`grid-template-columns: repeat(2, …)` fills left-to-right, so an alphabetical list reads
-`a b / c d` across the rows instead of down the columns. CSS multi-column
-(`column-width: 22rem`) flows top-to-bottom and then to the next column, which keeps the
-alphabetical scan intact, and picks its own column count from the available width.
-`break-inside: avoid` on the row keeps a row from splitting across the fold.
+Rows sit in a single column with the list capped at 60rem, and every column but the name is
+a fixed width so the counts, the chips and the ages line up down the whole page.
 
-The columns apply per namespace group, not across the whole list, so a group of one does
-not leave empty cells beside it and no column boundary ever falls inside a group.
+This reverses the decision this section originally carried. The design called for flowing
+each group into CSS multi-column, on the reasoning that multicol runs top-to-bottom and so
+keeps the alphabetical scan a grid would break. Built and looked at, it failed for a reason
+neither option had been judged on: **multi-column balances**. A group of three in a window
+wide enough for five columns does not make one column three deep — it makes three columns
+one deep, read left to right, which is precisely what the columns were chosen to avoid.
+Every group balanced at its own count, so no two groups shared a column edge and nothing on
+the page lined up with anything else. The names truncated on top of it, because a fixed
+counts column inside a 21rem track leaves a name almost nothing.
 
-*Rejected: a grid with `auto-fit`.* Same left-to-right flow problem; getting down-column
-order out of grid needs an explicit row count, which needs measurement in JS.
+The premise was the mistake, not the mechanism. Columns were there to spend width that the
+page no longer needed spending: once the changed-by timeline came off the rows, fifty-one
+capabilities are about two screens, and two screens is a list, not a problem. A grid/list
+toggle was rejected for being state a read-only viewer has nowhere to keep; the columns were
+the same answer to the same question, and the question had already stopped being asked.
+
+*Rejected: a grid with `auto-fit`.* Fills left-to-right, so the alphabetical order reads
+across a row. Getting down-column order out of grid needs an explicit row count, which needs
+measurement in JS.
+
+*Rejected: `column-count: 2` with no balancing.* `column-fill: auto` needs a fixed height to
+fill against, which for a group of unknown length means measuring — and it still leaves
+groups with their own column edges.
 
 *Rejected: a grid/list mode toggle.* It is state, and this viewer holds none: a reader who
 opens someone else's link would land in a layout they did not choose, and the mode would
-have to persist somewhere a read-only tool has no business writing. The window already
-carries the signal the toggle would ask for.
+have to persist somewhere a read-only tool has no business writing.
 
 ### The row is layout in `app.css`; everything visual stays Astryx
 
@@ -140,10 +153,10 @@ come out. That is the change shrinking, not spreading.
 - **Dropping the timeline removes information from a page some reader may have been using**
   → it moves rather than disappears, and `spec/<id>` shows more of it than the index ever
   did. Every row still opens onto it.
-- **A namespace can grow past a screen on its own** — `checkout` is already eleven —
-  → columns absorb it at width, and the group header states the count so the reader knows
-  what they are scrolling. A filter is the answer at several hundred capabilities, and
-  adding it now would hide whether the grouping worked.
+- **A namespace can grow past a screen on its own** — a dozen capabilities is not unusual —
+  → the group header states the count, so a reader knows what they are scrolling before they
+  start. A filter is the answer at several hundred capabilities, and adding it now would hide
+  whether the grouping worked.
 
 ## Migration Plan
 

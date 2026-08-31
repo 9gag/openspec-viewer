@@ -158,15 +158,33 @@ body {
  * Astryx has no row or section-heading primitive, so both are here — layout, not design:
  * every colour, size and weight in these rules is a theme token or comes from the Astryx
  * component inside.
+ *
+ * One column, capped. An earlier version flowed each group into CSS multi-column to use
+ * the width, and it was wrong twice over: multi-column *balances*, so a group of three in
+ * a window wide enough for five columns became one capability per column read left to
+ * right — the exact thing the columns were chosen to avoid — and every group did it at a
+ * different count, so nothing on the page lined up with anything else. Once the timeline
+ * came off the rows, fifty-one of them are about two screens; the width was never the
+ * problem the columns were solving.
  */
+.cap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  /* A row is a name against three short data columns. Past this the name and its age sit
+     at opposite ends of the window with a hand's width of nothing between them. */
+  max-width: 60rem;
+}
+
 .cap-ns {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-bottom: 6px;
+  padding-bottom: 8px;
 }
 
-/* Runs the heading out to the edge so a group reads as a band. */
+/* Runs the heading out to the edge so a group reads as a band rather than a line of text
+   floating above a list. */
 .cap-ns-rule {
   flex: 1;
   height: 1px;
@@ -174,35 +192,23 @@ body {
 }
 
 /*
- * Multi-column rather than grid, and this is the whole reason for the choice: a grid fills
- * left to right, so an alphabetical list would read a-b across a row instead of down a
- * column, and scanning for a name — the one thing this page is for — would break. Columns
- * flow top to bottom and pick their own count from the width, which is the responsive
- * behaviour a grid/list toggle would otherwise have to be asked for.
- *
- * Per group, so a namespace holding one capability leaves no empty columns beside it and
- * no column boundary ever falls inside a group.
+ * Every column is fixed but the name, so the counts, the chips and the ages each line up
+ * down the whole page. Reading a column against itself is the only reason to put these in
+ * columns at all — one that shifts with the length of the name beside it is just four
+ * ragged edges.
  */
-.cap-rows {
-  column-width: 21rem;
-  column-gap: 32px;
-}
-
 .cap-row {
   display: grid;
-  /* A fixed column for the counts: they are read against each other down the page, which
-     a column that moves with the length of the name beside it makes impossible. */
-  grid-template-columns: minmax(0, 1fr) 8.5rem minmax(0, auto);
+  grid-template-columns: minmax(0, 1fr) 8.5rem 16rem;
   align-items: baseline;
   column-gap: 12px;
   padding: 5px 8px;
-  /* Pulled back by its own padding so the text lines up with the heading above it. */
+  /* Pulled back by its own padding so the name lines up with the heading above it. */
   margin-left: -8px;
   border-radius: 6px;
   border-left: 2px solid transparent;
   text-decoration: none;
   color: inherit;
-  break-inside: avoid;
 }
 
 .cap-row:hover {
@@ -215,35 +221,54 @@ body {
   outline-offset: 1px;
 }
 
-/* A long capability name truncates rather than wrapping the row to two lines — one line
-   per capability is what makes the page scannable. */
+/* A capability name long enough to need it truncates rather than wrapping the row to two
+   lines — one line per capability is what makes the page scannable. */
 .cap-row-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The chip sits beside the age, both flush right, so the ages line up down the page
-   however wide the chip beside them is. */
+/*
+ * The chip and the age. The age has a column of its own so it stays flush right whether or
+ * not there is a chip beside it: a capability with no baseline has no commit either, and
+ * without the fixed column its chip would slide over into the age's place and break the
+ * one edge the eye follows down the page.
+ */
 .cap-row-tail {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem;
   align-items: baseline;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
+  column-gap: 8px;
 }
 
-/* Narrow enough that a fixed counts column and a chip together leave the name nothing:
-   the chip and the age drop to their own line rather than truncating the one thing the
-   row exists to say. */
-@media (max-width: 640px) {
+.cap-row-flag {
+  justify-self: end;
+}
+
+.cap-row-age {
+  text-align: right;
+}
+
+/* Narrow enough that the data columns leave the name nothing: they drop to their own line
+   rather than truncating the one thing the row exists to say. */
+@media (max-width: 700px) {
   .cap-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .cap-row-tail {
     grid-column: 1 / -1;
-    justify-content: flex-start;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .cap-row-flag {
+    justify-self: start;
+  }
+
+  .cap-row-age {
+    text-align: left;
   }
 }
 

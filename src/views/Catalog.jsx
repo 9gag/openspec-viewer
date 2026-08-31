@@ -85,11 +85,11 @@ export function Specs() {
         <Summary counts={summarise(data.specs)} />
       </VStack>
 
-      <VStack gap={4}>
+      <div className="cap-list">
         {groups.map((group) => (
           <Namespace key={group.name} group={group} />
         ))}
-      </VStack>
+      </div>
     </VStack>
   );
 }
@@ -132,12 +132,11 @@ function Summary({ counts }) {
  */
 function Namespace({ group }) {
   return (
-    <VStack gap={1}>
+    <section>
       {group.titled && (
         <div className="cap-ns">
           <Text
-            size="sm"
-            weight="medium"
+            weight="semibold"
             className={group.name === TOP_LEVEL ? undefined : "mono"}
           >
             {group.name}
@@ -148,12 +147,12 @@ function Namespace({ group }) {
           <span className="cap-ns-rule" aria-hidden="true" />
         </div>
       )}
-      <div className="cap-rows">
+      <div>
         {group.caps.map((cap) => (
           <Row key={cap.capability} cap={cap} />
         ))}
       </div>
-    </VStack>
+    </section>
   );
 }
 
@@ -178,27 +177,29 @@ function Row({ cap }) {
       </Text>
 
       <span className="cap-row-tail">
-        {cap.inFlight > 0 && (
-          <Badge
-            variant={cap.inFlight > 1 ? "warning" : "info"}
-            label={
-              cap.inFlight > 1
-                ? `${cap.inFlight} changes in flight`
-                : "in flight"
-            }
-          />
-        )}
-        {/* No commit means a store nobody has committed; the column stays empty rather
-            than carrying an age invented from nothing. */}
-        {cap.commit && (
-          <Timestamp
-            value={iso(cap.commit.at)}
-            format="relative"
-            size="sm"
-            color="secondary"
-            hasTooltip
-          />
-        )}
+        <span className="cap-row-flag">
+          {cap.inFlight > 0 && (
+            <Badge
+              variant={cap.inFlight > 1 ? "warning" : "info"}
+              label={
+                cap.inFlight > 1 ? `${cap.inFlight} in flight` : "in flight"
+              }
+            />
+          )}
+        </span>
+        {/* No commit means a store nobody has committed; the cell stays empty rather than
+            carrying an age invented from nothing. */}
+        <span className="cap-row-age">
+          {cap.commit && (
+            <Timestamp
+              value={iso(cap.commit.at)}
+              format="relative"
+              size="sm"
+              color="secondary"
+              hasTooltip
+            />
+          )}
+        </span>
       </span>
     </a>
   );
