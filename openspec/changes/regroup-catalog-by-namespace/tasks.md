@@ -19,32 +19,36 @@
 
 ## 2. The catalog index
 
-- [ ] 2.1 Rewrite `Specs` in `src/views/Catalog.jsx` around namespace groups: namespace is
+- [x] 2.1 Rewrite `Specs` in `src/views/Catalog.jsx` around namespace groups: namespace is
       everything before the last `/`, named groups alphabetical, `top level` last — and no
       group header at all when nothing in the store is namespaced. Each header carries its
       count.
-- [ ] 2.2 Add the summary line — capabilities, shipped, unshipped, retired, contested —
+- [x] 2.2 Add the summary line — capabilities, shipped, unshipped, retired, contested —
       omitting any count that is zero, and replacing the Shipped / In flight group split.
-- [ ] 2.3 Rebuild `Row` as one line: name within its namespace, requirement and scenario
+- [x] 2.3 Rebuild `Row` as one line: name within its namespace, requirement and scenario
       counts (or `no baseline` / `retired`), how long since the baseline last moved, and the
       chip — `in flight` for one, `N changes in flight` in the `warning` variant for a
       contested capability.
-- [ ] 2.4 Take the timeline off the index: `Row` stops rendering `ChangedBy`, and `ChangedBy`
+- [x] 2.4 Take the timeline off the index: `Row` stops rendering `ChangedBy`, and `ChangedBy`
       and `Entry` lose the `compact` prop and its branches now that `SpecDetail` is the only
       caller.
-- [ ] 2.5 Verify: `pnpm test && pnpm build`, then read the index in the browser against a
+- [x] 2.5 Write `test/capabilities.test.mjs` against the grouping rules — nested namespace,
+      `top level` ordered last, and the store where nothing is namespaced and the heading
+      comes off. Added during apply: the rules came out of the view as pure functions in
+      `src/capabilities.js`, and the spec has four scenarios about them.
+- [x] 2.6 Verify: `pnpm test && pnpm build`, then read the index in the browser against a
       store with real namespaces and against this repo's own store, which has no baselines
       at all — that is the empty case in the spec, and it is one directory away.
 
 ## 3. The layout
 
-- [ ] 3.1 Add the namespace header and one-line row to `src/app.css`, beside `.status-strip`
+- [x] 3.1 Add the namespace header and one-line row to `src/app.css`, beside `.status-strip`
       and `.timeline`. Layout only — every colour, size and weight stays an Astryx token or
       component.
-- [ ] 3.2 Flow each group's rows into columns with `column-width`, not grid, so the
+- [x] 3.2 Flow each group's rows into columns with `column-width`, not grid, so the
       alphabetical order reads down a column rather than across a row, with `break-inside:
       avoid` on the row. Per group, so a group of one leaves no empty cells beside it.
-- [ ] 3.3 Check the page at a narrow width, at full width, and in both themes; confirm
+- [x] 3.3 Check the page at a narrow width, at full width, and in both themes; confirm
       `spec/<id>` and its outline rail are untouched.
 - [ ] 3.4 Verify: `pnpm build`
 

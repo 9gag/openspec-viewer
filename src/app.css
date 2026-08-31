@@ -153,6 +153,101 @@ body {
 }
 
 /*
+ * The capability index: a namespace heading, then a line per capability.
+ *
+ * Astryx has no row or section-heading primitive, so both are here — layout, not design:
+ * every colour, size and weight in these rules is a theme token or comes from the Astryx
+ * component inside.
+ */
+.cap-ns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+/* Runs the heading out to the edge so a group reads as a band. */
+.cap-ns-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/*
+ * Multi-column rather than grid, and this is the whole reason for the choice: a grid fills
+ * left to right, so an alphabetical list would read a-b across a row instead of down a
+ * column, and scanning for a name — the one thing this page is for — would break. Columns
+ * flow top to bottom and pick their own count from the width, which is the responsive
+ * behaviour a grid/list toggle would otherwise have to be asked for.
+ *
+ * Per group, so a namespace holding one capability leaves no empty columns beside it and
+ * no column boundary ever falls inside a group.
+ */
+.cap-rows {
+  column-width: 21rem;
+  column-gap: 32px;
+}
+
+.cap-row {
+  display: grid;
+  /* A fixed column for the counts: they are read against each other down the page, which
+     a column that moves with the length of the name beside it makes impossible. */
+  grid-template-columns: minmax(0, 1fr) 8.5rem minmax(0, auto);
+  align-items: baseline;
+  column-gap: 12px;
+  padding: 5px 8px;
+  /* Pulled back by its own padding so the text lines up with the heading above it. */
+  margin-left: -8px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+  color: inherit;
+  break-inside: avoid;
+}
+
+.cap-row:hover {
+  background: var(--color-background-muted);
+  border-left-color: var(--color-accent);
+}
+
+.cap-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* A long capability name truncates rather than wrapping the row to two lines — one line
+   per capability is what makes the page scannable. */
+.cap-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The chip sits beside the age, both flush right, so the ages line up down the page
+   however wide the chip beside them is. */
+.cap-row-tail {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Narrow enough that a fixed counts column and a chip together leave the name nothing:
+   the chip and the age drop to their own line rather than truncating the one thing the
+   row exists to say. */
+@media (max-width: 640px) {
+  .cap-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cap-row-tail {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+/*
  * "Changed by": the changes that touched a capability, as a timeline.
  *
  * Three columns — when, the line, what — because the flat list buried the dates behind
