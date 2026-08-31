@@ -2,14 +2,19 @@ import { useCallback, useEffect, useState } from "react";
 
 // The store changes when someone runs git, not while the page is open, so polling is
 // enough and there is no socket to keep alive.
-export const POLL_MS = 5000;
+//
+// A minute, because that is the pace the thing being watched actually moves at: a claim or
+// a checkmark is a commit somebody makes between stretches of work, minutes apart at best.
+// Every poll spawns a git process per change to read its history, so the old five seconds
+// bought a freshness nobody could use and charged the machine for it twelve times a minute.
+export const POLL_MS = 60_000;
 
 /**
  * Fetch one of the store endpoints, keeping the last good response on screen if a later
  * poll fails. A stale board with a banner saying so beats a blank page.
  *
  * `poll: false` for artifact bodies — proposals and specs do not change while you read
- * them, and re-fetching a change's full text every 5s would re-render a document under
+ * them, and re-fetching a change's full text on any timer would re-render a document under
  * the reader's cursor.
  */
 export function useApi(path, { poll = true } = {}) {
