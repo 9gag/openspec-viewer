@@ -4,13 +4,13 @@ import { Banner } from "@astryxdesign/core/Banner";
 import { Card } from "@astryxdesign/core/Card";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
-import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
+import { Popover } from "@astryxdesign/core/Popover";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { href, useApi } from "../api.js";
 import {
   groupByNamespace,
@@ -59,19 +59,10 @@ const STATE_WORD = {
 export function Specs() {
   const { data, error, loading } = useApi("/api/specs", { poll: false });
 
-  // The capability whose changes are open, held by name rather than by object: the payload
-  // is refetched on focus, and a captured entry would go stale the moment it is.
+  // Which row's changes are open, held by name rather than by object: the payload is
+  // refetched on focus, and a captured entry would go stale the moment it is. Held here
+  // rather than per row so opening one closes the last, and so the row can mark itself.
   const [opened, setOpened] = useState(null);
-  const close = useCallback(() => setOpened(null), []);
-
-  useEffect(() => {
-    if (!opened) return undefined;
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpened(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [opened]);
 
   if (loading) return <Spinner label="Reading the capability index" />;
   if (error)
@@ -94,9 +85,6 @@ export function Specs() {
   }
 
   const groups = groupByNamespace(data.specs);
-  // A capability can leave the store between polls; the panel closes rather than holding a
-  // name nothing answers to.
-  const showing = data.specs.find((c) => c.capability === opened) ?? null;
 
   return (
     <VStack gap={4}>
@@ -105,28 +93,15 @@ export function Specs() {
         <Summary counts={summarise(data.specs)} />
       </VStack>
 
-      {/* Wraps the grid and the scrim together: the scrim covers the page, so it cannot
-          sit inside the grid that the panel is a column of. */}
-      <div className="cap-shell">
-        <div className="cap-page" data-panel={showing ? "open" : undefined}>
-          <div className="cap-list">
-            {groups.map((group) => (
-              <Namespace
-                key={group.name}
-                group={group}
-                opened={opened}
-                onOpen={setOpened}
-              />
-            ))}
-          </div>
-
-          {showing && <ChangesPanel cap={showing} onClose={close} />}
-        </div>
-
-        {/* Only ever visible in the overlay case; the docked panel takes nothing away. */}
-        {showing && (
-          <div className="cap-scrim" onClick={close} aria-hidden="true" />
-        )}
+      <div className="cap-list">
+        {groups.map((group) => (
+          <Namespace
+            key={group.name}
+            group={group}
+            opened={opened}
+            onOpen={setOpened}
+          />
+        ))}
       </div>
     </VStack>
   );
@@ -263,83 +238,63 @@ function Row({ cap, isOpen, onOpen }) {
         >
           View latest
         </Button>
-        <Button
-          size="sm"
-          variant={isOpen ? "secondary" : "ghost"}
-          label={`View changes to ${cap.capability}`}
-          onClick={() => onOpen(isOpen ? null : cap.capability)}
+        {/* Anchored to its own button rather than docked to the side of the page: the
+            answer belongs beside the question, and a panel pinned to the top of the
+            scrollport left a reader forty rows down looking for it. */}
+        <Popover
+          placement="end"
+          alignment="start"
+          width={340}
+          label={`Changes to ${cap.capability}`}
+          hasCloseButton
+          isOpen={isOpen}
+          onOpenChange={(open) => onOpen(open ? cap.capability : null)}
+          content={<ChangesList cap={cap} />}
         >
-          View changes
-        </Button>
+          <Button
+            size="sm"
+            variant={isOpen ? "secondary" : "ghost"}
+            label={`View changes to ${cap.capability}`}
+          >
+            View changes
+          </Button>
+        </Popover>
       </span>
     </div>
   );
 }
 
 /**
- * The changes to one capability, beside the list rather than under every row.
+ * The changes to one capability, in a popover on its own row.
  *
  * This is the timeline the index used to repeat under all fifty-one rows, which is what
  * made the page nine screens long. Asked for, it costs nothing: `history` is already on the
  * payload the index is drawn from, so opening it is not a fetch.
  *
- * It docks to the right when the list has room for it and slides over the page when it does
- * not — decided by container width in app.css rather than here, since it is a question about
- * the space available and not about the data.
+ * Capped and scrollable rather than unbounded — one capability here has seven changes
+ * against it, and a popover taller than the window has nowhere to go.
  */
-function ChangesPanel({ cap, onClose }) {
-  const ref = useRef(null);
-
-  // Move focus in on open so Escape and Tab land somewhere sensible, and so the overlay
-  // case does not leave a keyboard behind on the row underneath it.
-  //
-  // preventScroll, because the panel's own place in the document is the top of the list:
-  // focusing it normally scrolls there, which threw the reader back to the top of the page
-  // every time they opened a row further down. The panel is already in view — it is stuck
-  // to the top of the scrollport — so there is nothing to scroll to.
-  useEffect(() => {
-    ref.current?.focus({ preventScroll: true });
-  }, [cap.capability]);
-
+function ChangesList({ cap }) {
   return (
-    <aside
-      className="cap-panel"
-      ref={ref}
-      tabIndex={-1}
-      aria-label={`Changes to ${cap.capability}`}
-    >
-      <div className="cap-panel-head">
-        <VStack gap={0}>
-          <Text size="sm" color="secondary">
-            Changed by
-          </Text>
-          <Text weight="semibold" className="mono">
-            {cap.capability}
-          </Text>
-        </VStack>
-        <IconButton
-          label="Close"
-          icon={<span aria-hidden="true">×</span>}
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-        />
-      </div>
-
-      <div className="cap-panel-body">
-        {cap.history.length === 0 ? (
-          <Text size="sm" color="secondary">
-            No change in the store touches this capability.
-          </Text>
-        ) : (
-          <Timeline roomy>
-            {cap.history.map((h) => (
-              <Entry key={h.change} entry={h} />
-            ))}
-          </Timeline>
-        )}
-      </div>
-    </aside>
+    <VStack gap={2} className="cap-changes">
+      <Text size="sm" color="secondary">
+        Changed by
+      </Text>
+      <Text size="sm" weight="semibold" className="mono">
+        {cap.capability}
+      </Text>
+      {cap.history.length === 0 ? (
+        <Text size="sm" color="secondary">
+          No change in the store touches this capability.
+        </Text>
+      ) : (
+        <Timeline roomy>
+          {cap.history.map((h) => (
+            <Entry key={h.change} entry={h} />
+          ))}
+        </Timeline>
+      )}
+    </VStack>
   );
 }
 
