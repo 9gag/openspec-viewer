@@ -1,13 +1,16 @@
 import { Badge } from "@astryxdesign/core/Badge";
+import { Button } from "@astryxdesign/core/Button";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Card } from "@astryxdesign/core/Card";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
+import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { href, useApi } from "../api.js";
 import {
   groupByNamespace,
@@ -56,6 +59,20 @@ const STATE_WORD = {
 export function Specs() {
   const { data, error, loading } = useApi("/api/specs", { poll: false });
 
+  // The capability whose changes are open, held by name rather than by object: the payload
+  // is refetched on focus, and a captured entry would go stale the moment it is.
+  const [opened, setOpened] = useState(null);
+  const close = useCallback(() => setOpened(null), []);
+
+  useEffect(() => {
+    if (!opened) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpened(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [opened]);
+
   if (loading) return <Spinner label="Reading the capability index" />;
   if (error)
     return (
@@ -77,6 +94,9 @@ export function Specs() {
   }
 
   const groups = groupByNamespace(data.specs);
+  // A capability can leave the store between polls; the panel closes rather than holding a
+  // name nothing answers to.
+  const showing = data.specs.find((c) => c.capability === opened) ?? null;
 
   return (
     <VStack gap={4}>
@@ -85,10 +105,27 @@ export function Specs() {
         <Summary counts={summarise(data.specs)} />
       </VStack>
 
-      <div className="cap-list">
-        {groups.map((group) => (
-          <Namespace key={group.name} group={group} />
-        ))}
+      {/* The shell is the container the panel measures itself against — see app.css. */}
+      <div className="cap-shell">
+        <div className="cap-page" data-panel={showing ? "open" : undefined}>
+          <div className="cap-list">
+            {groups.map((group) => (
+              <Namespace
+                key={group.name}
+                group={group}
+                opened={opened}
+                onOpen={setOpened}
+              />
+            ))}
+          </div>
+
+          {showing && <ChangesPanel cap={showing} onClose={close} />}
+        </div>
+
+        {/* Only ever visible in the overlay case; the docked panel takes nothing away. */}
+        {showing && (
+          <div className="cap-scrim" onClick={close} aria-hidden="true" />
+        )}
       </div>
     </VStack>
   );
@@ -115,10 +152,7 @@ function Summary({ counts }) {
         {said.map(([n, word]) => `${n} ${word}`).join(" · ")}
       </Text>
       {counts.contested > 0 && (
-        <Badge
-          variant="warning"
-          label={`${counts.contested} contested`}
-        />
+        <Badge variant="warning" label={`${counts.contested} contested`} />
       )}
     </HStack>
   );
@@ -130,7 +164,7 @@ function Summary({ counts }) {
  * The heading comes off entirely when nothing in the store is namespaced — a single
  * "top level" over the whole page would label the page, not a group within it.
  */
-function Namespace({ group }) {
+function Namespace({ group, opened, onOpen }) {
   return (
     <section>
       {group.titled && (
@@ -149,7 +183,12 @@ function Namespace({ group }) {
       )}
       <div>
         {group.caps.map((cap) => (
-          <Row key={cap.capability} cap={cap} />
+          <Row
+            key={cap.capability}
+            cap={cap}
+            isOpen={cap.capability === opened}
+            onOpen={onOpen}
+          />
         ))}
       </div>
     </section>
@@ -159,16 +198,26 @@ function Namespace({ group }) {
 /**
  * One capability: what it is, how big it is, and whether anything is rewriting it.
  *
- * A native anchor rather than a ClickableCard — a card around a single line is chrome
- * around nothing, and fifty-one of them was the height of the old page. Nothing marks a
- * quiet shipped row, so the only colour on the page is on the rows that need an answer.
+ * The row is a div rather than a link now that it carries buttons — an anchor wrapping
+ * buttons is invalid and unusable with a keyboard — so the name is its own link and the two
+ * actions are their own buttons. Nothing marks a quiet shipped row, so the only colour on
+ * the page is on the rows that need an answer.
  */
-function Row({ cap }) {
+function Row({ cap, isOpen, onOpen }) {
   return (
-    <a className="cap-row" href={href("spec", cap.capability)}>
-      <Text size="sm" weight="medium" className="cap-row-name">
+    <div className="cap-row" data-open={isOpen ? "" : undefined}>
+      {/* Still a link, but carrying the type it had as plain text: fifty-one names in link
+          blue would be the loudest thing on a page whose point is that only the rows
+          needing an answer are coloured. */}
+      <Link
+        href={href("spec", cap.capability)}
+        className="cap-row-name"
+        size="sm"
+        weight="medium"
+        color="primary"
+      >
         {leafOf(cap.capability)}
-      </Text>
+      </Link>
 
       <Text size="sm" color="secondary" hasTabularNumbers>
         {cap.state === "shipped"
@@ -201,7 +250,90 @@ function Row({ cap }) {
           )}
         </span>
       </span>
-    </a>
+
+      <span className="cap-row-actions">
+        {/* A capability with no baseline still opens: that page says why there is nothing
+            to read and points at the change bringing it in. */}
+        <Button
+          size="sm"
+          variant="ghost"
+          label={`View latest ${cap.capability}`}
+          href={href("spec", cap.capability)}
+        >
+          View latest
+        </Button>
+        <Button
+          size="sm"
+          variant={isOpen ? "secondary" : "ghost"}
+          label={`View changes to ${cap.capability}`}
+          onClick={() => onOpen(isOpen ? null : cap.capability)}
+        >
+          View changes
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The changes to one capability, beside the list rather than under every row.
+ *
+ * This is the timeline the index used to repeat under all fifty-one rows, which is what
+ * made the page nine screens long. Asked for, it costs nothing: `history` is already on the
+ * payload the index is drawn from, so opening it is not a fetch.
+ *
+ * It docks to the right when the list has room for it and slides over the page when it does
+ * not — decided by container width in app.css rather than here, since it is a question about
+ * the space available and not about the data.
+ */
+function ChangesPanel({ cap, onClose }) {
+  const ref = useRef(null);
+
+  // Move focus in on open so Escape and Tab land somewhere sensible, and so the overlay
+  // case does not leave a keyboard behind on the row underneath it.
+  useEffect(() => {
+    ref.current?.focus();
+  }, [cap.capability]);
+
+  return (
+    <aside
+      className="cap-panel"
+      ref={ref}
+      tabIndex={-1}
+      aria-label={`Changes to ${cap.capability}`}
+    >
+      <div className="cap-panel-head">
+        <VStack gap={0}>
+          <Text size="sm" color="secondary">
+            Changed by
+          </Text>
+          <Text weight="semibold" className="mono">
+            {cap.capability}
+          </Text>
+        </VStack>
+        <IconButton
+          label="Close"
+          icon={<span aria-hidden="true">×</span>}
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+        />
+      </div>
+
+      <div className="cap-panel-body">
+        {cap.history.length === 0 ? (
+          <Text size="sm" color="secondary">
+            No change in the store touches this capability.
+          </Text>
+        ) : (
+          <Timeline roomy>
+            {cap.history.map((h) => (
+              <Entry key={h.change} entry={h} />
+            ))}
+          </Timeline>
+        )}
+      </div>
+    </aside>
   );
 }
 
