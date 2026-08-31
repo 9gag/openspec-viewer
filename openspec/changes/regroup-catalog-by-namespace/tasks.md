@@ -50,7 +50,7 @@
       avoid` on the row. Per group, so a group of one leaves no empty cells beside it.
 - [x] 3.3 Check the page at a narrow width, at full width, and in both themes; confirm
       `spec/<id>` and its outline rail are untouched.
-- [ ] 3.4 Verify: `pnpm build`
+- [x] 3.4 Verify: `pnpm build`
 
 ## 4. The words
 
