@@ -9,15 +9,15 @@ import {
 } from "@astryxdesign/core/SegmentedControl";
 import {
   SideNav,
-  SideNavHeading,
   SideNavItem,
+  SideNavSection,
 } from "@astryxdesign/core/SideNav";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
 import { groupChangesByNamespace } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
@@ -122,30 +122,37 @@ function Nav({ view, arg, changes, mode, onMode }) {
         </VStack>
       }
     >
-      <SideNavHeading label="Overview" />
-      <SideNavItem
-        href={href("board")}
-        label="Board"
-        isSelected={view === "board"}
-      />
-      <SideNavItem
-        href={href("specs")}
-        label="Capabilities"
-        isSelected={view === "specs" || view === "spec"}
-      />
-      <SideNavItem
-        href={href("archive")}
-        label="Shipped changes"
-        isSelected={view === "archive"}
-      />
+      <SideNavSection title="Overview">
+        <SideNavItem
+          href={href("board")}
+          label="Board"
+          isSelected={view === "board"}
+        />
+        <SideNavItem
+          href={href("specs")}
+          label="Capabilities"
+          isSelected={view === "specs" || view === "spec"}
+        />
+        <SideNavItem
+          href={href("archive")}
+          label="Shipped changes"
+          isSelected={view === "archive"}
+        />
+      </SideNavSection>
 
-      {/* Grouped by the namespaces each change deltas, the same grouping the catalog
-          reads by. A change touching two namespaces appears under both — see
-          groupChangesByNamespace. The key carries the group, since one change can be two
-          items. */}
+      {/* In-flight changes, under the namespaces each one deltas — the same grouping the
+          catalog reads by. A change touching two namespaces appears under both, so the key
+          carries the section: one change can be two items. */}
       {groupChangesByNamespace(changes).map((group) => (
-        <Fragment key={group.name}>
-          <SideNavHeading label={group.name} />
+        <SideNavSection
+          key={group.name}
+          title={group.name}
+          endContent={
+            <Text size="sm" color="secondary" hasTabularNumbers>
+              {group.changes.length}
+            </Text>
+          }
+        >
           {group.changes.map((ch) => (
             <SideNavItem
               key={`${group.name}/${ch.id}`}
@@ -159,7 +166,7 @@ function Nav({ view, arg, changes, mode, onMode }) {
               }
             />
           ))}
-        </Fragment>
+        </SideNavSection>
       ))}
     </SideNav>
   );
