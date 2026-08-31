@@ -153,6 +153,32 @@ body {
 }
 
 /*
+ * Side-nav section titles.
+ *
+ * Astryx sets them a step below the items they head, which reads correctly when a section
+ * is called "Overview" and wrongly when it is called `checkout`: the namespace is
+ * what a reader is scanning for, and it was the quietest thing in the column. The title is
+ * reached by the id the component puts on it for `aria-labelledby`, which is the only
+ * handle it offers and at least a semantic one.
+ */
+.nav-section [id$="-title"] {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* Namespaces are paths, and read as paths everywhere else in the app. */
+.nav-section-ns [id$="-title"] {
+  font-family: var(
+    --astryx-font-family-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace
+  );
+  letter-spacing: 0;
+}
+
+/*
  * The capability index: a namespace heading, then a line per capability.
  *
  * Astryx has no row or section-heading primitive, so both are here — layout, not design:

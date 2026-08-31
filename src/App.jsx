@@ -122,7 +122,7 @@ function Nav({ view, arg, changes, mode, onMode }) {
         </VStack>
       }
     >
-      <SideNavSection title="Overview">
+      <SideNavSection title="Overview" className="nav-section">
         <SideNavItem
           href={href("board")}
           label="Board"
@@ -146,6 +146,7 @@ function Nav({ view, arg, changes, mode, onMode }) {
       {groupChangesByNamespace(changes).map((group) => (
         <SideNavSection
           key={group.name}
+          className="nav-section nav-section-ns"
           title={group.name}
           endContent={
             <Text size="sm" color="secondary" hasTabularNumbers>
