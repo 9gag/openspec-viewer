@@ -105,7 +105,8 @@ export function Specs() {
         <Summary counts={summarise(data.specs)} />
       </VStack>
 
-      {/* The shell is the container the panel measures itself against — see app.css. */}
+      {/* Wraps the grid and the scrim together: the scrim covers the page, so it cannot
+          sit inside the grid that the panel is a column of. */}
       <div className="cap-shell">
         <div className="cap-page" data-panel={showing ? "open" : undefined}>
           <div className="cap-list">
@@ -291,8 +292,13 @@ function ChangesPanel({ cap, onClose }) {
 
   // Move focus in on open so Escape and Tab land somewhere sensible, and so the overlay
   // case does not leave a keyboard behind on the row underneath it.
+  //
+  // preventScroll, because the panel's own place in the document is the top of the list:
+  // focusing it normally scrolls there, which threw the reader back to the top of the page
+  // every time they opened a row further down. The panel is already in view — it is stuck
+  // to the top of the scrollport — so there is nothing to scroll to.
   useEffect(() => {
-    ref.current?.focus();
+    ref.current?.focus({ preventScroll: true });
   }, [cap.capability]);
 
   return (

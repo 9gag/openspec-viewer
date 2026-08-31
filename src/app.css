@@ -272,15 +272,18 @@ body {
 /*
  * "Changed by", beside the list.
  *
- * A container query rather than a media query, because the question is whether *this
- * column* has room for a panel beside it — the window is the wrong thing to ask when a
- * sidebar and the page padding have already taken their share. Above the threshold the
- * panel docks and takes a column of the grid; below it, the same markup goes fixed to the
- * right edge over a scrim, which is the only difference between the two cases.
+ * Above the threshold the panel docks and takes a column of the grid; below it, the same
+ * markup goes fixed to the right edge over a scrim. That is the only difference between the
+ * two cases.
+ *
+ * A media query, though the question it is really asking is whether *this column* has room.
+ * A container query asks that directly and was tried first — but `container-type` implies
+ * `contain: layout`, which makes the container a containing block for fixed descendants, so
+ * the overlay stopped being fixed to the viewport and pinned itself to a wrapper as tall as
+ * the whole list instead. The threshold below is that question answered for this shell: the
+ * side nav and the page padding take a little over 260px, leaving room for the row and a
+ * panel beside it.
  */
-.cap-shell {
-  container-type: inline-size;
-}
 
 .cap-page {
   display: grid;
@@ -328,7 +331,7 @@ body {
   min-width: 0;
 }
 
-@container (min-width: 62rem) {
+@media (min-width: 1280px) {
   .cap-page[data-panel="open"] {
     grid-template-columns: minmax(0, 1fr) 21rem;
   }
