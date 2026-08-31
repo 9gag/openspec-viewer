@@ -171,9 +171,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 26px;
-  /* A row is a name against three short data columns. Past this the name and its age sit
-     at opposite ends of the window with a hand's width of nothing between them. */
-  max-width: 72rem;
+  /* A row is a name against three short data columns and two buttons — none of which grow.
+     Any wider and the extra all lands in the name column as a gap between a capability and
+     its own counts, which is the reader's eye doing work for nothing. */
+  max-width: 52rem;
 }
 
 .cap-ns {
@@ -199,7 +200,7 @@ body {
  */
 .cap-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 8.5rem 16rem auto;
+  grid-template-columns: minmax(0, 1fr) 7.5rem 14rem auto;
   align-items: baseline;
   column-gap: 12px;
   padding: 5px 8px;
@@ -237,7 +238,7 @@ body {
  */
 .cap-row-tail {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 6.5rem;
+  grid-template-columns: minmax(0, 1fr) 6rem;
   align-items: baseline;
   column-gap: 8px;
 }
