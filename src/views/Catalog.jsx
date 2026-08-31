@@ -4,13 +4,13 @@ import { Banner } from "@astryxdesign/core/Banner";
 import { Card } from "@astryxdesign/core/Card";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
+import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
-import { Popover } from "@astryxdesign/core/Popover";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { href, useApi } from "../api.js";
 import {
   groupByNamespace,
@@ -59,9 +59,10 @@ const STATE_WORD = {
 export function Specs() {
   const { data, error, loading } = useApi("/api/specs", { poll: false });
 
-  // Which row's changes are open, held by name rather than by object: the payload is
-  // refetched on focus, and a captured entry would go stale the moment it is. Held here
-  // rather than per row so opening one closes the last, and so the row can mark itself.
+  // Which row's changes are open: the capability by name, and the button it was opened
+  // from, which is what the panel is placed against. Held by name rather than by object
+  // because the payload is refetched on focus and a captured entry goes stale the moment it
+  // is; held here rather than per row so opening one closes the last.
   const [opened, setOpened] = useState(null);
 
   if (loading) return <Spinner label="Reading the capability index" />;
@@ -85,6 +86,11 @@ export function Specs() {
   }
 
   const groups = groupByNamespace(data.specs);
+  // A capability can leave the store between reads; the panel closes rather than holding a
+  // name nothing answers to.
+  const showing = opened
+    ? (data.specs.find((c) => c.capability === opened.capability) ?? null)
+    : null;
 
   return (
     <VStack gap={4}>
@@ -98,11 +104,19 @@ export function Specs() {
           <Namespace
             key={group.name}
             group={group}
-            opened={opened}
+            opened={opened?.capability ?? null}
             onOpen={setOpened}
           />
         ))}
       </div>
+
+      {showing && (
+        <ChangesPanel
+          cap={showing}
+          anchor={opened.anchor}
+          onClose={() => setOpened(null)}
+        />
+      )}
     </VStack>
   );
 }
@@ -238,64 +252,164 @@ function Row({ cap, isOpen, onOpen }) {
         >
           View latest
         </Button>
-        {/* Anchored to its own button rather than docked to the side of the page: the
-            answer belongs beside the question, and a panel pinned to the top of the
-            scrollport left a reader forty rows down looking for it. */}
-        <Popover
-          className="cap-changes-pop"
-          placement="end"
-          alignment="start"
-          width={340}
-          label={`Changes to ${cap.capability}`}
-          hasCloseButton
-          isOpen={isOpen}
-          onOpenChange={(open) => onOpen(open ? cap.capability : null)}
-          content={<ChangesList cap={cap} />}
+        {/* The button is the panel's anchor: it opens beside the row that asked, and the
+            panel keeps itself on screen from there. */}
+        <Button
+          size="sm"
+          variant={isOpen ? "secondary" : "ghost"}
+          label={`View changes to ${cap.capability}`}
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
+          onClick={(e) =>
+            onOpen(
+              isOpen
+                ? null
+                : { capability: cap.capability, anchor: e.currentTarget },
+            )
+          }
         >
-          <Button
-            size="sm"
-            variant={isOpen ? "secondary" : "ghost"}
-            label={`View changes to ${cap.capability}`}
-          >
-            View changes
-          </Button>
-        </Popover>
+          View changes
+        </Button>
       </span>
     </div>
   );
 }
 
+/** How far the panel sits off its button, and off the edge of the window. */
+const GAP = 10;
+const EDGE = 16;
+
 /**
- * The changes to one capability, in a popover on its own row.
+ * Where the panel goes: beside its button, and never off the screen.
+ *
+ * Two rules, and the second is the whole reason this is not CSS anchor positioning. Anchor
+ * positioning tracks the button exactly, which is right when the panel opens and wrong a
+ * moment later — scroll on and the panel rides off the top of the window with the row that
+ * opened it, while the reader is still reading it. So the top follows the button until the
+ * button reaches the edge, and then stops. Sticky, in the sense the word has everywhere
+ * else.
+ *
+ * Capture on the scroll listener because the page scrolls inside the app shell rather than
+ * on the window, and a scroll event on an inner element does not bubble.
+ */
+function useAnchoredTo(anchor, panelRef) {
+  const [at, setAt] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!anchor) return undefined;
+
+    const place = () => {
+      const a = anchor.getBoundingClientRect();
+      const panel = panelRef.current?.getBoundingClientRect();
+      const width = panel?.width ?? 340;
+      const height = panel?.height ?? 260;
+
+      // Beside the button, or on its other side when the window has no room to the right.
+      let left = a.right + GAP;
+      if (left + width > window.innerWidth - EDGE) left = a.left - width - GAP;
+      left = Math.max(EDGE, left);
+
+      const lowest = Math.max(EDGE, window.innerHeight - height - EDGE);
+      setAt({ left, top: Math.min(Math.max(a.top, EDGE), lowest) });
+    };
+
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [anchor, panelRef]);
+
+  return at;
+}
+
+/**
+ * The changes to one capability, beside the row that asked for them.
  *
  * This is the timeline the index used to repeat under all fifty-one rows, which is what
  * made the page nine screens long. Asked for, it costs nothing: `history` is already on the
  * payload the index is drawn from, so opening it is not a fetch.
  *
- * Capped and scrollable rather than unbounded — one capability here has seven changes
- * against it, and a popover taller than the window has nowhere to go.
+ * Hand-placed rather than an Astryx Popover, which cannot both stay beside its button and
+ * stay on screen — see useAnchoredTo. Everything inside it is still Astryx.
  */
-function ChangesList({ cap }) {
+function ChangesPanel({ cap, anchor, onClose }) {
+  const ref = useRef(null);
+  const at = useAnchoredTo(anchor, ref);
+
+  // preventScroll: the panel is placed against a button already in view, so there is
+  // nothing to scroll to — and scrolling to it is what threw the page back to the top.
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true });
+  }, [cap.capability]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      onClose();
+      // Escape should leave the keyboard where it started, not at the top of the document.
+      anchor?.focus?.();
+    };
+
+    // pointerdown rather than click: a click that starts inside the panel and ends outside
+    // it — a drag on the scrollbar, a selection — is not a click away from it.
+    const onDown = (e) => {
+      if (ref.current?.contains(e.target) || anchor?.contains(e.target)) return;
+      onClose();
+    };
+
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+    };
+  }, [anchor, onClose]);
+
   return (
-    <VStack gap={2} className="cap-changes">
-      <Text size="sm" color="secondary">
-        Changed by
-      </Text>
-      <Text size="sm" weight="semibold" className="mono">
-        {cap.capability}
-      </Text>
-      {cap.history.length === 0 ? (
-        <Text size="sm" color="secondary">
-          No change in the store touches this capability.
-        </Text>
-      ) : (
-        <Timeline roomy>
-          {cap.history.map((h) => (
-            <Entry key={h.change} entry={h} />
-          ))}
-        </Timeline>
-      )}
-    </VStack>
+    <div
+      className="cap-changes"
+      ref={ref}
+      role="dialog"
+      tabIndex={-1}
+      aria-label={`Changes to ${cap.capability}`}
+      // Placed before it is measured would put it at 0,0 for a frame; hidden until then.
+      style={at ? { top: at.top, left: at.left } : { visibility: "hidden" }}
+    >
+      <div className="cap-changes-head">
+        <VStack gap={0}>
+          <Text size="sm" color="secondary">
+            Changed by
+          </Text>
+          <Text size="sm" weight="semibold" className="mono">
+            {cap.capability}
+          </Text>
+        </VStack>
+        <IconButton
+          label="Close"
+          icon={<span aria-hidden="true">×</span>}
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+        />
+      </div>
+
+      <div className="cap-changes-body">
+        {cap.history.length === 0 ? (
+          <Text size="sm" color="secondary">
+            No change in the store touches this capability.
+          </Text>
+        ) : (
+          <Timeline roomy>
+            {cap.history.map((h) => (
+              <Entry key={h.change} entry={h} />
+            ))}
+          </Timeline>
+        )}
+      </div>
+    </div>
   );
 }
 
