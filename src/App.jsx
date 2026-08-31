@@ -140,9 +140,15 @@ function Nav({ view, arg, changes, mode, onMode }) {
         />
       </SideNavSection>
 
-      {/* In-flight changes, under the namespaces each one deltas — the same grouping the
-          catalog reads by. A change touching two namespaces appears under both, so the key
-          carries the section: one change can be two items. */}
+      {/* One band over all the namespace sections, because "in flight" is what they have
+          in common and the namespaces are a level inside it. Deliberately not another
+          section title: it would then be competing with the names a reader is scanning
+          for, at the same size, right above them. */}
+      <div className="nav-band">In flight</div>
+
+      {/* Under the namespaces each change deltas — the same grouping the catalog reads by.
+          A change touching two namespaces appears under both, so the key carries the
+          section: one change can be two items. */}
       {groupChangesByNamespace(changes).map((group) => (
         <SideNavSection
           key={group.name}
