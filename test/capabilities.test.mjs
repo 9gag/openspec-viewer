@@ -12,8 +12,10 @@ import { describe, it } from "node:test";
 
 import {
   groupByNamespace,
+  groupChangesByNamespace,
   leafOf,
   namespaceOf,
+  NO_CAPABILITY,
   summarise,
   TOP_LEVEL,
 } from "../src/capabilities.js";
@@ -163,5 +165,91 @@ describe("summarise", () => {
     const counts = summarise([cap("a/one")]);
     assert.equal(counts.retired, 0);
     assert.equal(counts.contested, 0);
+  });
+});
+
+describe("groupChangesByNamespace", () => {
+  /** One in-flight change, as /api/board returns it. */
+  const change = (id, capabilities = []) => ({ id, capabilities });
+
+  const shape = (groups) =>
+    groups.map((g) => [g.name, g.changes.map((c) => c.id)]);
+
+  it("files a change under the namespace it deltas", () => {
+    assert.deepEqual(
+      shape(
+        groupChangesByNamespace([
+          change("add-watchlist", ["checkout/watchlist"]),
+        ]),
+      ),
+      [["checkout", ["add-watchlist"]]],
+    );
+  });
+
+  // The nav is for finding a change from the area you have in mind, and a change that
+  // rewrites shared-ui is shared-ui work however much checkout work it also does.
+  it("lists a change touching two namespaces under both", () => {
+    assert.deepEqual(
+      shape(
+        groupChangesByNamespace([
+          change("add-order-record", [
+            "checkout/order-record",
+            "checkout/guest-checkout",
+            "shared-ui/order-record",
+          ]),
+        ]),
+      ),
+      [
+        ["checkout", ["add-order-record"]],
+        ["shared-ui", ["add-order-record"]],
+      ],
+    );
+  });
+
+  it("counts a namespace once however many of its capabilities a change deltas", () => {
+    const [checkout] = groupChangesByNamespace([
+      change("add-admin-campaigns", [
+        "checkout/campaign",
+        "checkout/order-listing",
+      ]),
+    ]);
+    assert.equal(checkout.changes.length, 1);
+  });
+
+  it("orders named namespaces first, then top level, then the undeclared", () => {
+    const groups = groupChangesByNamespace([
+      change("still-planning"),
+      change("consolidate-dates", ["date-formats"]),
+      change("sign-in-dialog-shell", ["shared-ui/sign-in"]),
+      change("add-inventory", ["inventory/stock"]),
+    ]);
+    assert.deepEqual(
+      groups.map((g) => g.name),
+      ["inventory", "shared-ui", TOP_LEVEL, NO_CAPABILITY],
+    );
+  });
+
+  // A change with no specs directory yet is normal early on, and the payload sends an
+  // empty list rather than omitting the field — but neither should land it nowhere.
+  it("keeps a change that deltas nothing yet", () => {
+    assert.deepEqual(
+      shape(groupChangesByNamespace([change("still-planning"), { id: "bare" }])),
+      [[NO_CAPABILITY, ["bare", "still-planning"]]],
+    );
+  });
+
+  it("sorts changes within a group by id", () => {
+    const [group] = groupChangesByNamespace([
+      change("revise-pricing", ["storefront/pricing"]),
+      change("add-payments", ["storefront/payments"]),
+    ]);
+    assert.deepEqual(
+      group.changes.map((c) => c.id),
+      ["add-payments", "revise-pricing"],
+    );
+  });
+
+  it("has nothing to group when no change is in flight", () => {
+    assert.deepEqual(groupChangesByNamespace([]), []);
   });
 });

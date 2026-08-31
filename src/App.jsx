@@ -17,8 +17,9 @@ import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
+import { groupChangesByNamespace } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
 import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
@@ -138,19 +139,27 @@ function Nav({ view, arg, changes, mode, onMode }) {
         isSelected={view === "archive"}
       />
 
-      <SideNavHeading label="In flight" />
-      {changes.map((ch) => (
-        <SideNavItem
-          key={ch.id}
-          href={href("change", ch.id)}
-          label={ch.id}
-          isSelected={view === "change" && arg === ch.id}
-          endContent={
-            <Text size="sm" color="secondary" hasTabularNumbers>
-              {ch.done}/{ch.total}
-            </Text>
-          }
-        />
+      {/* Grouped by the namespaces each change deltas, the same grouping the catalog
+          reads by. A change touching two namespaces appears under both — see
+          groupChangesByNamespace. The key carries the group, since one change can be two
+          items. */}
+      {groupChangesByNamespace(changes).map((group) => (
+        <Fragment key={group.name}>
+          <SideNavHeading label={group.name} />
+          {group.changes.map((ch) => (
+            <SideNavItem
+              key={`${group.name}/${ch.id}`}
+              href={href("change", ch.id)}
+              label={ch.id}
+              isSelected={view === "change" && arg === ch.id}
+              endContent={
+                <Text size="sm" color="secondary" hasTabularNumbers>
+                  {ch.done}/{ch.total}
+                </Text>
+              }
+            />
+          ))}
+        </Fragment>
       ))}
     </SideNav>
   );
