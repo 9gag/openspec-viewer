@@ -67,7 +67,7 @@ and expanded it put six rows of shell commands between the reader and the board.
 |---|---|
 | **Board** | Every change in flight, its task groups, who owns each, and how long each claim has been idle |
 | **Change** | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
-| **Capabilities** | An index of every capability, shipped or in flight, with the changes that touched it |
+| **Capabilities** | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it |
 | **Capability** | One spec in full, with its history and an outline rail |
 | **Shipped changes** | The archive, and which capability each shipped change produced |
 
@@ -136,18 +136,39 @@ has a "Purpose". The slug scheme is Astryx's own, and a test executes their func
 prove the two still agree.
 
 **An index, not a wall.** `#/specs` lists capabilities — name, size, when it last changed,
-and what is changing it — grouped by whether they have shipped. The text lives one click
-away at `#/spec/<capability>`. Rendering all four specs end to end made the one you wanted
-the hardest thing to find, and the page grew with the store; the list endpoint no longer
-ships the bodies either.
+and whether a change is rewriting it — one line each. The text lives one click away at
+`#/spec/<capability>`. Rendering all four specs end to end made the one you wanted the
+hardest thing to find, and the page grew with the store; the list endpoint no longer ships
+the bodies either.
 
-**Changed by**, on each capability — which changes touched it, newest first, in flight or
-archived. In front of a spec the question is always "what put this here, and what is about
-to change it"; both directions were in the tree already and only the index was missing.
+**Grouped by namespace**, because the store already writes one into every capability path —
+`shared-ui/cart`, `checkout/guest-checkout` — and a flat alphabetical run throws
+it away. On a store of fifty-odd capabilities that is nine or ten groups instead of one
+list nine screens long. Groups flow into columns as the window widens, using CSS
+multi-column rather than a grid so the alphabetical order still reads down a column instead
+of across a row. There is no grid/list toggle: the window already carries the signal one
+would ask for, and a read-only viewer has nowhere to keep the answer.
+
+**Changed by**, on each capability at `#/spec/<capability>` — which changes touched it,
+newest first, in flight or archived. In front of a spec the question is always "what put
+this here, and what is about to change it"; both directions were in the tree already and
+only the index was missing. It is deliberately not on the index, where it was the same
+list repeated under every row.
 
 That view also lists capabilities that have **not** shipped. `openspec/specs/` holds only
 archived behavior, so a catalogue built from it alone silently omits everything in flight —
 which on a store early in its life is most of what anyone wants to read.
+
+**Three states, not two.** A capability with a baseline is shipped. One without is normally
+*unshipped* — behavior a change is still bringing in — but one whose newest delta did
+nothing except remove requirements is *retired*, behavior the store withdrew. They used to
+read the same, so a withdrawn capability was filed as work arriving. Only a lone REMOVED
+counts: a delta that also adds is a rewrite, and a capability re-added after a removal is
+arriving again.
+
+**Contested capabilities** are named on the index too. Two in-flight changes deltaing one
+capability is the collision the board counts, and until now the one page that shows what is
+changing each capability never said which one it would break.
 
 ## Reading a spec
 

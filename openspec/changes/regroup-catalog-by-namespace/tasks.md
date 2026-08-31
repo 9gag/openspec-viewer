@@ -54,8 +54,8 @@
 
 ## 4. The words
 
-- [ ] 4.1 Add **namespace** and **retired** to `CONTEXT.md`, and update **Catalog** to say it
+- [x] 4.1 Add **namespace** and **retired** to `CONTEXT.md`, and update **Catalog** to say it
       is grouped. Retired belongs beside **Shipped capability**; it is a third state, not a
       kind of unshipped.
-- [ ] 4.2 Update the catalog's description and screenshot in `README.md`.
-- [ ] 4.3 Verify: `pnpm test && pnpm build`
+- [x] 4.2 Update the catalog's description and screenshot in `README.md`.
+- [x] 4.3 Verify: `pnpm test && pnpm build`
