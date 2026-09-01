@@ -291,7 +291,13 @@ function Unclaimed({ unclaimed, isOpen, cli }) {
 export default function Board({ board }) {
   const [filter, setFilter] = useState(initialFilter);
   const summary = summarize(board);
-  const changes = applyFilter(board.changes, filter, summary);
+  // Ready to archive first, order otherwise untouched. Archiving is the one move on this
+  // board that only PM can make, and a finished change reads as just another card if it
+  // sits where it happened to fall — so it comes up to meet the panels above it.
+  const isReady = (ch) => summary.ready.includes(ch.id);
+  const changes = [...applyFilter(board.changes, filter, summary)].sort(
+    (a, b) => Number(isReady(b)) - Number(isReady(a)),
+  );
 
   // Every panel that has something to say, in one order for everyone. A tile is a
   // request for one queue, so selecting it narrows the panels to that queue as well as
@@ -359,11 +365,7 @@ export default function Board({ board }) {
       )}
 
       {changes.map((ch) => (
-        <ChangeCard
-          key={ch.id}
-          change={ch}
-          ready={summary.ready.includes(ch.id)}
-        />
+        <ChangeCard key={ch.id} change={ch} ready={isReady(ch)} />
       ))}
     </VStack>
   );
