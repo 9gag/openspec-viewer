@@ -315,7 +315,7 @@ function Nav({
             a tree of the store's namespaces. No link on this one, because the page for
             what is in flight is the board directly above it. */}
         <SideNavItem
-          label="In flight"
+          label="In Development"
           size="sm"
           collapsible={{ defaultIsCollapsed: false }}
         >
