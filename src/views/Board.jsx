@@ -146,7 +146,7 @@ function Coverage({ changes }) {
           {changes.map((ch) => {
             const missing = ch.artifacts
               .filter((a) => !a.present)
-              .map((a) => a.name)
+              .map((a) => a.label)
               .join(", ");
             return (
               <VStack key={ch.id} gap={1}>
@@ -156,7 +156,7 @@ function Coverage({ changes }) {
                     <Badge
                       key={a.name}
                       variant={a.present ? "info" : "warning"}
-                      label={a.present ? a.name : `${a.name} missing`}
+                      label={a.present ? a.label : `${a.label} missing`}
                     />
                   ))}
                 </HStack>

@@ -178,13 +178,24 @@ describe("changeArtifacts", () => {
 });
 
 describe("label", () => {
-  it("title-cases an id", () => {
-    assert.equal(label("proposal"), "Proposal");
+  // The ids name files; these name what is in them, and which of the three a reader opens
+  // depends on which of them they are.
+  it("gives each OpenSpec artifact the name this dashboard calls it", () => {
+    assert.equal(label("proposal"), "Product");
+    assert.equal(label("specs"), "Requirements");
+    assert.equal(label("design"), "Tech Design");
+    assert.equal(label("ui"), "UI");
+    assert.equal(label("tasks"), "Tasks");
+  });
+
+  // A schema can name an artifact anything, and a store that adds one should get a
+  // readable label rather than the raw id or nothing at all.
+  it("title-cases an id the table does not name", () => {
     assert.equal(label("design-notes"), "Design Notes");
+    assert.equal(label("rollout"), "Rollout");
   });
 
   it("leaves acronyms and shouted filenames alone", () => {
-    assert.equal(label("ui"), "UI");
     assert.equal(label("api"), "API");
     assert.equal(label("README"), "README");
   });

@@ -40,7 +40,7 @@ function Completeness({ completeness, id }) {
             <Badge
               key={a.name}
               variant={a.present ? "success" : "warning"}
-              label={a.present ? a.name : `${a.name} missing`}
+              label={a.present ? a.label : `${a.label} missing`}
             />
           ))}
           {validation && (

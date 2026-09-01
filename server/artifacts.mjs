@@ -28,10 +28,33 @@ const FALLBACK = ["proposal", "specs", "design", "ui", "tasks"];
 const ACRONYMS = new Set(["ui", "ux", "api", "qa", "adr", "prd", "faq"]);
 
 /**
+ * What this dashboard calls each of OpenSpec's artifacts.
+ *
+ * The ids are the CLI's and the filenames', and they are the right thing on disk. On a
+ * page they name the file rather than what is in it: `proposal` is the product decision,
+ * `specs` are the requirements, `design` is the engineering half of the same argument —
+ * and the three of them are read by three different people, who each open the one that is
+ * theirs. Two of the five are listed unchanged, because the table is the place to read
+ * what a name is, and a name missing from it would be a name nobody decided.
+ *
+ * Ids not in the table keep the general rule below: a schema can name an artifact
+ * anything, and a store that adds one gets a readable label rather than nothing.
+ */
+const COPY = {
+  proposal: "Product",
+  specs: "Requirements",
+  design: "Tech Design",
+  ui: "UI",
+  tasks: "Tasks",
+};
+
+/**
  * A tab label from an artifact id. An id that is already all caps is left alone —
  * `README.md` is a filename people recognise by its shape.
  */
 export function label(name) {
+  if (COPY[name]) return COPY[name];
+
   return name
     .split(/[-_.\s]+/)
     .filter(Boolean)

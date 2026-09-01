@@ -204,7 +204,7 @@ export function board(now = Date.now()) {
       const artifacts = changeArtifacts(
         root.path,
         join("openspec", "changes", id),
-      ).map(({ name, present }) => ({ name, present }));
+      ).map(({ name, label, present }) => ({ name, label, present }));
       const capabilities = specDirs(
         join(root.path, "openspec", "changes", id, "specs"),
       );
