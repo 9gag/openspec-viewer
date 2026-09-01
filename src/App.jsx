@@ -25,6 +25,7 @@ import {
   capabilityFlag,
   capabilityTreeByNamespace,
   changeTreeByNamespace,
+  isCurrent,
   leafOf,
 } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
@@ -290,12 +291,12 @@ function Nav({ view, arg, changes, specs, mode, onMode }) {
       {/* The same tree over what the store has already shipped. Not rendered until the
           catalogue arrives, because a titled section with nothing under it reads as a
           store with no capabilities rather than as one still loading. */}
-      {specs.length > 0 && (
+      {specs.some(isCurrent) && (
         <SideNavSection title="Production" className="nav-section">
           <TreeList
             density="compact"
-            items={capabilityTreeByNamespace(specs).map((node) =>
-              specTreeItem(node, view === "spec" ? arg : ""),
+            items={capabilityTreeByNamespace(specs.filter(isCurrent)).map(
+              (node) => specTreeItem(node, view === "spec" ? arg : ""),
             )}
           />
         </SideNavSection>

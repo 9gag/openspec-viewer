@@ -15,6 +15,7 @@ import {
   capabilityTreeByNamespace,
   changeTreeByNamespace,
   groupByNamespace,
+  isCurrent,
   leafOf,
   namespaceOf,
   NO_CAPABILITY,
@@ -439,5 +440,33 @@ describe("capabilityFlag", () => {
       capabilityFlag(cap({ state: "unshipped" })).label,
       "no baseline",
     );
+  });
+});
+
+/**
+ * What the nav carries. The catalogue holds every capability any change ever named, and
+ * a store that renames its taxonomy leaves the old paths in the archived deltas that
+ * named them — rows with no spec to open and no change bringing one.
+ */
+describe("isCurrent", () => {
+  const cap = (extra) => ({
+    capability: "a/b",
+    shipped: false,
+    inFlight: 0,
+    ...extra,
+  });
+
+  it("keeps a capability with a baseline to read", () => {
+    assert.equal(isCurrent(cap({ shipped: true })), true);
+  });
+
+  it("keeps one a change is bringing in, baseline or not", () => {
+    assert.equal(isCurrent(cap({ inFlight: 1 })), true);
+    assert.equal(isCurrent(cap({ shipped: true, inFlight: 2 })), true);
+  });
+
+  // The renamed-away path: archived changes still name it, nothing else does.
+  it("drops one only an archived change ever named", () => {
+    assert.equal(isCurrent(cap({})), false);
   });
 });

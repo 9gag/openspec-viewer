@@ -203,6 +203,23 @@ export function capabilityFlag(cap) {
 }
 
 /**
+ * Whether the nav has anywhere to take a reader for this capability.
+ *
+ * A capability is in the catalogue if any change ever deltaed it, archive included — which
+ * is right for the index page, where "named once and never shipped" is a fact a PM wants
+ * to see. It is wrong for the nav. A store that renames its taxonomy leaves every old path
+ * behind in the archived deltas that named them, and those paths have no spec to open and
+ * no change bringing one: on a store that has done that once, they were eleven of the
+ * fifteen top-level rows in this column, all of them dead ends.
+ *
+ * So the nav carries the two kinds that go somewhere — a shipped baseline to read, or a
+ * change in flight whose page says what is arriving — and the index page keeps all of it.
+ */
+export function isCurrent(cap) {
+  return cap.shipped || cap.inFlight > 0;
+}
+
+/**
  * The capability catalogue as the same tree, so the nav reads one way throughout.
  *
  * The index page keeps the flat namespace bands: it is a page for comparing capabilities
