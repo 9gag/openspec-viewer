@@ -266,11 +266,13 @@ function Row({ cap, plainNames, isOpen, onOpen }) {
 
       <span className="cap-row-tail">
         <span className="cap-row-flag">
-          {cap.inFlight > 0 && (
+          {cap.inDevelopment > 0 && (
             <Badge
-              variant={cap.inFlight > 1 ? "warning" : "info"}
+              variant={cap.inDevelopment > 1 ? "warning" : "info"}
               label={
-                cap.inFlight > 1 ? `${cap.inFlight} in flight` : "in flight"
+                cap.inDevelopment > 1
+                  ? `${cap.inDevelopment} in development`
+                  : "in development"
               }
             />
           )}
@@ -487,7 +489,7 @@ export function SpecDetail({ id }) {
           <Heading level={1}>{data.capability}</Heading>
           <Badge
             variant={data.shipped ? "success" : "info"}
-            label={data.shipped ? "shipped" : "in flight"}
+            label={data.shipped ? "shipped" : "in development"}
           />
           {data.shipped && (
             <Text size="sm" color="secondary">
@@ -569,13 +571,13 @@ function ChangedBy({ history, capability }) {
 /**
  * One change on the timeline.
  *
- * The when column carries the archive date, or "in flight" for a change that has not
+ * The when column carries the archive date, or "in development" for a change that has not
  * landed — the same column, because both answer "where in the sequence is this". That
  * leaves the state to the dot alone, which is enough once the word is already in the
  * column beside it.
  */
 function Entry({ entry }) {
-  const state = entry.archived ? "archived" : "in flight";
+  const state = entry.archived ? "archived" : "in development";
   return (
     <TimelineEntry
       when={entry.archivedOn ?? state}

@@ -75,7 +75,7 @@ export function summarize(board) {
         unclaimed.push({ change: ch.id, group });
     }
 
-    // Every task checked off and still in flight. The CLI says so when the last box is
+    // Every task checked off and still in development. The CLI says so when the last box is
     // ticked, but only to whoever ticked it — this is the standing version of that, and
     // archiving is the one thing on this board that is PM's alone.
     if (!ch.planning && ch.total > 0 && ch.done === ch.total) ready.push(ch.id);

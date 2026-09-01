@@ -57,7 +57,7 @@ export function resolveRoot() {
   return rootCache;
 }
 
-/** Changes in flight, from disk — the archive is not one of them. */
+/** Changes in development, from disk — the archive is not one of them. */
 export function changeIds(storePath) {
   return dirs(join(storePath, "openspec", "changes")).filter(
     (name) => name !== "archive",

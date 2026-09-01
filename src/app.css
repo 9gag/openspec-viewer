@@ -207,7 +207,7 @@ body {
  * Side-nav section titles.
  *
  * Astryx sets them a step below the items they head, which reads correctly for a link
- * list and wrongly for "In flight": it heads the whole working set of the store and was
+ * list and wrongly for "In development": it heads the whole working set of the store and was
  * the quietest thing in the column. The title is reached by the id the component puts on
  * it for `aria-labelledby`, which is the only handle it offers and at least a semantic
  * one.
@@ -237,7 +237,7 @@ body {
  *
  * Astryx indents it by 24px, which suits a sub-menu of two or three links and not a tree
  * that indents again on its own: Production's tree started a level and a half in, out of
- * line with the In flight tree at the section's own edge. The two trees are the same kind
+ * line with the In development tree at the section's own edge. The two trees are the same kind
  * of thing and now start in the same place; the chevron on the Production row is what
  * says one of them is inside it.
  *

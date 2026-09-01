@@ -32,12 +32,12 @@ One unit of planned work, from proposal to archive. It is the thing that is clai
 built and shipped.
 _Avoid_: PR, ticket, epic, feature
 
-**In flight**:
+**In development**:
 A change that has been created and not yet archived. The board shows exactly these.
-_Avoid_: open, active, WIP
+_Avoid_: open, active, WIP, in flight
 
 **Planning**:
-An in-flight change with no task list yet, so there is nothing to claim or check off.
+An in-development change with no task list yet, so there is nothing to claim or check off.
 _Avoid_: draft, backlog, todo
 
 **Shipped change**:
@@ -93,7 +93,7 @@ and what the catalog is ordered by.
 _Avoid_: domain, area, prefix, folder, group
 
 **Baseline**:
-A capability's shipped spec — its behavior as it stands, before any in-flight change
+A capability's shipped spec — its behavior as it stands, before any in-development change
 rewrites it.
 _Avoid_: main spec, current spec, source of truth
 
@@ -103,7 +103,7 @@ introducing the capability as new.
 _Avoid_: diff, patch, spec change, override
 
 **Shipped capability**:
-A capability that has a baseline. One first named by an in-flight change is unshipped and
+A capability that has a baseline. One first named by an in-development change is unshipped and
 has no baseline text to read yet.
 _Avoid_: existing, live, released
 
@@ -115,7 +115,7 @@ doing.
 _Avoid_: deleted, deprecated, dropped, archived capability
 
 **Changed by**:
-The changes that have touched one capability, in flight or archived, newest first.
+The changes that have touched one capability, in development or archived, newest first.
 _Avoid_: history, provenance, log
 
 ### Work and ownership
@@ -164,7 +164,7 @@ can take it.
 _Avoid_: critical, dead, overdue
 
 **Collision**:
-Two in-flight changes deltaing the same capability. It never appears as a git conflict
+Two in-development changes deltaing the same capability. It never appears as a git conflict
 and breaks at archive time, when the second change is written against a baseline the
 first already rewrote.
 _Avoid_: conflict, overlap, clash
@@ -175,13 +175,13 @@ capability is contested — the board counts the first, the catalog marks the se
 _Avoid_: conflicted, disputed, hot
 
 **Ready to archive**:
-An in-flight change with every task checked off.
+An in-development change with every task checked off.
 _Avoid_: complete, finished, done
 
 ### What it shows
 
 **Board**:
-The default view: every in-flight change, its task groups, who owns each, and how long
+The default view: every in-development change, its task groups, who owns each, and how long
 each claim has been idle.
 _Avoid_: dashboard, home, overview
 

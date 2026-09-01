@@ -171,7 +171,7 @@ function changeItem(node, change, view, arg, plain) {
  * The capability tree, built the same way — but opening closed, and only as far as it has
  * to.
  *
- * A store has a few changes in flight and every capability it has ever shipped, so the
+ * A store has a few changes in development and every capability it has ever shipped, so the
  * two trees are different sizes by a factor of five or so: expanding this one on arrival
  * would bury the working set under the finished one. Closed, it is one row per product,
  * which is the map. Reading a spec opens the branch that holds it and nothing else.
@@ -310,10 +310,10 @@ function Nav({
             />
           )}
         </SideNavItem>
-        {/* Changes in flight, under a row of their own rather than a section heading —
+        {/* Changes in development, under a row of their own rather than a section heading —
             the same shape as Production above it, since they are the same kind of thing:
             a tree of the store's namespaces. No link on this one, because the page for
-            what is in flight is the board directly above it. */}
+            what is in development is the board directly above it. */}
         <SideNavItem
           label="In Development"
           size="sm"

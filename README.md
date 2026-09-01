@@ -14,10 +14,10 @@ declares `store: <id>` and you get that registered clone, or run it inside a sto
 you get the store itself. The viewer never resolves a path of its own, which is what
 stops it and the CLI disagreeing about what they are looking at.
 
-| Variable | Default | For |
-|---|---|---|
+| Variable              | Default    | For                                                                                                                                                                           |
+| --------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `OPENSPEC_VIEWER_CLI` | `openspec` | The command the board prints for claim, unclaim and sync. Set it to your wrapper — `OPENSPEC_VIEWER_CLI="pnpm plan"` — so the commands on the page can be pasted as they are. |
-| `OPENSPEC_VIEWER_CWD` | cwd | Where to resolve the store from, when the process cannot be started in the right directory. |
+| `OPENSPEC_VIEWER_CWD` | cwd        | Where to resolve the store from, when the process cannot be started in the right directory.                                                                                   |
 
 `--port <n>` moves it off 5175; `--no-open` leaves the browser alone.
 
@@ -30,7 +30,7 @@ dependencies**: Astryx, React and Mermaid are bundled into `dist/` at pack time,
 servers under `server/` are Node built-ins only, so installing this adds nothing to a
 consumer's own tree.
 
-**Diagrams.** A ```` ```mermaid ```` block in any artifact is drawn rather than printed —
+**Diagrams.** A ` ```mermaid ` block in any artifact is drawn rather than printed —
 design docs are where an OpenSpec store keeps its flowcharts and ER diagrams, and a store's
 own rules ask for them by name. Mermaid is four times the size of the rest of the app put
 together, so it is imported dynamically and splits itself further by diagram type: nothing
@@ -63,7 +63,7 @@ link. The counts and the panels below come from one function, because a tile rea
 over a list showing 3 is how a status strip stops being believed.
 
 **Ready to archive** is the only tile that is new information rather than a re-ranking: a
-change at 20/20 still in flight. `plan done` says so when the last box is ticked, but only
+change at 20/20 still in development. `plan done` says so when the last box is ticked, but only
 to whoever ticked it, and archiving is PM's call alone.
 
 Unclaimed work is collapsed by default — it is the longest list and the least urgent,
@@ -71,13 +71,13 @@ and expanded it put six rows of shell commands between the reader and the board.
 
 ## What it shows
 
-| View | Answers |
-|---|---|
-| **Board** | Every change in flight, its task groups, who owns each, and how long each claim has been idle |
-| **Change** | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
-| **Production** | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it |
-| **Capability** | One spec in full, with its history and an outline rail |
-| **Shipped changes** | The archive, and which capability each shipped change produced |
+| View                | Answers                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Board**           | Every change in development, its task groups, who owns each, and how long each claim has been idle                                                                          |
+| **Change**          | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
+| **Production**      | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it                                                  |
+| **Capability**      | One spec in full, with its history and an outline rail                                                                                                                      |
+| **Shipped changes** | The archive, and which capability each shipped change produced                                                                                                              |
 
 ### Tabs on a change
 
@@ -86,7 +86,7 @@ by the workflow schema it was created under — `spec-driven` writes proposal / 
 design / tasks, `full-planning` adds a `ui.md`, and a store can fork its own. Two changes
 in one store can sit on different schemas, so the tab set is read per change: the schema
 gives the order, the directory gives which of them exist, and a file the schema never
-declared (a `README.md` beside the proposal) is still shown, last. What is *missing* is
+declared (a `README.md` beside the proposal) is still shown, last. What is _missing_ is
 the Artifacts card at the top of the page, not a tab onto a file nobody has written.
 
 Everyone sees the same board in the same order, and every panel is absent when it has
@@ -110,12 +110,12 @@ against fixtures rather than trusted.
 claim landed nine days ago and nothing has been checked off since — the exact failure
 claim-at-pickup exists to prevent, since a name on idle work reads as "covered". Every
 claim and checkmark is a commit against one `tasks.md`, so each group's clock is the
-later of *when the current owner's unbroken hold began* and *the newest commit that
-raised its checked count*, the latter searched only within that owner's stretch so
+later of _when the current owner's unbroken hold began_ and _the newest commit that
+raised its checked count_, the latter searched only within that owner's stretch so
 nobody inherits their predecessor's activity. Past 3 days it is worth asking about; past
 7 it is called out with the `plan unclaim` command.
 
-It reads the file's *state* at each commit, not commit messages. Subjects like
+It reads the file's _state_ at each commit, not commit messages. Subjects like
 `Claim add-guest-checkout group 3 for @dana` are parseable, but staleness derived from
 them breaks the day someone rewords or amends a commit — and this store's fixtures were
 authored in bulk commits no subject pattern matches.
@@ -123,7 +123,7 @@ authored in bulk commits no subject pattern matches.
 When history cannot account for the current owner, the column shows `—`. An age inferred
 from missing history would aim the nudge at the wrong person.
 
-**Capability collisions.** Two in-flight changes deltaing the same capability never
+**Capability collisions.** Two in-development changes deltaing the same capability never
 conflict in git — each change is its own folder, so both push cleanly. It breaks at
 archive time, when the second is written against a baseline the first already rewrote,
 and a `## MODIFIED` block whose headers no longer match silently drops the rest of the
@@ -133,8 +133,8 @@ requirement. Nothing else warns about this, so the board names the overlap early
 
 Two pieces of navigation, both borrowed from [spek](https://github.com/spekhq/spek):
 
-**An "On this page" rail** beside every artifact — the proposal's *Why → What Changes →
-Capabilities → Impact*, or a spec's requirements and scenarios. Astryx renders markdown
+**An "On this page" rail** beside every artifact — the proposal's _Why → What Changes →
+Capabilities → Impact_, or a spec's requirements and scenarios. Astryx renders markdown
 headings without ids and its `useOutlineFromDOM` only collects headings that have one, so
 the heading renderer is overridden to attach an anchor derived from the heading's own
 text. That makes the rendered DOM the single source of truth: the rail cannot list a
@@ -158,23 +158,23 @@ of across a row. There is no grid/list toggle: the window already carries the si
 would ask for, and a read-only viewer has nowhere to keep the answer.
 
 **Changed by**, on each capability at `#/spec/<capability>` — which changes touched it,
-newest first, in flight or archived. In front of a spec the question is always "what put
+newest first, in development or archived. In front of a spec the question is always "what put
 this here, and what is about to change it"; both directions were in the tree already and
 only the index was missing. It is deliberately not on the index, where it was the same
 list repeated under every row.
 
 That view also lists capabilities that have **not** shipped. `openspec/specs/` holds only
-archived behavior, so a catalogue built from it alone silently omits everything in flight —
+archived behavior, so a catalogue built from it alone silently omits everything in development —
 which on a store early in its life is most of what anyone wants to read.
 
 **Three states, not two.** A capability with a baseline is shipped. One without is normally
-*unshipped* — behavior a change is still bringing in — but one whose newest delta did
-nothing except remove requirements is *retired*, behavior the store withdrew. They used to
+_unshipped_ — behavior a change is still bringing in — but one whose newest delta did
+nothing except remove requirements is _retired_, behavior the store withdrew. They used to
 read the same, so a withdrawn capability was filed as work arriving. Only a lone REMOVED
 counts: a delta that also adds is a rewrite, and a capability re-added after a removal is
 arriving again.
 
-**Contested capabilities** are named on the index too. Two in-flight changes deltaing one
+**Contested capabilities** are named on the index too. Two in-development changes deltaing one
 capability is the collision the board counts, and until now the one page that shows what is
 changing each capability never said which one it would break.
 

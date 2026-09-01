@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { collisions, inFlightDeltas } from "../server/catalog.mjs";
+import { collisions, deltasInDevelopment } from "../server/catalog.mjs";
 
 let store;
 
@@ -52,7 +52,7 @@ describe("collisions", () => {
     );
   });
 
-  it("names a capability two in-flight changes both delta", () => {
+  it("names a capability two in-development changes both delta", () => {
     delta("add-guest-checkout", "cart", "## MODIFIED Requirements");
     delta("add-cart-limits", "cart", "## MODIFIED Requirements");
 
@@ -101,7 +101,7 @@ describe("collisions", () => {
 });
 
 /**
- * The catalog marks a row contested by counting its own in-flight deltas rather than
+ * The catalog marks a row contested by counting its own in-development deltas rather than
  * calling `collisions()` — the same fact, reached two ways, and the whole point of not
  * walking the store twice is lost if the two ever answer differently. The board's tile and
  * the catalog's chip would then disagree about the same capability, with nothing to say
@@ -109,7 +109,7 @@ describe("collisions", () => {
  */
 describe("contested capabilities match the collision check", () => {
   const contested = (ids) =>
-    [...inFlightDeltas(store, ids)]
+    [...deltasInDevelopment(store, ids)]
       .filter(([, deltas]) => deltas.length > 1)
       .map(([capability]) => capability)
       .sort();

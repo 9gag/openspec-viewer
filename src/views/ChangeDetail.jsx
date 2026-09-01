@@ -19,7 +19,7 @@ import { resolveTab } from "../tabs.js";
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id }) {
   // Hook before the early return, and a null path instead of a skipped call: an archived
-  // change has no completeness to show, and navigating from one to an in-flight change
+  // change has no completeness to show, and navigating from one to an in-development change
   // reuses this instance — a conditional hook would change the hook count and crash.
   // Its own request because validate --strict spawns the openspec CLI, and the artifacts
   // should not wait on it. Until it lands the badge is absent rather than optimistic.
@@ -110,7 +110,7 @@ function Capabilities({ capabilities }) {
 }
 
 function Tasks({ groups, archived, dir }) {
-  // Only an in-flight change reaches this without groups: tasks.md is the last artifact
+  // Only an in-development change reaches this without groups: tasks.md is the last artifact
   // written, so a change still being planned has none yet. An archived one always has it.
   if (!groups) {
     return (

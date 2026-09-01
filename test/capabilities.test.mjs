@@ -26,7 +26,7 @@ import {
 const cap = (capability, extra = {}) => ({
   capability,
   state: "shipped",
-  inFlight: 0,
+  inDevelopment: 0,
   ...extra,
 });
 
@@ -63,9 +63,9 @@ describe("summarise", () => {
     const counts = summarise([
       cap("a/one"),
       cap("a/two"),
-      cap("a/three", { state: "unshipped", inFlight: 1 }),
+      cap("a/three", { state: "unshipped", inDevelopment: 1 }),
       cap("a/four", { state: "retired" }),
-      cap("a/five", { state: "shipped", inFlight: 2 }),
+      cap("a/five", { state: "shipped", inDevelopment: 2 }),
     ]);
     assert.deepEqual(counts, {
       total: 5,
@@ -76,9 +76,9 @@ describe("summarise", () => {
     });
   });
 
-  // A single in-flight change is not a hazard — it is the ordinary way work arrives.
-  it("does not count one in-flight change as contested", () => {
-    const counts = summarise([cap("a/one", { inFlight: 1 })]);
+  // A single in-development change is not a hazard — it is the ordinary way work arrives.
+  it("does not count one in-development change as contested", () => {
+    const counts = summarise([cap("a/one", { inDevelopment: 1 })]);
     assert.equal(counts.contested, 0);
   });
 
@@ -90,7 +90,7 @@ describe("summarise", () => {
 });
 
 describe("changeTreeByNamespace", () => {
-  /** One in-flight change, as /api/board returns it. */
+  /** One in-development change, as /api/board returns it. */
   const change = (id, capabilities = []) => ({ id, capabilities });
 
   /** A node as `name (count) [changes] {children}`, so a whole tree fits an assertion. */
@@ -235,7 +235,7 @@ describe("changeTreeByNamespace", () => {
     );
   });
 
-  it("has nothing to group when no change is in flight", () => {
+  it("has nothing to group when no change is in development", () => {
     assert.deepEqual(changeTreeByNamespace([]), []);
   });
 });
@@ -244,7 +244,7 @@ describe("capabilityTreeByNamespace", () => {
   const cap = (capability, extra = {}) => ({
     capability,
     state: "shipped",
-    inFlight: 0,
+    inDevelopment: 0,
     ...extra,
   });
 
@@ -327,7 +327,7 @@ describe("capabilityFlag", () => {
   const cap = (extra) => ({
     capability: "a/b",
     state: "shipped",
-    inFlight: 0,
+    inDevelopment: 0,
     ...extra,
   });
 
@@ -336,28 +336,28 @@ describe("capabilityFlag", () => {
   });
 
   it("marks a capability a change is rewriting", () => {
-    assert.deepEqual(capabilityFlag(cap({ inFlight: 1 })), {
+    assert.deepEqual(capabilityFlag(cap({ inDevelopment: 1 })), {
       variant: "accent",
-      label: "in flight",
+      label: "in development",
     });
   });
 
   // Two changes deltaing one capability is the collision the board warns about.
   it("counts the changes when more than one is rewriting it", () => {
-    assert.deepEqual(capabilityFlag(cap({ inFlight: 2 })), {
+    assert.deepEqual(capabilityFlag(cap({ inDevelopment: 2 })), {
       variant: "warning",
-      label: "2 in flight",
+      label: "2 in development",
     });
   });
 
   it("puts the rewrite ahead of the state, since that is what is about to change", () => {
     assert.equal(
-      capabilityFlag(cap({ state: "unshipped", inFlight: 1 })).label,
-      "in flight",
+      capabilityFlag(cap({ state: "unshipped", inDevelopment: 1 })).label,
+      "in development",
     );
   });
 
-  it("names the states that are not shipped when nothing is in flight", () => {
+  it("names the states that are not shipped when nothing is in development", () => {
     assert.equal(capabilityFlag(cap({ state: "retired" })).label, "retired");
     assert.equal(
       capabilityFlag(cap({ state: "unshipped" })).label,
@@ -375,7 +375,7 @@ describe("isCurrent", () => {
   const cap = (extra) => ({
     capability: "a/b",
     shipped: false,
-    inFlight: 0,
+    inDevelopment: 0,
     ...extra,
   });
 
@@ -384,8 +384,8 @@ describe("isCurrent", () => {
   });
 
   it("keeps one a change is bringing in, baseline or not", () => {
-    assert.equal(isCurrent(cap({ inFlight: 1 })), true);
-    assert.equal(isCurrent(cap({ shipped: true, inFlight: 2 })), true);
+    assert.equal(isCurrent(cap({ inDevelopment: 1 })), true);
+    assert.equal(isCurrent(cap({ shipped: true, inDevelopment: 2 })), true);
   });
 
   // The renamed-away path: archived changes still name it, nothing else does.

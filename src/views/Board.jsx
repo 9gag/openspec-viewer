@@ -129,7 +129,7 @@ function ChangeCard({ change, ready }) {
 }
 
 /**
- * The changes in flight that are missing an artifact.
+ * The changes in development that are missing an artifact.
  *
  * A change is a directory of markdown files, and which files belong there is decided by
  * the schema it was created under — so this is read from the change, not from a list
@@ -180,7 +180,7 @@ function Collisions({ collisions }) {
       key={c.capability}
       status="warning"
       container="card"
-      title={`Two changes in flight both delta "${c.capability}"`}
+      title={`Two changes in development both delta "${c.capability}"`}
       description={
         <VStack gap={2}>
           <Text size="sm">

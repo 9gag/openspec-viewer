@@ -130,11 +130,11 @@ export function validate(changeId) {
 
 export function change(changeId) {
   const root = resolveRoot();
-  const inFlight = changeIds(root.path).includes(changeId);
+  const inDevelopment = changeIds(root.path).includes(changeId);
   const archived =
-    !inFlight &&
+    !inDevelopment &&
     dirs(join(root.path, "openspec", "changes", "archive")).includes(changeId);
-  if (!inFlight && !archived) return null;
+  if (!inDevelopment && !archived) return null;
 
   const dir = archived
     ? join("openspec", "changes", "archive", changeId)

@@ -1,5 +1,5 @@
 /**
- * The namespace rule, and the two lists arranged by it: the catalog, and the in-flight
+ * The namespace rule, and the two lists arranged by it: the catalog, and the in-development
  * changes in the nav. Kept out of the views so the ordering can be tested.
  *
  * OpenSpec writes the grouping into the capability path itself — `shared-ui/cart`,
@@ -40,9 +40,9 @@ export function summarise(caps) {
     shipped: inState("shipped"),
     unshipped: inState("unshipped"),
     retired: inState("retired"),
-    // Two in-flight changes on one capability: the collision the board counts, named here
+    // Two in-development changes on one capability: the collision the board counts, named here
     // against the capability it will break.
-    contested: caps.filter((c) => c.inFlight > 1).length,
+    contested: caps.filter((c) => c.inDevelopment > 1).length,
   };
 }
 
@@ -118,7 +118,7 @@ function shape(name, path, node, idOf) {
 }
 
 /**
- * In-flight changes as the tree their namespaces already describe.
+ * In-development changes as the tree their namespaces already describe.
  *
  * A change that touches two namespaces is listed under both. The nav is for finding a
  * change from the area you have in mind, and a change that rewrites `shared/ui` really is
@@ -157,9 +157,10 @@ export function changeTreeByNamespace(changes) {
  * about, and it outranks everything.
  */
 export function capabilityFlag(cap) {
-  if (cap.inFlight > 1)
-    return { variant: "warning", label: `${cap.inFlight} in flight` };
-  if (cap.inFlight === 1) return { variant: "accent", label: "in flight" };
+  if (cap.inDevelopment > 1)
+    return { variant: "warning", label: `${cap.inDevelopment} in development` };
+  if (cap.inDevelopment === 1)
+    return { variant: "accent", label: "in development" };
   if (cap.state === "retired") return { variant: "neutral", label: "retired" };
   // No baseline and nothing bringing one in: named by a change that has since archived
   // without shipping it, or by one that removed it and left the name behind.
@@ -179,10 +180,10 @@ export function capabilityFlag(cap) {
  * fifteen top-level rows in this column, all of them dead ends.
  *
  * So the nav carries the two kinds that go somewhere — a shipped baseline to read, or a
- * change in flight whose page says what is arriving — and the index page keeps all of it.
+ * change in development whose page says what is arriving — and the index page keeps all of it.
  */
 export function isCurrent(cap) {
-  return cap.shipped || cap.inFlight > 0;
+  return cap.shipped || cap.inDevelopment > 0;
 }
 
 /**

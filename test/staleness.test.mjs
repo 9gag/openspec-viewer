@@ -1,7 +1,7 @@
 /**
  * Staleness is inferred from a file's git history, so the tests build real histories
  * in a throwaway repo and read them back. The inference is the part worth testing:
- * everything it drives — the nudge to unclaim, the "in flight" warning — is wrong in a
+ * everything it drives — the nudge to unclaim, the "in development" warning — is wrong in a
  * way nobody would notice if the clock started from the wrong commit.
  */
 
