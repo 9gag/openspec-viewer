@@ -20,7 +20,7 @@ import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
-import { groupChangesByNamespace } from "./capabilities.js";
+import { changeTreeByNamespace } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
 import { changeState } from "./summary.js";
 import { iso } from "./time.js";
@@ -95,6 +95,72 @@ function StoreWarnings({ store }) {
   );
 }
 
+/**
+ * One change in the nav: where to find it, how far along it is, and the one thing about
+ * it that might need a person — see `changeState`. It is the only thing in this column
+ * that reports rather than links.
+ */
+function ChangeItem({ change, isSelected }) {
+  const state = changeState(change);
+
+  return (
+    <SideNavItem
+      href={href("change", change.id)}
+      label={change.id}
+      isSelected={isSelected}
+      endContent={
+        <HStack gap={2} align="center">
+          <Text size="sm" color="secondary" hasTabularNumbers>
+            {change.done}/{change.total}
+          </Text>
+          <StatusDot
+            variant={state.variant}
+            label={state.label}
+            tooltip={state.label}
+          />
+        </HStack>
+      }
+    />
+  );
+}
+
+/**
+ * One namespace and everything under it, however deep the store nests them.
+ *
+ * Recursive because the tree is: `storefront/checkout` is two levels wherever the store
+ * puts a third. Its own changes come before the namespaces inside it — they belong to the
+ * row above them, and pushing them under an expanded subtree would separate them from it.
+ *
+ * The count is every change beneath this namespace, not the rows immediately under it, so
+ * a collapsed branch still says how much is in there.
+ */
+function Namespace({ node, view, arg }) {
+  return (
+    <SideNavItem
+      label={node.name}
+      collapsible={{ defaultIsCollapsed: false }}
+      endContent={
+        <Text size="sm" color="secondary" hasTabularNumbers>
+          {node.count}
+        </Text>
+      }
+    >
+      <VStack gap={0.5}>
+        {node.changes.map((change) => (
+          <ChangeItem
+            key={change.id}
+            change={change}
+            isSelected={view === "change" && arg === change.id}
+          />
+        ))}
+        {node.children.map((child) => (
+          <Namespace key={child.path} node={child} view={view} arg={arg} />
+        ))}
+      </VStack>
+    </SideNavItem>
+  );
+}
+
 function Nav({ view, arg, changes, mode, onMode }) {
   return (
     <SideNav
@@ -142,53 +208,13 @@ function Nav({ view, arg, changes, mode, onMode }) {
         />
       </SideNavSection>
 
-      {/* One section over all the namespaces, because "in flight" is what they have in
-          common and the namespaces are a level inside it — each of them an item that
-          collapses over the changes it holds. A namespace nobody is working in today can
-          be folded away, and the disclosure is what says the level is there at all. */}
+      {/* One section over the whole namespace tree, because "in flight" is what every
+          branch of it has in common. Each namespace is an item that collapses over what
+          is inside it, so a product nobody is working in today folds away in one click
+          and the disclosure is what says the level is there at all. */}
       <SideNavSection title="In flight" className="nav-section">
-        {/* Under the namespaces each change deltas — the same grouping the catalog reads
-            by. A change touching two namespaces appears under both, so the key carries
-            the namespace: one change can be two items. */}
-        {groupChangesByNamespace(changes).map((group) => (
-          <SideNavItem
-            key={group.name}
-            label={group.name}
-            collapsible={{ defaultIsCollapsed: false }}
-            endContent={
-              <Text size="sm" color="secondary" hasTabularNumbers>
-                {group.changes.length}
-              </Text>
-            }
-          >
-            <VStack gap={0.5}>
-              {group.changes.map((ch) => {
-                const state = changeState(ch);
-                return (
-                  <SideNavItem
-                    key={`${group.name}/${ch.id}`}
-                    href={href("change", ch.id)}
-                    label={ch.id}
-                    isSelected={view === "change" && arg === ch.id}
-                    endContent={
-                      <HStack gap={2} align="center">
-                        <Text size="sm" color="secondary" hasTabularNumbers>
-                          {ch.done}/{ch.total}
-                        </Text>
-                        {/* What the strip would say about this change, in one dot: it is
-                            the only thing on the nav that reports rather than links. */}
-                        <StatusDot
-                          variant={state.variant}
-                          label={state.label}
-                          tooltip={state.label}
-                        />
-                      </HStack>
-                    }
-                  />
-                );
-              })}
-            </VStack>
-          </SideNavItem>
+        {changeTreeByNamespace(changes).map((node) => (
+          <Namespace key={node.path} node={node} view={view} arg={arg} />
         ))}
       </SideNavSection>
     </SideNav>

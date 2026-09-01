@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  changeTreeByNamespace,
   groupByNamespace,
-  groupChangesByNamespace,
   leafOf,
   namespaceOf,
   NO_CAPABILITY,
@@ -62,12 +62,7 @@ describe("leafOf", () => {
 describe("groupByNamespace", () => {
   it("collects a namespace and sorts its rows by the leaf", () => {
     assert.deepEqual(
-      names(
-        groupByNamespace([
-          cap("shared-ui/home"),
-          cap("shared-ui/cart"),
-        ]),
-      ),
+      names(groupByNamespace([cap("shared-ui/home"), cap("shared-ui/cart")])),
       [["shared-ui", ["shared-ui/cart", "shared-ui/home"]]],
     );
   });
@@ -168,21 +163,72 @@ describe("summarise", () => {
   });
 });
 
-describe("groupChangesByNamespace", () => {
+describe("changeTreeByNamespace", () => {
   /** One in-flight change, as /api/board returns it. */
   const change = (id, capabilities = []) => ({ id, capabilities });
 
-  const shape = (groups) =>
-    groups.map((g) => [g.name, g.changes.map((c) => c.id)]);
+  /** A node as `name (count) [changes] {children}`, so a whole tree fits an assertion. */
+  const shape = (nodes) =>
+    nodes.map((n) => [
+      n.name,
+      n.count,
+      n.changes.map((c) => c.id),
+      shape(n.children),
+    ]);
 
   it("files a change under the namespace it deltas", () => {
     assert.deepEqual(
       shape(
-        groupChangesByNamespace([
+        changeTreeByNamespace([
           change("add-watchlist", ["checkout/watchlist"]),
         ]),
       ),
-      [["checkout", ["add-watchlist"]]],
+      [["checkout", 1, ["add-watchlist"], []]],
+    );
+  });
+
+  // The whole point of the tree: two namespaces under one product read as that product,
+  // rather than as two strings that happen to start the same way.
+  it("nests a namespace under the one it is inside", () => {
+    assert.deepEqual(
+      shape(
+        changeTreeByNamespace([
+          change("add-close-out", ["admin/auction/close"]),
+          change("add-stock-count", ["admin/inventory/stock"]),
+        ]),
+      ),
+      [
+        [
+          "admin",
+          2,
+          [],
+          [
+            ["auction", 1, ["add-close-out"], []],
+            ["inventory", 1, ["add-stock-count"], []],
+          ],
+        ],
+      ],
+    );
+  });
+
+  // A level that holds one namespace and nothing else says nothing the level under it
+  // does not, and costs an indent to say it.
+  it("collapses a namespace that only ever holds one other", () => {
+    assert.deepEqual(
+      shape(changeTreeByNamespace([change("add-pay", ["site/auction/pay"])])),
+      [["site/auction", 1, ["add-pay"], []]],
+    );
+  });
+
+  it("keeps its own changes when a namespace also holds namespaces", () => {
+    assert.deepEqual(
+      shape(
+        changeTreeByNamespace([
+          change("add-policy", ["shared/policy"]),
+          change("add-cart", ["shared/ui/cart"]),
+        ]),
+      ),
+      [["shared", 2, ["add-policy"], [["ui", 1, ["add-cart"], []]]]],
     );
   });
 
@@ -191,7 +237,7 @@ describe("groupChangesByNamespace", () => {
   it("lists a change touching two namespaces under both", () => {
     assert.deepEqual(
       shape(
-        groupChangesByNamespace([
+        changeTreeByNamespace([
           change("add-order-record", [
             "checkout/order-record",
             "checkout/guest-checkout",
@@ -200,31 +246,45 @@ describe("groupChangesByNamespace", () => {
         ]),
       ),
       [
-        ["checkout", ["add-order-record"]],
-        ["shared-ui", ["add-order-record"]],
+        ["checkout", 1, ["add-order-record"], []],
+        ["shared-ui", 1, ["add-order-record"], []],
       ],
     );
   });
 
   it("counts a namespace once however many of its capabilities a change deltas", () => {
-    const [checkout] = groupChangesByNamespace([
+    const [checkout] = changeTreeByNamespace([
       change("add-admin-campaigns", [
         "checkout/campaign",
         "checkout/order-listing",
       ]),
     ]);
     assert.equal(checkout.changes.length, 1);
+    assert.equal(checkout.count, 1);
+  });
+
+  // Adding the children's counts would say two, and a parent that double-counts a change
+  // is a number nobody can reconcile with the rows under it.
+  it("counts a change once for a parent it reaches by two paths", () => {
+    const [shared] = changeTreeByNamespace([
+      change("restyle-cart", ["shared/ui/cart", "shared/design-sync/tokens"]),
+    ]);
+    assert.equal(shared.count, 1);
+    assert.deepEqual(
+      shared.children.map((c) => c.name),
+      ["design-sync", "ui"],
+    );
   });
 
   it("orders named namespaces first, then top level, then the undeclared", () => {
-    const groups = groupChangesByNamespace([
+    const tree = changeTreeByNamespace([
       change("still-planning"),
       change("consolidate-dates", ["date-formats"]),
       change("sign-in-dialog-shell", ["shared-ui/sign-in"]),
       change("add-inventory", ["inventory/stock"]),
     ]);
     assert.deepEqual(
-      groups.map((g) => g.name),
+      tree.map((n) => n.name),
       ["inventory", "shared-ui", TOP_LEVEL, NO_CAPABILITY],
     );
   });
@@ -233,23 +293,23 @@ describe("groupChangesByNamespace", () => {
   // empty list rather than omitting the field — but neither should land it nowhere.
   it("keeps a change that deltas nothing yet", () => {
     assert.deepEqual(
-      shape(groupChangesByNamespace([change("still-planning"), { id: "bare" }])),
-      [[NO_CAPABILITY, ["bare", "still-planning"]]],
+      shape(changeTreeByNamespace([change("still-planning"), { id: "bare" }])),
+      [[NO_CAPABILITY, 2, ["bare", "still-planning"], []]],
     );
   });
 
-  it("sorts changes within a group by id", () => {
-    const [group] = groupChangesByNamespace([
+  it("sorts changes within a namespace by id", () => {
+    const [node] = changeTreeByNamespace([
       change("revise-pricing", ["storefront/pricing"]),
       change("add-payments", ["storefront/payments"]),
     ]);
     assert.deepEqual(
-      group.changes.map((c) => c.id),
+      node.changes.map((c) => c.id),
       ["add-payments", "revise-pricing"],
     );
   });
 
   it("has nothing to group when no change is in flight", () => {
-    assert.deepEqual(groupChangesByNamespace([]), []);
+    assert.deepEqual(changeTreeByNamespace([]), []);
   });
 });
