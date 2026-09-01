@@ -11,8 +11,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 
 /**
  * Where to run the CLI. `OPENSPEC_VIEWER_CWD` is for the case where the process cannot
@@ -177,16 +177,161 @@ export function storeStatus(root) {
   return status;
 }
 
+/** One built index per store, keyed by the HEAD it was built from. */
+const indexCache = new Map();
+
+/**
+ * What HEAD points at, read from the filesystem rather than from `git rev-parse`.
+ *
+ * This is the index's cache key, so it is checked on every lookup — and a spawn per
+ * lookup is the cost this whole file is trying to stop paying. Three small file reads
+ * answer it: `.git/HEAD`, and the ref it names either loose or in `packed-refs`.
+ *
+ * Null when there is nothing to read, which is a store that is not a git checkout —
+ * indistinguishable, here, from one whose history says nothing, and handled the same
+ * way by everything downstream.
+ */
+function headSignature(storePath) {
+  let gitDir = join(storePath, ".git");
+  // A file rather than a directory in a worktree or a submodule, naming the real one.
+  if (existsSync(gitDir) && statSync(gitDir).isFile()) {
+    const named = read(gitDir)
+      ?.match(/^gitdir:\s*(.+)$/m)?.[1]
+      ?.trim();
+    if (!named) return null;
+    gitDir = resolve(storePath, named);
+  }
+
+  const head = read(join(gitDir, "HEAD"))?.trim();
+  if (!head) return null;
+  if (!head.startsWith("ref: ")) return head; // detached: HEAD is the sha
+
+  const ref = head.slice(5).trim();
+  const loose = read(join(gitDir, ref))?.trim();
+  if (loose) return `${ref} ${loose}`;
+
+  // A ref with no file of its own has been packed — or does not exist yet, which is a
+  // branch with no commits on it and an index that will come back empty either way.
+  const packed = (read(join(gitDir, "packed-refs")) ?? "")
+    .split("\n")
+    .find((line) => line.endsWith(` ${ref}`));
+  return `${ref} ${packed?.split(" ")[0] ?? "unborn"}`;
+}
+
+/**
+ * Every path's newest commit, from one walk of the history.
+ *
+ * `lastCommit` used to be a `git log -1 -- <path>` per path, which reads fine until you
+ * count the callers: the catalogue asks for every change, every archived change and
+ * every shipped spec, so a store with a hundred of those paid a hundred process spawns
+ * for a request. Git answers each one in about ten milliseconds and node spends longer
+ * than that starting the process — the cost was never the query.
+ *
+ * So the whole history is walked once — 85ms on a store of a thousand commits — and
+ * indexed by path. Newest first, first write wins, and every ancestor directory is
+ * indexed alongside the file, because half the callers ask about a change's directory
+ * rather than a file in it.
+ *
+ * Rebuilt when HEAD moves. Nothing else can change what git log says, and the working
+ * tree deliberately does not: an uncommitted file has no commit under either
+ * implementation.
+ */
+function commitIndex(storePath) {
+  const head = headSignature(storePath);
+  const hit = indexCache.get(storePath);
+  if (hit && hit.head === head) return hit.paths;
+
+  const paths = new Map();
+  // NUL between records so a commit subject cannot be mistaken for a filename, and no
+  // pathspec: limiting the walk to `openspec/` would cost a second walk the first time
+  // a spec links a PRD outside it.
+  //
+  // `-c` is what keeps this agreeing with the `git log -1 -- <path>` it replaced. A
+  // merge lists no filenames without it, so a conflict resolved by hand — the one kind
+  // of merge that is the newest thing to touch a file — would be credited to whichever
+  // commit came before it. Under `-c` a merge lists exactly the files that differ from
+  // every parent, which is git's own rule for showing a merge against a path, so clean
+  // merges still list nothing.
+  const log = head
+    ? git(storePath, [
+        "log",
+        "-c",
+        "--name-only",
+        "--format=%x00%H%x1f%ct%x1f%s",
+      ])
+    : null;
+
+  for (const record of (log ?? "").split("\0")) {
+    const [header, ...names] = record.split("\n");
+    if (!header) continue;
+    const [sha, when, subject] = header.split("\x1f");
+    const commit = {
+      sha: sha.slice(0, 8),
+      at: Number(when) * 1000,
+      subject,
+    };
+    for (const name of names) {
+      if (!name) continue;
+      // The file, then every directory above it. `set` only when absent: the walk is
+      // newest-first, so whatever is already there happened later.
+      for (let at = name.length; at > 0; at = name.lastIndexOf("/", at - 1)) {
+        const path = name.slice(0, at);
+        if (paths.has(path)) break; // its ancestors are indexed too
+        paths.set(path, commit);
+      }
+    }
+  }
+
+  indexCache.set(storePath, { head, paths });
+  return paths;
+}
+
 /** When a path in the store last changed, and in which commit. */
 export function lastCommit(storePath, rel) {
-  const out = git(storePath, [
-    "log",
-    "-1",
-    "--format=%H%x1f%ct%x1f%s",
-    "--",
-    rel,
-  ]);
-  if (!out) return null;
-  const [sha, when, subject] = out.split("\x1f");
-  return { sha: sha.slice(0, 8), at: Number(when) * 1000, subject };
+  return commitIndex(storePath).get(rel.split(sep).join("/")) ?? null;
+}
+
+/**
+ * The contents of several blobs, as `<commit>:<path>` refs, in one `git cat-file`
+ * rather than a `git show` each. Same reason as the commit index: the board reads one
+ * snapshot per commit that ever touched a change's tasks.md, and on a busy store that
+ * was a hundred and sixty spawns a poll.
+ *
+ * Missing refs come back null rather than throwing — a commit that deleted or renamed
+ * the file is a normal entry in that list, not an error.
+ */
+export function catFile(storePath, refs) {
+  const out = new Map(refs.map((ref) => [ref, null]));
+  if (refs.length === 0) return out;
+
+  let buf;
+  try {
+    buf = execFileSync("git", ["cat-file", "--batch"], {
+      cwd: storePath,
+      input: `${refs.join("\n")}\n`,
+      // No `encoding`, so this comes back as a Buffer: the record header gives a length
+      // in bytes, and a decoded string would count a multi-byte character once and read
+      // the next header from the wrong offset.
+      maxBuffer: 256 * 1024 * 1024,
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+  } catch {
+    return out;
+  }
+
+  // One record per requested ref, in the order asked: either `<oid> <type> <size>` and
+  // that many bytes of content, or `<ref> missing` and nothing.
+  let at = 0;
+  for (const ref of refs) {
+    const eol = buf.indexOf(10, at);
+    if (eol === -1) break;
+    const header = buf.toString("utf8", at, eol);
+    at = eol + 1;
+    const size = Number(header.split(" ")[2]);
+    if (!Number.isInteger(size)) continue; // missing, or ambiguous
+    out.set(ref, buf.toString("utf8", at, at + size));
+    at += size + 1; // git writes a newline after the content
+  }
+
+  return out;
 }
