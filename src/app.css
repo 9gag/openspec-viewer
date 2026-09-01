@@ -185,16 +185,21 @@ body {
   background: var(--color-background-muted);
 }
 
+/* `safe` so a diagram wider than the box starts at its left edge instead of overflowing
+   equally into both margins, where the left half is unreachable by scrolling. */
 .diagram figure {
   margin: 0;
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
 }
 
-/* Mermaid sizes the SVG to the diagram; without this it also scales to the box and a
-   small diagram is blown up to the width of the page. */
-.diagram svg {
-  max-width: none;
+/* The one rule the whole box depends on. Mermaid gives the SVG its own width, but a flex
+   item shrinks below that by default — so a diagram wider than the column was quietly
+   scaled down to fit rather than scrolling, and a seven-node flowchart arrived at a third
+   of the size its labels were drawn for. Nothing else here restores that: the scroll
+   container has nothing to scroll while its content is being squeezed to fit. */
+.diagram figure > svg {
+  flex: none;
   height: auto;
 }
 
