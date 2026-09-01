@@ -91,6 +91,38 @@ export function summarize(board) {
 }
 
 /**
+ * The one thing a change most needs a person to know, ranked the way the strip ranks it.
+ *
+ * The nav shows one dot per change, and a dot can only say one thing — so it says the
+ * most urgent, in the strip's own reading order: an idle claim outranks a change that is
+ * ready to archive, which outranks work nobody has picked up. Anything else is progress,
+ * or the absence of it.
+ *
+ * Shares `summarize`'s rules rather than restating them, for the same reason the counts
+ * and the panels come from one function: a dot that disagrees with the tile above it is
+ * worse than no dot.
+ */
+export function changeState(change) {
+  if (change.planning) return { variant: "neutral", label: "planning" };
+
+  let quiet = false;
+  let unclaimed = false;
+  for (const group of change.groups ?? []) {
+    const tone = level(group.idle);
+    if (tone === "stale") return { variant: "error", label: "idle claim" };
+    if (tone === "quiet") quiet = true;
+    else if (!group.owner && group.done < group.total) unclaimed = true;
+  }
+
+  if (quiet) return { variant: "warning", label: "idle claim" };
+  if (change.total > 0 && change.done === change.total)
+    return { variant: "success", label: "ready to archive" };
+  if (unclaimed) return { variant: "warning", label: "unclaimed work" };
+  if (change.done > 0) return { variant: "accent", label: "in progress" };
+  return { variant: "neutral", label: "not started" };
+}
+
+/**
  * The board, narrowed to what a tile is about.
  *
  * Group-level filters (idle, unclaimed) drop the groups that do not match rather than

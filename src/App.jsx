@@ -13,6 +13,7 @@ import {
   SideNavSection,
 } from "@astryxdesign/core/SideNav";
 import { Spinner } from "@astryxdesign/core/Spinner";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Theme } from "@astryxdesign/core/theme";
@@ -21,6 +22,7 @@ import { useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
 import { groupChangesByNamespace } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
+import { changeState } from "./summary.js";
 import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
 import { Archive, SpecDetail, Specs } from "./views/Catalog.jsx";
@@ -140,41 +142,55 @@ function Nav({ view, arg, changes, mode, onMode }) {
         />
       </SideNavSection>
 
-      {/* One band over all the namespace sections, because "in flight" is what they have
-          in common and the namespaces are a level inside it. Deliberately not another
-          section title: it would then be competing with the names a reader is scanning
-          for, at the same size, right above them. */}
-      <div className="nav-band">In flight</div>
-
-      {/* Under the namespaces each change deltas — the same grouping the catalog reads by.
-          A change touching two namespaces appears under both, so the key carries the
-          section: one change can be two items. */}
-      {groupChangesByNamespace(changes).map((group) => (
-        <SideNavSection
-          key={group.name}
-          className="nav-section nav-section-ns"
-          title={group.name}
-          endContent={
-            <Text size="sm" color="secondary" hasTabularNumbers>
-              {group.changes.length}
-            </Text>
-          }
-        >
-          {group.changes.map((ch) => (
-            <SideNavItem
-              key={`${group.name}/${ch.id}`}
-              href={href("change", ch.id)}
-              label={ch.id}
-              isSelected={view === "change" && arg === ch.id}
-              endContent={
-                <Text size="sm" color="secondary" hasTabularNumbers>
-                  {ch.done}/{ch.total}
-                </Text>
-              }
-            />
-          ))}
-        </SideNavSection>
-      ))}
+      {/* One section over all the namespaces, because "in flight" is what they have in
+          common and the namespaces are a level inside it — each of them an item that
+          collapses over the changes it holds. A namespace nobody is working in today can
+          be folded away, and the disclosure is what says the level is there at all. */}
+      <SideNavSection title="In flight" className="nav-section">
+        {/* Under the namespaces each change deltas — the same grouping the catalog reads
+            by. A change touching two namespaces appears under both, so the key carries
+            the namespace: one change can be two items. */}
+        {groupChangesByNamespace(changes).map((group) => (
+          <SideNavItem
+            key={group.name}
+            label={group.name}
+            collapsible={{ defaultIsCollapsed: false }}
+            endContent={
+              <Text size="sm" color="secondary" hasTabularNumbers>
+                {group.changes.length}
+              </Text>
+            }
+          >
+            <VStack gap={0.5}>
+              {group.changes.map((ch) => {
+                const state = changeState(ch);
+                return (
+                  <SideNavItem
+                    key={`${group.name}/${ch.id}`}
+                    href={href("change", ch.id)}
+                    label={ch.id}
+                    isSelected={view === "change" && arg === ch.id}
+                    endContent={
+                      <HStack gap={2} align="center">
+                        <Text size="sm" color="secondary" hasTabularNumbers>
+                          {ch.done}/{ch.total}
+                        </Text>
+                        {/* What the strip would say about this change, in one dot: it is
+                            the only thing on the nav that reports rather than links. */}
+                        <StatusDot
+                          variant={state.variant}
+                          label={state.label}
+                          tooltip={state.label}
+                        />
+                      </HStack>
+                    }
+                  />
+                );
+              })}
+            </VStack>
+          </SideNavItem>
+        ))}
+      </SideNavSection>
     </SideNav>
   );
 }

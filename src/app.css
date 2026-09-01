@@ -155,46 +155,15 @@ body {
 /*
  * Side-nav section titles.
  *
- * Astryx sets them a step below the items they head, which reads correctly when a section
- * is called "Overview" and wrongly when it is called `checkout`: the namespace is
- * what a reader is scanning for, and it was the quietest thing in the column. The title is
- * reached by the id the component puts on it for `aria-labelledby`, which is the only
- * handle it offers and at least a semantic one.
+ * Astryx sets them a step below the items they head, which reads correctly for a link
+ * list and wrongly for "In flight": it heads the whole working set of the store and was
+ * the quietest thing in the column. The title is reached by the id the component puts on
+ * it for `aria-labelledby`, which is the only handle it offers and at least a semantic
+ * one.
  */
 .nav-section [id$="-title"] {
   color: var(--color-text-primary);
   font-weight: 600;
-}
-
-/*
- * The band over the namespace sections.
- *
- * A level above a section title rather than another one: it says what every section under
- * it has in common. So it is set as an eyebrow — small, spaced, quiet — which reads as a
- * band without competing with the namespace names right beneath it, and the rule above
- * separates it from the Overview links that are not changes at all.
- */
-.nav-band {
-  margin: 14px 0 2px;
-  padding: 12px 12px 0;
-  border-top: 1px solid var(--color-border);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-/* Namespaces are paths, and read as paths everywhere else in the app. */
-.nav-section-ns [id$="-title"] {
-  font-family: var(
-    --astryx-font-family-mono,
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace
-  );
-  letter-spacing: 0;
 }
 
 /*

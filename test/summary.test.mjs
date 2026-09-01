@@ -10,7 +10,12 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { applyFilter, FILTERS, summarize } from "../src/summary.js";
+import {
+  applyFilter,
+  changeState,
+  FILTERS,
+  summarize,
+} from "../src/summary.js";
 import { QUIET_DAYS, STALE_DAYS } from "../src/time.js";
 
 const idleFor = (days) => ({ since: 0, days, source: "claim" });
@@ -309,5 +314,99 @@ describe("filter wiring", () => {
         `filter '${f}' matched nothing on a board that has some`,
       );
     }
+  });
+});
+
+/**
+ * The nav's dot. One dot per change, so it can only say one thing — these pin which
+ * thing, and pin it to the order the strip reads its tiles in.
+ */
+describe("changeState", () => {
+  const change = (extra = {}) => ({
+    id: "c",
+    planning: false,
+    done: 0,
+    total: 8,
+    groups: [],
+    ...extra,
+  });
+
+  it("says planning for a change with no tasks to have a state about", () => {
+    assert.deepEqual(changeState(change({ planning: true, total: 0 })), {
+      variant: "neutral",
+      label: "planning",
+    });
+  });
+
+  it("puts a stale claim above everything, including work that is finished", () => {
+    const state = changeState(
+      change({
+        done: 8,
+        groups: [
+          group("1", {
+            owner: "dana",
+            done: 8,
+            total: 8,
+            idle: idleFor(STALE_DAYS),
+          }),
+        ],
+      }),
+    );
+    assert.deepEqual(state, { variant: "error", label: "idle claim" });
+  });
+
+  it("separates a claim that has gone quiet from one that has gone stale", () => {
+    const state = changeState(
+      change({
+        groups: [group("1", { owner: "dana", idle: idleFor(QUIET_DAYS) })],
+      }),
+    );
+    assert.deepEqual(state, { variant: "warning", label: "idle claim" });
+  });
+
+  it("reports ready to archive only when every task is checked off", () => {
+    const groups = [group("1", { owner: "dana", done: 4, total: 4 })];
+    assert.equal(
+      changeState(change({ done: 4, total: 4, groups })).label,
+      "ready to archive",
+    );
+    assert.equal(
+      changeState(change({ done: 3, total: 4, groups })).label,
+      "in progress",
+    );
+  });
+
+  it("reports unclaimed work ahead of progress, the way the strip ranks them", () => {
+    const state = changeState(
+      change({
+        done: 2,
+        groups: [group("1", { owner: "dana", done: 2, total: 4 }), group("2")],
+      }),
+    );
+    assert.deepEqual(state, { variant: "warning", label: "unclaimed work" });
+  });
+
+  it("is quiet for a change that is claimed and moving", () => {
+    assert.deepEqual(
+      changeState(
+        change({
+          done: 2,
+          groups: [
+            group("1", { owner: "dana", done: 2, total: 8, idle: idleFor(0) }),
+          ],
+        }),
+      ),
+      { variant: "accent", label: "in progress" },
+    );
+  });
+
+  it("is neutral for a change nobody has started", () => {
+    assert.deepEqual(
+      changeState(change({ groups: [group("1", { owner: "dana" })] })),
+      {
+        variant: "neutral",
+        label: "not started",
+      },
+    );
   });
 });
