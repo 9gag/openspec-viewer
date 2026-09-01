@@ -182,7 +182,11 @@ function Nav({ view, arg, changes, mode, onMode }) {
 export default function App() {
   const { view, arg } = useRoute();
   const [mode, setMode] = useState(loadMode);
-  const { data, error, at } = useApi("/api/board");
+  // Polled only while the board is the view being read. The nav needs this data
+  // everywhere, so it is still fetched on every view — but the store is read by shelling
+  // out to git, and a poll landing every 5s behind a spec the reader just clicked makes
+  // that spec wait for a board nobody is looking at. Coming back to the board reloads it.
+  const { data, error, at } = useApi("/api/board", { poll: view === "board" });
 
   const chooseMode = (next) => {
     setMode(next);

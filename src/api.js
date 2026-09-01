@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // The store changes when someone runs git, not while the page is open, so polling is
 // enough and there is no socket to keep alive.
@@ -33,10 +33,27 @@ export function useApi(path, { poll = true } = {}) {
     }
   }, [path]);
 
+  // Two effects rather than one, because they answer to different questions. The fetch
+  // belongs to the path: ask once, whenever what is being asked for changes. The timer
+  // belongs to whether anyone is looking: `poll` is toggled as the reader moves between
+  // views, and a single effect made turning it *off* refetch the data being navigated
+  // away from — a second's worth of git the reader is no longer waiting for, landing in
+  // front of the view they actually asked for.
+  const started = useRef(false);
+
   useEffect(() => {
+    started.current = false;
     setState((s) => ({ ...s, loading: true }));
     load();
+  }, [load]);
+
+  useEffect(() => {
     if (!poll) return undefined;
+    // Not on the first run — the effect above has just loaded this path. This is for
+    // polling switched back on, where a reader returning to a view wants it read now
+    // rather than whenever the interval next comes round.
+    if (started.current) load();
+    started.current = true;
 
     const timer = setInterval(load, POLL_MS);
     const onFocus = () => load();
