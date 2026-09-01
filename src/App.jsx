@@ -13,6 +13,7 @@ import {
   SideNavSection,
 } from "@astryxdesign/core/SideNav";
 import { Spinner } from "@astryxdesign/core/Spinner";
+import { Switch } from "@astryxdesign/core/Switch";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
@@ -29,6 +30,7 @@ import {
   leafOf,
 } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
+import { displayName, loadPlainNames, savePlainNames } from "./names.js";
 import { changeState } from "./summary.js";
 import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
@@ -115,10 +117,10 @@ function StoreWarnings({ store }) {
  * find out whether there was anything to click for. What they collapse stays collapsed —
  * TreeList keeps its own overrides over this data.
  */
-function treeItem(node, view, arg) {
+function treeItem(node, view, arg, plain) {
   return {
     id: node.path,
-    label: node.name,
+    label: displayName(node.name, plain),
     isExpanded: true,
     // Every change beneath this namespace, not the rows immediately under it, so a
     // collapsed branch still says how much is in there.
@@ -128,8 +130,8 @@ function treeItem(node, view, arg) {
       </Text>
     ),
     children: [
-      ...node.items.map((change) => changeItem(node, change, view, arg)),
-      ...node.children.map((child) => treeItem(child, view, arg)),
+      ...node.items.map((change) => changeItem(node, change, view, arg, plain)),
+      ...node.children.map((child) => treeItem(child, view, arg, plain)),
     ],
   };
 }
@@ -142,12 +144,12 @@ function treeItem(node, view, arg) {
  * The id carries the namespace because a change that deltas two of them is a row under
  * each, and TreeList tracks a row by its id.
  */
-function changeItem(node, change, view, arg) {
+function changeItem(node, change, view, arg, plain) {
   const state = changeState(change);
 
   return {
     id: `${node.path}/${change.id}`,
-    label: change.id,
+    label: displayName(change.id, plain),
     href: href("change", change.id),
     isSelected: view === "change" && arg === change.id,
     endContent: (
@@ -174,10 +176,10 @@ function changeItem(node, change, view, arg) {
  * would bury the working set under the finished one. Closed, it is one row per product,
  * which is the map. Reading a spec opens the branch that holds it and nothing else.
  */
-function specTreeItem(node, open) {
+function specTreeItem(node, open, plain) {
   return {
     id: `spec:${node.path}`,
-    label: node.name,
+    label: displayName(node.name, plain),
     isExpanded: open === node.path || open.startsWith(`${node.path}/`),
     endContent: (
       <Text size="sm" color="secondary" hasTabularNumbers>
@@ -185,8 +187,8 @@ function specTreeItem(node, open) {
       </Text>
     ),
     children: [
-      ...node.items.map((cap) => specItem(cap, open)),
-      ...node.children.map((child) => specTreeItem(child, open)),
+      ...node.items.map((cap) => specItem(cap, open, plain)),
+      ...node.children.map((child) => specTreeItem(child, open, plain)),
     ],
   };
 }
@@ -199,12 +201,12 @@ function specTreeItem(node, open) {
  * quarters of this tree is that, and a dot on every row would make the ones that need an
  * answer disappear into it. Same vocabulary as the index page's flags.
  */
-function specItem(cap, open) {
+function specItem(cap, open, plain) {
   const flag = capabilityFlag(cap);
 
   return {
     id: `spec:${cap.capability}`,
-    label: leafOf(cap.capability),
+    label: displayName(leafOf(cap.capability), plain),
     href: href("spec", cap.capability),
     isSelected: open === cap.capability,
     endContent: flag ? (
@@ -217,7 +219,16 @@ function specItem(cap, open) {
   };
 }
 
-function Nav({ view, arg, changes, specs, mode, onMode }) {
+function Nav({
+  view,
+  arg,
+  changes,
+  specs,
+  mode,
+  onMode,
+  plainNames,
+  onPlainNames,
+}) {
   return (
     <SideNav
       // Wide enough for the tree it holds: a change id under three levels of namespace
@@ -248,6 +259,14 @@ function Nav({ view, arg, changes, specs, mode, onMode }) {
               />
             ))}
           </SegmentedControl>
+          {/* The ids are what you paste into the CLI, so they are one click away rather
+              than gone: this reads the column as sentences, and turning it off puts the
+              store's own spelling back. */}
+          <Switch
+            label="Names, not ids"
+            value={plainNames}
+            onChange={onPlainNames}
+          />
         </VStack>
       }
       header={
@@ -283,7 +302,7 @@ function Nav({ view, arg, changes, specs, mode, onMode }) {
         <TreeList
           density="compact"
           items={changeTreeByNamespace(changes).map((node) =>
-            treeItem(node, view, arg),
+            treeItem(node, view, arg, plainNames),
           )}
         />
       </SideNavSection>
@@ -296,7 +315,8 @@ function Nav({ view, arg, changes, specs, mode, onMode }) {
           <TreeList
             density="compact"
             items={capabilityTreeByNamespace(specs.filter(isCurrent)).map(
-              (node) => specTreeItem(node, view === "spec" ? arg : ""),
+              (node) =>
+                specTreeItem(node, view === "spec" ? arg : "", plainNames),
             )}
           />
         </SideNavSection>
@@ -308,6 +328,7 @@ function Nav({ view, arg, changes, specs, mode, onMode }) {
 export default function App() {
   const { view, arg } = useRoute();
   const [mode, setMode] = useState(loadMode);
+  const [plainNames, setPlainNames] = useState(loadPlainNames);
   // Polled only while the board is the view being read. The nav needs this data
   // everywhere, so it is still fetched on every view — but the store is read by shelling
   // out to git, and a poll landing every 5s behind a spec the reader just clicked makes
@@ -321,6 +342,11 @@ export default function App() {
   const chooseMode = (next) => {
     setMode(next);
     saveMode(next);
+  };
+
+  const choosePlainNames = (next) => {
+    setPlainNames(next);
+    savePlainNames(next);
   };
 
   // Everything renders inside <Theme>: it applies the root class the design tokens hang
@@ -367,6 +393,8 @@ export default function App() {
             changes={data.changes}
             mode={mode}
             onMode={chooseMode}
+            plainNames={plainNames}
+            onPlainNames={choosePlainNames}
           />
         }
         banner={
