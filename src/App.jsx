@@ -21,7 +21,12 @@ import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
-import { changeTreeByNamespace } from "./capabilities.js";
+import {
+  capabilityFlag,
+  capabilityTreeByNamespace,
+  changeTreeByNamespace,
+  leafOf,
+} from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
 import { changeState } from "./summary.js";
 import { iso } from "./time.js";
@@ -122,7 +127,7 @@ function treeItem(node, view, arg) {
       </Text>
     ),
     children: [
-      ...node.changes.map((change) => changeItem(node, change, view, arg)),
+      ...node.items.map((change) => changeItem(node, change, view, arg)),
       ...node.children.map((child) => treeItem(child, view, arg)),
     ],
   };
@@ -159,7 +164,59 @@ function changeItem(node, change, view, arg) {
   };
 }
 
-function Nav({ view, arg, changes, mode, onMode }) {
+/**
+ * The capability tree, built the same way — but opening closed, and only as far as it has
+ * to.
+ *
+ * A store has a few changes in flight and every capability it has ever shipped, so the
+ * two trees are different sizes by a factor of five or so: expanding this one on arrival
+ * would bury the working set under the finished one. Closed, it is one row per product,
+ * which is the map. Reading a spec opens the branch that holds it and nothing else.
+ */
+function specTreeItem(node, open) {
+  return {
+    id: `spec:${node.path}`,
+    label: node.name,
+    isExpanded: open === node.path || open.startsWith(`${node.path}/`),
+    endContent: (
+      <Text size="sm" color="secondary" hasTabularNumbers>
+        {node.count}
+      </Text>
+    ),
+    children: [
+      ...node.items.map((cap) => specItem(cap, open)),
+      ...node.children.map((child) => specTreeItem(child, open)),
+    ],
+  };
+}
+
+/**
+ * One capability: its name without the namespace the rows above already say, and a dot
+ * only when there is something to say about it.
+ *
+ * A shipped capability nobody is rewriting gets nothing, which is the point — three
+ * quarters of this tree is that, and a dot on every row would make the ones that need an
+ * answer disappear into it. Same vocabulary as the index page's flags.
+ */
+function specItem(cap, open) {
+  const flag = capabilityFlag(cap);
+
+  return {
+    id: `spec:${cap.capability}`,
+    label: leafOf(cap.capability),
+    href: href("spec", cap.capability),
+    isSelected: open === cap.capability,
+    endContent: flag ? (
+      <StatusDot
+        variant={flag.variant}
+        label={flag.label}
+        tooltip={flag.label}
+      />
+    ) : undefined,
+  };
+}
+
+function Nav({ view, arg, changes, specs, mode, onMode }) {
   return (
     <SideNav
       // Wide enough for the tree it holds: a change id under three levels of namespace
@@ -229,6 +286,20 @@ function Nav({ view, arg, changes, mode, onMode }) {
           )}
         />
       </SideNavSection>
+
+      {/* The same tree over what the store has already shipped. Not rendered until the
+          catalogue arrives, because a titled section with nothing under it reads as a
+          store with no capabilities rather than as one still loading. */}
+      {specs.length > 0 && (
+        <SideNavSection title="Production" className="nav-section">
+          <TreeList
+            density="compact"
+            items={capabilityTreeByNamespace(specs).map((node) =>
+              specTreeItem(node, view === "spec" ? arg : ""),
+            )}
+          />
+        </SideNavSection>
+      )}
     </SideNav>
   );
 }
@@ -241,6 +312,10 @@ export default function App() {
   // out to git, and a poll landing every 5s behind a spec the reader just clicked makes
   // that spec wait for a board nobody is looking at. Coming back to the board reloads it.
   const { data, error, at } = useApi("/api/board", { poll: view === "board" });
+  // The catalogue behind the nav's Production tree. Never polled: a capability arrives
+  // when a change is archived, which is not something that happens while you are looking
+  // at the page — and the index view asks for it again when it opens.
+  const { data: catalog } = useApi("/api/specs", { poll: false });
 
   const chooseMode = (next) => {
     setMode(next);
@@ -285,6 +360,7 @@ export default function App() {
         contentPadding={5}
         sideNav={
           <Nav
+            specs={catalog?.specs ?? []}
             view={view}
             arg={arg}
             changes={data.changes}

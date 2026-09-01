@@ -11,6 +11,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  capabilityFlag,
+  capabilityTreeByNamespace,
   changeTreeByNamespace,
   groupByNamespace,
   leafOf,
@@ -172,7 +174,7 @@ describe("changeTreeByNamespace", () => {
     nodes.map((n) => [
       n.name,
       n.count,
-      n.changes.map((c) => c.id),
+      n.items.map((c) => c.id),
       shape(n.children),
     ]);
 
@@ -259,7 +261,7 @@ describe("changeTreeByNamespace", () => {
         "checkout/order-listing",
       ]),
     ]);
-    assert.equal(checkout.changes.length, 1);
+    assert.equal(checkout.items.length, 1);
     assert.equal(checkout.count, 1);
   });
 
@@ -304,12 +306,138 @@ describe("changeTreeByNamespace", () => {
       change("add-payments", ["storefront/payments"]),
     ]);
     assert.deepEqual(
-      node.changes.map((c) => c.id),
+      node.items.map((c) => c.id),
       ["add-payments", "revise-pricing"],
     );
   });
 
   it("has nothing to group when no change is in flight", () => {
     assert.deepEqual(changeTreeByNamespace([]), []);
+  });
+});
+
+describe("capabilityTreeByNamespace", () => {
+  const cap = (capability, extra = {}) => ({
+    capability,
+    state: "shipped",
+    inFlight: 0,
+    ...extra,
+  });
+
+  const shape = (nodes) =>
+    nodes.map((n) => [
+      n.name,
+      n.count,
+      n.items.map((c) => c.capability),
+      shape(n.children),
+    ]);
+
+  it("nests a capability under every level of its namespace", () => {
+    assert.deepEqual(
+      shape(
+        capabilityTreeByNamespace([
+          cap("site/auction/listing-page"),
+          cap("site/store/home"),
+        ]),
+      ),
+      [
+        [
+          "site",
+          2,
+          [],
+          [
+            ["auction", 1, ["site/auction/listing-page"], []],
+            ["store", 1, ["site/store/home"], []],
+          ],
+        ],
+      ],
+    );
+  });
+
+  it("keeps a namespace's own capabilities above the namespaces in it", () => {
+    const [shared] = capabilityTreeByNamespace([
+      cap("shared/ui/cart"),
+      cap("shared/money-amounts"),
+    ]);
+    assert.deepEqual(
+      shared.items.map((c) => c.capability),
+      ["shared/money-amounts"],
+    );
+    assert.deepEqual(
+      shared.children.map((c) => c.name),
+      ["ui"],
+    );
+    assert.equal(shared.count, 2);
+  });
+
+  // The same rule the change tree follows: a level holding one namespace and nothing else
+  // says nothing the level under it does not.
+  it("collapses a namespace that only ever holds one other", () => {
+    assert.deepEqual(
+      shape(capabilityTreeByNamespace([cap("site/auction/listing-page")])),
+      [["site/auction", 1, ["site/auction/listing-page"], []]],
+    );
+  });
+
+  it("puts a capability with no namespace under top level, last", () => {
+    const tree = capabilityTreeByNamespace([
+      cap("dates-and-times"),
+      cap("site/store/home"),
+    ]);
+    assert.deepEqual(
+      tree.map((n) => n.name),
+      ["site/store", TOP_LEVEL],
+    );
+  });
+
+  it("has nothing to group in an empty store", () => {
+    assert.deepEqual(capabilityTreeByNamespace([]), []);
+  });
+});
+
+/**
+ * The nav marks a capability only when there is something to say about it — the same
+ * rule the status strip is built on, and the reason three quarters of the tree is quiet.
+ */
+describe("capabilityFlag", () => {
+  const cap = (extra) => ({
+    capability: "a/b",
+    state: "shipped",
+    inFlight: 0,
+    ...extra,
+  });
+
+  it("says nothing about a shipped capability nobody is rewriting", () => {
+    assert.equal(capabilityFlag(cap({})), null);
+  });
+
+  it("marks a capability a change is rewriting", () => {
+    assert.deepEqual(capabilityFlag(cap({ inFlight: 1 })), {
+      variant: "accent",
+      label: "in flight",
+    });
+  });
+
+  // Two changes deltaing one capability is the collision the board warns about.
+  it("counts the changes when more than one is rewriting it", () => {
+    assert.deepEqual(capabilityFlag(cap({ inFlight: 2 })), {
+      variant: "warning",
+      label: "2 in flight",
+    });
+  });
+
+  it("puts the rewrite ahead of the state, since that is what is about to change", () => {
+    assert.equal(
+      capabilityFlag(cap({ state: "unshipped", inFlight: 1 })).label,
+      "in flight",
+    );
+  });
+
+  it("names the states that are not shipped when nothing is in flight", () => {
+    assert.equal(capabilityFlag(cap({ state: "retired" })).label, "retired");
+    assert.equal(
+      capabilityFlag(cap({ state: "unshipped" })).label,
+      "no baseline",
+    );
   });
 });

@@ -84,12 +84,75 @@ export function summarise(caps) {
 export const NO_CAPABILITY = "no capability yet";
 
 /**
- * In-flight changes as the tree their namespaces already describe.
+ * Namespaces nested by their segments, with whatever is filed under each.
  *
  * A namespace is a path — `storefront/checkout`, `shared/ui` — and a flat list of those
  * paths makes a reader do the grouping themselves: everything under one product sorts
  * together only because the strings happen to share a prefix, and nothing says so. The
  * segments are the levels, so this nests them.
+ *
+ * `rows` are `{ namespace, item }` pairs — one item can be filed under two namespaces,
+ * and `idOf` is how the counts tell that from two items.
+ */
+function buildTree(rows, idOf) {
+  const empty = () => ({ children: new Map(), items: [] });
+  const root = empty();
+
+  for (const { namespace, item } of rows) {
+    let at = root;
+    for (const segment of namespace.split("/")) {
+      if (!at.children.has(segment)) at.children.set(segment, empty());
+      at = at.children.get(segment);
+    }
+    at.items.push(item);
+  }
+
+  // Named namespaces first, then the store's cross-cutting conventions, then whatever has
+  // not said where it belongs yet — least settled last, in every sense.
+  const rank = (name) =>
+    name === NO_CAPABILITY ? 2 : name === TOP_LEVEL ? 1 : 0;
+
+  return [...root.children.entries()]
+    .map(([name, node]) => shape(name, name, node, idOf))
+    .sort(
+      (a, b) => rank(a.path) - rank(b.path) || a.name.localeCompare(b.name),
+    );
+}
+
+/**
+ * One namespace node: what it is called, what is filed directly under it, and the
+ * namespaces inside it.
+ *
+ * `ids` is everything in the subtree, which is where `count` comes from — a change under
+ * both `shared/ui` and `shared/design-sync` is one change to `shared`, and adding the
+ * children's counts would say two.
+ */
+function shape(name, path, node, idOf) {
+  // A namespace with nothing of its own and one namespace inside it is one level, not
+  // two: `storefront` alone on a row above a lone `checkout` is a row that says nothing
+  // the row beneath it does not, and it costs a whole level of indent to say it.
+  if (node.items.length === 0 && node.children.size === 1) {
+    const [childName, child] = [...node.children][0];
+    return shape(`${name}/${childName}`, `${path}/${childName}`, child, idOf);
+  }
+
+  const children = [...node.children.entries()]
+    .map(([childName, child]) =>
+      shape(childName, `${path}/${childName}`, child, idOf),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const items = node.items
+    .slice()
+    .sort((a, b) => idOf(a).localeCompare(idOf(b)));
+  const ids = new Set(items.map(idOf));
+  for (const child of children) for (const id of child.ids) ids.add(id);
+
+  return { name, path, items, children, count: ids.size, ids };
+}
+
+/**
+ * In-flight changes as the tree their namespaces already describe.
  *
  * A change that touches two namespaces is listed under both. The nav is for finding a
  * change from the area you have in mind, and a change that rewrites `shared/ui` really is
@@ -101,64 +164,57 @@ export const NO_CAPABILITY = "no capability yet";
  * carries: the nav needs the namespaces, and a namespace is in the path.
  */
 export function changeTreeByNamespace(changes) {
-  const empty = () => ({ children: new Map(), changes: [] });
-  const root = empty();
-
-  const nodeAt = (segments) => {
-    let at = root;
-    for (const segment of segments) {
-      if (!at.children.has(segment)) at.children.set(segment, empty());
-      at = at.children.get(segment);
-    }
-    return at;
-  };
+  const rows = [];
 
   for (const change of changes) {
     const spaces = new Set(
       (change.capabilities ?? []).map((c) => namespaceOf(c) ?? TOP_LEVEL),
     );
-    if (spaces.size === 0) nodeAt([NO_CAPABILITY]).changes.push(change);
-    else for (const ns of spaces) nodeAt(ns.split("/")).changes.push(change);
+    if (spaces.size === 0)
+      rows.push({ namespace: NO_CAPABILITY, item: change });
+    else for (const ns of spaces) rows.push({ namespace: ns, item: change });
   }
 
-  // Named namespaces first, then the store's cross-cutting conventions, then the changes
-  // that have not said what they touch yet — least settled last, in every sense.
-  const rank = (name) =>
-    name === NO_CAPABILITY ? 2 : name === TOP_LEVEL ? 1 : 0;
-
-  return [...root.children.entries()]
-    .map(([name, node]) => shape(name, name, node))
-    .sort(
-      (a, b) => rank(a.path) - rank(b.path) || a.name.localeCompare(b.name),
-    );
+  return buildTree(rows, (change) => change.id);
 }
 
 /**
- * One namespace node: what it is called, the changes filed directly under it, and the
- * namespaces inside it.
+ * The one thing worth marking on a capability, or nothing at all.
  *
- * `ids` is every change in the subtree, which is where `count` comes from — a change
- * under both `shared/ui` and `shared/design-sync` is one change to `shared`, and adding
- * the children's counts would say two.
+ * Most of a store is shipped capabilities nobody is currently rewriting, and a mark on
+ * every one of them would hide the few that need an answer — the same rule the status
+ * strip is built on. So this is null for the quiet case, and otherwise says what the
+ * index page's flags say, in the same words.
+ *
+ * A capability being rewritten outranks the state it is in, because that is the thing
+ * about to change; two changes rewriting it at once is the collision the board warns
+ * about, and it outranks everything.
  */
-function shape(name, path, node) {
-  // A namespace with no changes of its own and one namespace inside it is one level, not
-  // two: `storefront` alone on a row above a lone `checkout` is a row that says nothing
-  // the row beneath it does not, and it costs a whole level of indent to say it.
-  if (node.changes.length === 0 && node.children.size === 1) {
-    const [childName, child] = [...node.children][0];
-    return shape(`${name}/${childName}`, `${path}/${childName}`, child);
-  }
+export function capabilityFlag(cap) {
+  if (cap.inFlight > 1)
+    return { variant: "warning", label: `${cap.inFlight} in flight` };
+  if (cap.inFlight === 1) return { variant: "accent", label: "in flight" };
+  if (cap.state === "retired") return { variant: "neutral", label: "retired" };
+  // No baseline and nothing bringing one in: named by a change that has since archived
+  // without shipping it, or by one that removed it and left the name behind.
+  if (cap.state === "unshipped")
+    return { variant: "neutral", label: "no baseline" };
+  return null;
+}
 
-  const children = [...node.children.entries()]
-    .map(([childName, child]) =>
-      shape(childName, `${path}/${childName}`, child),
-    )
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const changes = node.changes.slice().sort((a, b) => a.id.localeCompare(b.id));
-  const ids = new Set(changes.map((c) => c.id));
-  for (const child of children) for (const id of child.ids) ids.add(id);
-
-  return { name, path, changes, children, count: ids.size, ids };
+/**
+ * The capability catalogue as the same tree, so the nav reads one way throughout.
+ *
+ * The index page keeps the flat namespace bands: it is a page for comparing capabilities
+ * across a namespace, and a band with every row under it does that better than a tree
+ * does. The nav is for reaching one of them, which is what a tree is for.
+ */
+export function capabilityTreeByNamespace(caps) {
+  return buildTree(
+    caps.map((cap) => ({
+      namespace: namespaceOf(cap.capability) ?? TOP_LEVEL,
+      item: cap,
+    })),
+    (cap) => cap.capability,
+  );
 }
