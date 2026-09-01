@@ -162,6 +162,17 @@ function changeItem(node, change, view, arg) {
 function Nav({ view, arg, changes, mode, onMode }) {
   return (
     <SideNav
+      // Wide enough for the tree it holds: a change id under three levels of namespace
+      // wrapped to three lines at the default 260, and a nav that wraps is a nav you read
+      // rather than scan. Draggable from there because how much of it you want is a
+      // property of your screen and what you are doing, and remembered per browser for
+      // the same reason the appearance is.
+      resizable={{
+        defaultWidth: 340,
+        minWidth: 240,
+        maxWidth: 620,
+        autoSaveId: "openspec-viewer.nav-width",
+      }}
       footer={
         <VStack gap={1} padding={3}>
           <SegmentedControl
