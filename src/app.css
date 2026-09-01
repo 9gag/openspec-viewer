@@ -218,7 +218,7 @@ body {
 }
 
 /*
- * The capability index: a namespace heading, then a line per capability.
+ * The capability index: nested namespace headings, then a line per capability.
  *
  * Astryx has no row or section-heading primitive, so both are here — layout, not design:
  * every colour, size and weight in these rules is a theme token or comes from the Astryx
@@ -235,11 +235,40 @@ body {
 .cap-list {
   display: flex;
   flex-direction: column;
-  gap: 26px;
-  /* A row is a name against three short data columns and two buttons — none of which grow.
+  gap: 30px;
+  /* A row is a name against three short data columns and a button — none of which grow.
      Any wider and the extra all lands in the name column as a gap between a capability and
      its own counts, which is the reader's eye doing work for nothing. */
   max-width: 52rem;
+}
+
+.cap-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/*
+ * What is inside a namespace sits inside it, against a rule down the level it belongs to —
+ * the same language the nav's tree uses for the same structure, so the grouping a reader
+ * learned in one place is the grouping they read in the other. The indent is deliberately
+ * small: a store nests three deep, and 24px a level would push the deepest names into the
+ * data columns beside them.
+ */
+.cap-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.cap-rows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .cap-ns {

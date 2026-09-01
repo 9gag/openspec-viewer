@@ -26,40 +26,6 @@ export function leafOf(capability) {
 }
 
 /**
- * Capabilities grouped for reading: named namespaces alphabetically, then the ones with
- * no namespace at all.
- *
- * Those go last and under a name of the viewer's own, because they are the store's
- * cross-cutting conventions rather than a domain — `date-formats` belongs to
- * everything. When they are the only thing in the store there is no grouping left to
- * describe, so `titled` goes false and the heading comes off: a single header over the
- * whole page names nothing a reader cannot already see.
- */
-export function groupByNamespace(caps) {
-  const by = new Map();
-
-  for (const cap of caps) {
-    const key = namespaceOf(cap.capability) ?? TOP_LEVEL;
-    if (!by.has(key)) by.set(key, []);
-    by.get(key).push(cap);
-  }
-
-  const named = [...by.keys()]
-    .filter((k) => k !== TOP_LEVEL)
-    .sort((a, b) => a.localeCompare(b));
-  const order = by.has(TOP_LEVEL) ? [...named, TOP_LEVEL] : named;
-
-  return order.map((name) => ({
-    name,
-    titled: named.length > 0,
-    caps: by
-      .get(name)
-      .slice()
-      .sort((a, b) => leafOf(a.capability).localeCompare(leafOf(b.capability))),
-  }));
-}
-
-/**
  * What the store holds, in one line above the list.
  *
  * Zero is omitted rather than shown, so the line only ever names states the store is

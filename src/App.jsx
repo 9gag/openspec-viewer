@@ -414,7 +414,7 @@ export default function App() {
 
           {view === "board" && <Board board={data} />}
           {view === "change" && <ChangeDetail id={arg} />}
-          {view === "specs" && <Specs />}
+          {view === "specs" && <Specs plainNames={plainNames} />}
           {view === "spec" && <SpecDetail id={arg} />}
           {view === "archive" && <Archive />}
           {/* No nav entry: a store document is reached by following a link out of an

@@ -14,7 +14,6 @@ import {
   capabilityFlag,
   capabilityTreeByNamespace,
   changeTreeByNamespace,
-  groupByNamespace,
   isCurrent,
   leafOf,
   namespaceOf,
@@ -30,9 +29,6 @@ const cap = (capability, extra = {}) => ({
   inFlight: 0,
   ...extra,
 });
-
-const names = (groups) =>
-  groups.map((g) => [g.name, g.caps.map((c) => c.capability)]);
 
 describe("namespaceOf", () => {
   it("is everything before the last slash", () => {
@@ -59,79 +55,6 @@ describe("leafOf", () => {
 
   it("is the whole name when there is no namespace", () => {
     assert.equal(leafOf("date-formats"), "date-formats");
-  });
-});
-
-describe("groupByNamespace", () => {
-  it("collects a namespace and sorts its rows by the leaf", () => {
-    assert.deepEqual(
-      names(groupByNamespace([cap("shared-ui/home"), cap("shared-ui/cart")])),
-      [["shared-ui", ["shared-ui/cart", "shared-ui/home"]]],
-    );
-  });
-
-  it("orders named namespaces alphabetically", () => {
-    const groups = groupByNamespace([
-      cap("shared-ui/cart"),
-      cap("admin/user-directory"),
-      cap("storefront/home"),
-    ]);
-    assert.deepEqual(
-      groups.map((g) => g.name),
-      ["admin", "shared-ui", "storefront"],
-    );
-  });
-
-  // A cross-cutting convention belongs to everything, so it reads last rather than
-  // sorting into the middle of the domains under some letter.
-  it("puts capabilities with no namespace last", () => {
-    const groups = groupByNamespace([
-      cap("date-formats"),
-      cap("shared-ui/cart"),
-      cap("admin/user-directory"),
-    ]);
-    assert.deepEqual(
-      groups.map((g) => g.name),
-      ["admin", "shared-ui", TOP_LEVEL],
-    );
-  });
-
-  it("titles every group when the store namespaces anything at all", () => {
-    const groups = groupByNamespace([
-      cap("date-formats"),
-      cap("shared-ui/cart"),
-    ]);
-    assert.deepEqual(
-      groups.map((g) => g.titled),
-      [true, true],
-    );
-  });
-
-  // One heading over the whole page labels the page, not a group within it.
-  it("drops the heading when nothing in the store is namespaced", () => {
-    const groups = groupByNamespace([
-      cap("money-formats"),
-      cap("date-formats"),
-    ]);
-    assert.equal(groups.length, 1);
-    assert.equal(groups[0].titled, false);
-    assert.deepEqual(
-      groups[0].caps.map((c) => c.capability),
-      ["date-formats", "money-formats"],
-    );
-  });
-
-  it("has nothing to group in an empty store", () => {
-    assert.deepEqual(groupByNamespace([]), []);
-  });
-
-  it("leaves the list it was given alone", () => {
-    const caps = [cap("shared-ui/home"), cap("shared-ui/stock-alerts")];
-    groupByNamespace(caps);
-    assert.deepEqual(
-      caps.map((c) => c.capability),
-      ["shared-ui/home", "shared-ui/stock-alerts"],
-    );
   });
 });
 

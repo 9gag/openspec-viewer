@@ -12,8 +12,9 @@ import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { href, useApi } from "../api.js";
+import { displayName } from "../names.js";
 import {
-  groupByNamespace,
+  capabilityTreeByNamespace,
   leafOf,
   summarise,
   TOP_LEVEL,
@@ -56,7 +57,7 @@ const STATE_WORD = {
  * The changed-by timeline is deliberately not here. It is the same list on every row, two
  * to seven lines apiece, and `spec/<id>` shows more of it than this page ever did.
  */
-export function Specs() {
+export function Specs({ plainNames }) {
   const { data, error, loading } = useApi("/api/specs", { poll: false });
 
   // Which row's changes are open: the capability by name, and the button it was opened
@@ -85,7 +86,10 @@ export function Specs() {
     );
   }
 
-  const groups = groupByNamespace(data.specs);
+  const tree = capabilityTreeByNamespace(data.specs);
+  // One heading over the whole page would label the page rather than a group inside it:
+  // a store that namespaces nothing has one namespace, and it is not worth naming.
+  const bare = tree.length === 1 && tree[0].path === TOP_LEVEL;
   // A capability can leave the store between reads; the panel closes rather than holding a
   // name nothing answers to.
   const showing = opened
@@ -100,14 +104,25 @@ export function Specs() {
       </VStack>
 
       <div className="cap-list">
-        {groups.map((group) => (
-          <Namespace
-            key={group.name}
-            group={group}
+        {bare ? (
+          <Rows
+            caps={tree[0].items}
+            plainNames={plainNames}
             opened={opened?.capability ?? null}
             onOpen={setOpened}
           />
-        ))}
+        ) : (
+          tree.map((node) => (
+            <Namespace
+              key={node.path}
+              node={node}
+              depth={0}
+              plainNames={plainNames}
+              opened={opened?.capability ?? null}
+              onOpen={setOpened}
+            />
+          ))
+        )}
       </div>
 
       {showing && (
@@ -149,39 +164,73 @@ function Summary({ counts }) {
 }
 
 /**
- * One namespace and its capabilities.
+ * One namespace, what is filed directly under it, and the namespaces inside it.
  *
- * The heading comes off entirely when nothing in the store is namespaced — a single
- * "top level" over the whole page would label the page, not a group within it.
+ * Recursive, because the store's namespaces are: `storefront/checkout` is two levels, and
+ * a page that lists it as one string makes the reader do the grouping — everything under a
+ * product sorts together only because the paths happen to share a prefix, and nothing on
+ * the page says so. Nested, the product is a heading and its domains are inside it.
+ *
+ * The count is everything beneath the namespace rather than the rows directly under it,
+ * which is what makes a product's heading worth reading on its own.
  */
-function Namespace({ group, opened, onOpen }) {
+function Namespace({ node, depth, plainNames, opened, onOpen }) {
   return (
-    <section>
-      {group.titled && (
-        <div className="cap-ns">
-          <Text
-            weight="semibold"
-            className={group.name === TOP_LEVEL ? undefined : "mono"}
-          >
-            {group.name}
-          </Text>
-          <Badge variant="neutral" label={String(group.caps.length)} />
-          {/* Runs the heading out to the edge, so the group reads as a band rather than a
-              line of text floating above a list. */}
-          <span className="cap-ns-rule" aria-hidden="true" />
-        </div>
-      )}
-      <div>
-        {group.caps.map((cap) => (
-          <Row
-            key={cap.capability}
-            cap={cap}
-            isOpen={cap.capability === opened}
+    <section className="cap-group">
+      <div className="cap-ns">
+        <Text
+          weight="semibold"
+          size={depth === 0 ? undefined : "sm"}
+          // Ids are paths and read as paths everywhere else in the app; the sentence the
+          // name toggle puts here is prose, and monospacing prose only makes it narrow.
+          className={plainNames ? undefined : "mono"}
+        >
+          {displayName(node.name, plainNames)}
+        </Text>
+        <Badge variant="neutral" label={String(node.count)} />
+        {/* Runs the heading out to the edge, so the group reads as a band rather than a
+            line of text floating above a list. */}
+        <span className="cap-ns-rule" aria-hidden="true" />
+      </div>
+
+      <div className="cap-group-body">
+        {node.items.length > 0 && (
+          <Rows
+            caps={node.items}
+            plainNames={plainNames}
+            opened={opened}
+            onOpen={onOpen}
+          />
+        )}
+        {node.children.map((child) => (
+          <Namespace
+            key={child.path}
+            node={child}
+            depth={depth + 1}
+            plainNames={plainNames}
+            opened={opened}
             onOpen={onOpen}
           />
         ))}
       </div>
     </section>
+  );
+}
+
+/** The capabilities filed directly under one namespace. */
+function Rows({ caps, plainNames, opened, onOpen }) {
+  return (
+    <div className="cap-rows">
+      {caps.map((cap) => (
+        <Row
+          key={cap.capability}
+          cap={cap}
+          plainNames={plainNames}
+          isOpen={cap.capability === opened}
+          onOpen={onOpen}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -193,7 +242,7 @@ function Namespace({ group, opened, onOpen }) {
  * actions are their own buttons. Nothing marks a quiet shipped row, so the only colour on
  * the page is on the rows that need an answer.
  */
-function Row({ cap, isOpen, onOpen }) {
+function Row({ cap, plainNames, isOpen, onOpen }) {
   return (
     <div className="cap-row" data-open={isOpen ? "" : undefined}>
       {/* Still a link, but carrying the type it had as plain text: fifty-one names in link
@@ -206,7 +255,7 @@ function Row({ cap, isOpen, onOpen }) {
         weight="medium"
         color="primary"
       >
-        {leafOf(cap.capability)}
+        {displayName(leafOf(cap.capability), plainNames)}
       </Link>
 
       <Text size="sm" color="secondary" hasTabularNumbers>
@@ -242,16 +291,9 @@ function Row({ cap, isOpen, onOpen }) {
       </span>
 
       <span className="cap-row-actions">
-        {/* A capability with no baseline still opens: that page says why there is nothing
-            to read and points at the change bringing it in. */}
-        <Button
-          size="sm"
-          variant="ghost"
-          label={`View latest ${cap.capability}`}
-          href={href("spec", cap.capability)}
-        >
-          View latest
-        </Button>
+        {/* One button, not two. The other said "View latest" and went where the row's own
+            name already goes — on a page of fifty rows that is fifty controls that do
+            nothing new, in the column the eye follows down the page. */}
         {/* The button is the panel's anchor: it opens beside the row that asked, and the
             panel keeps itself on screen from there. */}
         <Button
@@ -268,7 +310,7 @@ function Row({ cap, isOpen, onOpen }) {
             )
           }
         >
-          View changes
+          Changes
         </Button>
       </span>
     </div>
