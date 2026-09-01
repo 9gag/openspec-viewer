@@ -287,23 +287,6 @@ function Nav({
           size="sm"
           isSelected={view === "board"}
         />
-        {/* Changes in flight, under a row of their own rather than a section heading —
-            the same shape as Production below it, since they are the same kind of thing:
-            a tree of the store's namespaces. No link on this one, because the page for
-            what is in flight is the board directly above it. */}
-        <SideNavItem
-          label="In flight"
-          size="sm"
-          collapsible={{ defaultIsCollapsed: false }}
-        >
-          <TreeList
-            className="nav-tree"
-            density="compact"
-            items={changeTreeByNamespace(changes).map((node) =>
-              treeItem(node, view, arg, plainNames),
-            )}
-          />
-        </SideNavItem>
         {/* The index page and the tree of what is in it are one thing, so they are one
             row: the label goes to the page, the chevron opens the tree under it. Two
             entries called Production, one a link and one a heading, was the reader being
@@ -326,6 +309,23 @@ function Nav({
               )}
             />
           )}
+        </SideNavItem>
+        {/* Changes in flight, under a row of their own rather than a section heading —
+            the same shape as Production above it, since they are the same kind of thing:
+            a tree of the store's namespaces. No link on this one, because the page for
+            what is in flight is the board directly above it. */}
+        <SideNavItem
+          label="In flight"
+          size="sm"
+          collapsible={{ defaultIsCollapsed: false }}
+        >
+          <TreeList
+            className="nav-tree"
+            density="compact"
+            items={changeTreeByNamespace(changes).map((node) =>
+              treeItem(node, view, arg, plainNames),
+            )}
+          />
         </SideNavItem>
         <SideNavItem
           href={href("archive")}
