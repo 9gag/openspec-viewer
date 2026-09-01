@@ -157,6 +157,11 @@ export function collisions(storePath, changeIds) {
  * `withText` off by default: the index needs counts and provenance, and sending every
  * spec body to render a list of names is the difference between a page and a payload.
  *
+ * `only` narrows the result to one capability. The walk that finds which changes touched
+ * what still runs — a capability's history is spread across every change in the store, so
+ * there is nowhere smaller to look — but the per-capability work behind it, reading the
+ * spec and counting what is in it, is then done once instead of ninety times.
+ *
  * Two things this fixes. `openspec/specs/` only contains capabilities that have *shipped*,
  * so a catalogue built from it alone silently omits everything in flight — on this store
  * that is two of the three capabilities. And nothing anywhere answers the question you
@@ -164,7 +169,7 @@ export function collisions(storePath, changeIds) {
  * change it. Both directions of that link already exist in the tree; only the index was
  * missing.
  */
-export function capabilityCatalog({ withText = false } = {}) {
+export function capabilityCatalog({ withText = false, only = null } = {}) {
   const root = resolveRoot();
   const touched = new Map();
 
@@ -195,8 +200,9 @@ export function capabilityCatalog({ withText = false } = {}) {
 
   const shipped = specDirs(join(root.path, "openspec", "specs"));
   const all = [...new Set([...shipped, ...touched.keys()])].sort();
+  const wanted = only === null ? all : all.filter((cap) => cap === only);
 
-  return all.map((cap) => {
+  return wanted.map((cap) => {
     const rel = `openspec/specs/${cap}/spec.md`;
     const text = shipped.includes(cap)
       ? (read(join(root.path, rel)) ?? "")
@@ -265,8 +271,5 @@ export function archive() {
 
 /** One capability, with its baseline text. Null when the store has never heard of it. */
 export function capability(name) {
-  return (
-    capabilityCatalog({ withText: true }).find((c) => c.capability === name) ??
-    null
-  );
+  return capabilityCatalog({ withText: true, only: name })[0] ?? null;
 }
