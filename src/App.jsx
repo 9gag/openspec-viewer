@@ -16,6 +16,7 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
+import { TreeList } from "@astryxdesign/core/TreeList";
 import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { useState } from "react";
@@ -96,69 +97,66 @@ function StoreWarnings({ store }) {
 }
 
 /**
- * One change in the nav: where to find it, how far along it is, and the one thing about
- * it that might need a person — see `changeState`. It is the only thing in this column
- * that reports rather than links.
+ * The namespace tree as TreeList data.
+ *
+ * Recursive because the tree is: `storefront/checkout` is two levels wherever the store
+ * puts a third, and TreeList draws the guide lines and the indent from the nesting it is
+ * handed. A namespace's own changes come before the namespaces inside it — they belong to
+ * the row above them, and pushing them under an expanded subtree would separate them
+ * from it.
+ *
+ * Expanded by default at every level: a nav that opens closed makes a reader click to
+ * find out whether there was anything to click for. What they collapse stays collapsed —
+ * TreeList keeps its own overrides over this data.
  */
-function ChangeItem({ change, isSelected }) {
-  const state = changeState(change);
-
-  return (
-    <SideNavItem
-      href={href("change", change.id)}
-      label={change.id}
-      isSelected={isSelected}
-      endContent={
-        <HStack gap={2} align="center">
-          <Text size="sm" color="secondary" hasTabularNumbers>
-            {change.done}/{change.total}
-          </Text>
-          <StatusDot
-            variant={state.variant}
-            label={state.label}
-            tooltip={state.label}
-          />
-        </HStack>
-      }
-    />
-  );
+function treeItem(node, view, arg) {
+  return {
+    id: node.path,
+    label: node.name,
+    isExpanded: true,
+    // Every change beneath this namespace, not the rows immediately under it, so a
+    // collapsed branch still says how much is in there.
+    endContent: (
+      <Text size="sm" color="secondary" hasTabularNumbers>
+        {node.count}
+      </Text>
+    ),
+    children: [
+      ...node.changes.map((change) => changeItem(node, change, view, arg)),
+      ...node.children.map((child) => treeItem(child, view, arg)),
+    ],
+  };
 }
 
 /**
- * One namespace and everything under it, however deep the store nests them.
+ * One change in the nav: where to find it, how far along it is, and the one thing about
+ * it that might need a person — see `changeState`. The dot is the only thing in this
+ * column that reports rather than links.
  *
- * Recursive because the tree is: `storefront/checkout` is two levels wherever the store
- * puts a third. Its own changes come before the namespaces inside it — they belong to the
- * row above them, and pushing them under an expanded subtree would separate them from it.
- *
- * The count is every change beneath this namespace, not the rows immediately under it, so
- * a collapsed branch still says how much is in there.
+ * The id carries the namespace because a change that deltas two of them is a row under
+ * each, and TreeList tracks a row by its id.
  */
-function Namespace({ node, view, arg }) {
-  return (
-    <SideNavItem
-      label={node.name}
-      collapsible={{ defaultIsCollapsed: false }}
-      endContent={
+function changeItem(node, change, view, arg) {
+  const state = changeState(change);
+
+  return {
+    id: `${node.path}/${change.id}`,
+    label: change.id,
+    href: href("change", change.id),
+    isSelected: view === "change" && arg === change.id,
+    endContent: (
+      <HStack gap={2} align="center">
         <Text size="sm" color="secondary" hasTabularNumbers>
-          {node.count}
+          {change.done}/{change.total}
         </Text>
-      }
-    >
-      <VStack gap={0.5}>
-        {node.changes.map((change) => (
-          <ChangeItem
-            key={change.id}
-            change={change}
-            isSelected={view === "change" && arg === change.id}
-          />
-        ))}
-        {node.children.map((child) => (
-          <Namespace key={child.path} node={child} view={view} arg={arg} />
-        ))}
-      </VStack>
-    </SideNavItem>
-  );
+        <StatusDot
+          variant={state.variant}
+          label={state.label}
+          tooltip={state.label}
+        />
+      </HStack>
+    ),
+  };
 }
 
 function Nav({ view, arg, changes, mode, onMode }) {
@@ -213,9 +211,12 @@ function Nav({ view, arg, changes, mode, onMode }) {
           is inside it, so a product nobody is working in today folds away in one click
           and the disclosure is what says the level is there at all. */}
       <SideNavSection title="In flight" className="nav-section">
-        {changeTreeByNamespace(changes).map((node) => (
-          <Namespace key={node.path} node={node} view={view} arg={arg} />
-        ))}
+        <TreeList
+          density="compact"
+          items={changeTreeByNamespace(changes).map((node) =>
+            treeItem(node, view, arg),
+          )}
+        />
       </SideNavSection>
     </SideNav>
   );
