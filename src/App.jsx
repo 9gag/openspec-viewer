@@ -284,6 +284,7 @@ function Nav({
         <SideNavItem
           href={href("board")}
           label="Board"
+          size="sm"
           isSelected={view === "board"}
         />
         {/* The index page and the tree of what is in it are one thing, so they are one
@@ -294,6 +295,7 @@ function Nav({
         <SideNavItem
           href={href("specs")}
           label="Production"
+          size="sm"
           isSelected={view === "specs"}
           collapsible={hasSpecs ? { defaultIsCollapsed: false } : undefined}
         >
@@ -310,6 +312,7 @@ function Nav({
         <SideNavItem
           href={href("archive")}
           label="Shipped changes"
+          size="sm"
           isSelected={view === "archive"}
         />
       </SideNavSection>
