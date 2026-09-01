@@ -229,6 +229,10 @@ function Nav({
   plainNames,
   onPlainNames,
 }) {
+  // Nothing to hang under Production until the catalogue arrives: an empty disclosure
+  // reads as a store with no capabilities rather than as one still loading.
+  const hasSpecs = specs.some(isCurrent);
+
   return (
     <SideNav
       // Wide enough for the tree it holds: a change id under three levels of namespace
@@ -282,11 +286,27 @@ function Nav({
           label="Board"
           isSelected={view === "board"}
         />
+        {/* The index page and the tree of what is in it are one thing, so they are one
+            row: the label goes to the page, the chevron opens the tree under it. Two
+            entries called Production, one a link and one a heading, was the reader being
+            asked to work out that they were the same. `isSelected` is the page only —
+            when a spec is open the row for it inside the tree is the one to mark. */}
         <SideNavItem
           href={href("specs")}
           label="Production"
-          isSelected={view === "specs" || view === "spec"}
-        />
+          isSelected={view === "specs"}
+          collapsible={hasSpecs ? { defaultIsCollapsed: false } : undefined}
+        >
+          {hasSpecs && (
+            <TreeList
+              density="compact"
+              items={capabilityTreeByNamespace(specs.filter(isCurrent)).map(
+                (node) =>
+                  specTreeItem(node, view === "spec" ? arg : "", plainNames),
+              )}
+            />
+          )}
+        </SideNavItem>
         <SideNavItem
           href={href("archive")}
           label="Shipped changes"
@@ -306,21 +326,6 @@ function Nav({
           )}
         />
       </SideNavSection>
-
-      {/* The same tree over what the store has already shipped. Not rendered until the
-          catalogue arrives, because a titled section with nothing under it reads as a
-          store with no capabilities rather than as one still loading. */}
-      {specs.some(isCurrent) && (
-        <SideNavSection title="Production" className="nav-section">
-          <TreeList
-            density="compact"
-            items={capabilityTreeByNamespace(specs.filter(isCurrent)).map(
-              (node) =>
-                specTreeItem(node, view === "spec" ? arg : "", plainNames),
-            )}
-          />
-        </SideNavSection>
-      )}
     </SideNav>
   );
 }
