@@ -150,6 +150,38 @@ body {
 }
 
 /*
+ * A journey's "Accepted by" list: references to scenarios defined further down the page.
+ *
+ * Rows rather than bullets, because each one opens. The id keeps the monospace it has
+ * everywhere else on this page, so a reference and the heading it resolves to read as the
+ * same thing seen twice; the row is a button, so it gets the left alignment a button does
+ * not have by default.
+ */
+.refs {
+  padding-block: 4px;
+}
+
+.ref {
+  display: inline-flex;
+  align-items: baseline;
+  text-align: start;
+}
+
+/* The chevron Collapsible draws sits against the id, not the indent of the list that is
+   no longer there. */
+.ref-row button {
+  padding-inline: 0;
+}
+
+/* The scenario itself, under the reference that named it — against the same guide line a
+   scenario carries under its requirement, because it is the same relationship. */
+.ref-body {
+  padding-inline-start: 14px;
+  border-inline-start: 1px solid var(--color-border);
+  padding-block-end: 6px;
+}
+
+/*
  * Document + "On this page" rail. Below 1100px the rail is dropped rather than stacked
  * above the content: a table of contents you have to scroll past to reach the thing it
  * indexes is worse than no table of contents.

@@ -18,6 +18,7 @@ import {
   parseSpec,
   scenarioAnchor,
   scenarioCount,
+  scenarioIndex,
   scenarioName,
 } from "../src/spec.js";
 
@@ -119,6 +120,51 @@ describe("scenarioName", () => {
       id: null,
       title: "Operator saves an empty draft",
     });
+  });
+});
+
+describe("scenarioIndex", () => {
+  const index = scenarioIndex(parseSpec(SPEC), "thing");
+
+  it("finds a scenario by the id a reference would name it with", () => {
+    assert.equal(index.get("thing-sc-01").title, "It does the thing");
+    assert.match(index.get("thing-sc-01").text, /- \*\*WHEN\*\* asked/);
+  });
+
+  it("is case-insensitive, since a reference is written by hand", () => {
+    assert.equal(index.get("thing-sc-02").title, "It refuses otherwise");
+    assert.equal(index.get("THING-SC-02"), undefined, "keys are lowercased");
+  });
+
+  it("carries the requirement a scenario checks, which the reference cannot say", () => {
+    assert.equal(index.get("thing-sc-01").requirement, "The first rule");
+  });
+
+  it("carries the anchor, so a reference and the heading agree on one address", () => {
+    assert.equal(
+      index.get("thing-sc-01").anchor,
+      scenarioAnchor({ id: "thing-SC-01" }, "thing"),
+    );
+  });
+
+  it("holds nothing for a scenario written without an id", () => {
+    const nameless = parseSpec(
+      "### Requirement: R\n#### Scenario: No id here\n- **WHEN** x",
+    );
+    assert.equal(scenarioIndex(nameless).size, 0);
+  });
+
+  it("keeps the first of a repeated id, which is the one a reader reaches first", () => {
+    const twice = parseSpec(
+      [
+        "### Requirement: R",
+        "#### Scenario: a-SC-01 - First",
+        "- **WHEN** x",
+        "#### Scenario: a-SC-01 - Second",
+        "- **WHEN** y",
+      ].join("\n"),
+    );
+    assert.equal(scenarioIndex(twice).get("a-sc-01").title, "First");
   });
 });
 

@@ -17,6 +17,16 @@ const SCENARIO = /^####\s+Scenario:\s*(.+?)\s*$/;
 const ENCLOSING = /^#{1,3}\s/;
 
 /**
+ * The shape of a scenario id, as the store issues them: `loyalty-SC-07`.
+ *
+ * A source string rather than a regex, because the two places that have to agree about it
+ * wrap it differently — the heading that defines a scenario anchors the whole line, the
+ * reference that names one sits inside backticks in a list item. Sharing the shape is what
+ * stops a reference resolving against nothing for a reason nobody can see.
+ */
+export const SCENARIO_ID = String.raw`[a-z0-9][\w-]*-SC-\d+`;
+
+/**
  * A scenario's id and title, from the heading the store writes them in:
  * `#### Scenario: loyalty-SC-07 - Rounding happens once`.
  *
@@ -26,7 +36,9 @@ const ENCLOSING = /^#{1,3}\s/;
  * anchor from that instead.
  */
 export function scenarioName(heading) {
-  const named = heading.match(/^([a-z0-9][\w-]*-SC-\d+)\s*[-–—]\s*(.+)$/i);
+  const named = heading.match(
+    new RegExp(String.raw`^(${SCENARIO_ID})\s*[-–—]\s*(.+)$`, "i"),
+  );
   return named
     ? { id: named[1], title: named[2].trim() }
     : { id: null, title: heading };
@@ -161,6 +173,35 @@ export function saveLens(value) {
  */
 export function linkedScenario(search = window.location?.search ?? "") {
   return new URLSearchParams(search).get("at");
+}
+
+/**
+ * Every scenario in a parsed spec, by the id a reference would name it with.
+ *
+ * A journey lists the scenarios that accept it as bare ids, and so does a task, a review
+ * and a test case. On the page that list is a join table printed as a document: the reader
+ * either takes twenty-four ids on trust or scrolls to each one. This is the other half of
+ * the join, so the renderer can put the scenario where the reference is.
+ *
+ * First definition wins. A store that issued one id twice has a problem this cannot fix
+ * and should not paper over by picking the later one — the reference resolves to the
+ * scenario a reader scrolling for it would reach first.
+ */
+export function scenarioIndex(nodes, prefix = "") {
+  const index = new Map();
+
+  for (const node of nodes)
+    for (const scenario of node.scenarios ?? []) {
+      const key = scenario.id?.toLowerCase();
+      if (!key || index.has(key)) continue;
+      index.set(key, {
+        ...scenario,
+        requirement: node.title,
+        anchor: scenarioAnchor(scenario, prefix),
+      });
+    }
+
+  return index;
 }
 
 /** Where a scenario sits on the page: its own id when it has one, else its title. */
