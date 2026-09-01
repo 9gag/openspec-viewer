@@ -218,6 +218,21 @@ body {
 }
 
 /*
+ * A tree in the nav, against the rows above it.
+ *
+ * A TreeList row carries 8px of its own padding before the chevron's 4px, and a side-nav
+ * link's label starts at 4px — so the top level of a tree read as indented under nothing,
+ * which is the one level that is not nested. Pulled back by the row's padding, a root
+ * chevron lines up with the links above it and the levels below still step in by 16px
+ * each. The padding on the end puts back the width the negative margin borrowed, so the
+ * counts down the right-hand side stay on the same edge as everything else.
+ */
+.nav-tree {
+  margin-inline-start: calc(var(--spacing-2) * -1);
+  padding-inline-end: var(--spacing-2);
+}
+
+/*
  * What hangs under a side-nav item.
  *
  * Astryx indents it by 24px, which is right for a sub-menu of two or three links and wrong

@@ -301,6 +301,7 @@ function Nav({
         >
           {hasSpecs && (
             <TreeList
+              className="nav-tree"
               density="compact"
               items={capabilityTreeByNamespace(specs.filter(isCurrent)).map(
                 (node) =>
@@ -323,6 +324,7 @@ function Nav({
           and the disclosure is what says the level is there at all. */}
       <SideNavSection title="In flight" className="nav-section">
         <TreeList
+          className="nav-tree"
           density="compact"
           items={changeTreeByNamespace(changes).map((node) =>
             treeItem(node, view, arg, plainNames),
