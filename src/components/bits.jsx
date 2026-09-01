@@ -3,8 +3,13 @@ import { Code } from "@astryxdesign/core/Code";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Markdown } from "@astryxdesign/core/Markdown";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@astryxdesign/core/SegmentedControl";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
+import { LENSES } from "../spec.js";
 import { exact, iso, level } from "../time.js";
 import { mdComponents } from "./markdown.jsx";
 import SpecText from "./SpecText.jsx";
@@ -136,7 +141,14 @@ export function FileMeta({ path, commit }) {
  * and design docs are ordinary prose — colouring a stray "must" in a proposal would imply
  * a normative weight the document does not carry.
  */
-export function Artifact({ text, commit, path, bdd = false, prefix = "" }) {
+export function Artifact({
+  text,
+  commit,
+  path,
+  bdd = false,
+  prefix = "",
+  lens,
+}) {
   if (!text)
     return <Text color="secondary">This artifact does not exist yet.</Text>;
 
@@ -147,7 +159,7 @@ export function Artifact({ text, commit, path, bdd = false, prefix = "" }) {
         {/* headingLevelStart=2: the page already owns the h1. `path` doubles as the base
             for resolving this document's own relative links. */}
         {bdd ? (
-          <SpecText text={text} prefix={prefix} base={path} />
+          <SpecText text={text} prefix={prefix} base={path} lens={lens} />
         ) : (
           <Markdown
             headingLevelStart={2}
@@ -158,5 +170,27 @@ export function Artifact({ text, commit, path, bdd = false, prefix = "" }) {
         )}
       </div>
     </VStack>
+  );
+}
+
+/**
+ * Which of the three readings of a spec is on screen.
+ *
+ * On the page rather than inside the document, because a change deltas several
+ * capabilities and one control over all of them is the question the reader is actually
+ * asking — "show me the requirements" is not a question per capability.
+ */
+export function LensControl({ value, onChange }) {
+  return (
+    <SegmentedControl
+      value={value}
+      onChange={onChange}
+      label="Reading"
+      size="sm"
+    >
+      {LENSES.map((l) => (
+        <SegmentedControlItem key={l.value} value={l.value} label={l.label} />
+      ))}
+    </SegmentedControl>
   );
 }

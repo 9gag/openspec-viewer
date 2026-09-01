@@ -11,9 +11,10 @@ import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
 import { useEffect, useState } from "react";
 import { useApi } from "../api.js";
-import { Artifact, FileMeta, Owner } from "../components/bits.jsx";
+import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
+import { loadLens, saveLens } from "../spec.js";
 import { resolveTab } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
@@ -64,12 +65,23 @@ function Completeness({ completeness, id }) {
 }
 
 function Capabilities({ capabilities }) {
+  // One control over every capability the change deltas: "show me the requirements" is
+  // not a question a reader asks per capability.
+  const [lens, setLens] = useState(loadLens);
+  const chooseLens = (next) => {
+    setLens(next);
+    saveLens(next);
+  };
+
   if (capabilities.length === 0) {
     return <Text color="secondary">This change has no spec deltas.</Text>;
   }
 
   return (
     <VStack gap={4}>
+      <HStack hAlign="end">
+        <LensControl value={lens} onChange={chooseLens} />
+      </HStack>
       {capabilities.map((cap) => (
         <Card key={cap.capability} padding={4}>
           <VStack gap={3}>
@@ -101,6 +113,7 @@ function Capabilities({ capabilities }) {
               path={cap.path}
               bdd
               prefix={cap.capability}
+              lens={lens}
             />
           </VStack>
         </Card>

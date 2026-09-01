@@ -13,13 +13,14 @@ import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { href, useApi } from "../api.js";
 import { displayName } from "../names.js";
+import { loadLens, saveLens } from "../spec.js";
 import {
   capabilityTreeByNamespace,
   leafOf,
   summarise,
   TOP_LEVEL,
 } from "../capabilities.js";
-import { Artifact } from "../components/bits.jsx";
+import { Artifact, LensControl } from "../components/bits.jsx";
 import {
   Timeline,
   TimelineEntry,
@@ -469,6 +470,14 @@ export function SpecDetail({ id }) {
     { poll: false },
   );
 
+  // Which reading of the spec is on screen, remembered per browser: a reader working
+  // through scenarios is doing that all afternoon, not for one page.
+  const [lens, setLens] = useState(loadLens);
+  const chooseLens = (next) => {
+    setLens(next);
+    saveLens(next);
+  };
+
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
     return (
@@ -508,13 +517,19 @@ export function SpecDetail({ id }) {
       <WithOutline>
         {data.shipped ? (
           <Card padding={4}>
-            <Artifact
-              text={data.text}
-              path={data.path}
-              commit={data.commit}
-              bdd
-              prefix={data.capability}
-            />
+            <VStack gap={3}>
+              <HStack hAlign="end">
+                <LensControl value={lens} onChange={chooseLens} />
+              </HStack>
+              <Artifact
+                text={data.text}
+                path={data.path}
+                commit={data.commit}
+                bdd
+                prefix={data.capability}
+                lens={lens}
+              />
+            </VStack>
           </Card>
         ) : (
           <Card padding={4}>

@@ -106,6 +106,50 @@ body {
 }
 
 /*
+ * A spec's requirements and the scenarios folded under them.
+ *
+ * The disclosure carries the rule the scenarios check, so the scenarios sit inside it
+ * against a rule of their own — the same guide line the trees use, for the same reason:
+ * it says what belongs to what while the eye is scanning past it, and it costs nothing
+ * when it is closed.
+ */
+.requirement {
+  padding-block-end: 4px;
+}
+
+.scenario {
+  padding-inline-start: 14px;
+  border-inline-start: 1px solid var(--color-border);
+  padding-block: 6px;
+}
+
+/* The copy button only when the pointer is on the scenario or the button has focus: it is
+   an address, not an action, and fifty of them down a page would read as a toolbar. */
+.scenario-head button {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.scenario:hover .scenario-head button,
+.scenario-head button:focus-visible {
+  opacity: 1;
+}
+
+/* The id in front of the title, in the same monospace the store writes it in. */
+.scenario-id {
+  font-family: var(
+    --astryx-font-family-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace
+  );
+  font-size: 0.82em;
+  color: var(--color-text-secondary);
+  margin-inline-end: 8px;
+}
+
+/*
  * Document + "On this page" rail. Below 1100px the rail is dropped rather than stacked
  * above the content: a table of contents you have to scroll past to reach the thing it
  * indexes is worse than no table of contents.
