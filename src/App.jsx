@@ -130,7 +130,7 @@ function Nav({ view, arg, changes, mode, onMode }) {
         />
         <SideNavItem
           href={href("specs")}
-          label="Capabilities"
+          label="Production"
           isSelected={view === "specs" || view === "spec"}
         />
         <SideNavItem

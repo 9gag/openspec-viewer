@@ -95,7 +95,7 @@ export function Specs() {
   return (
     <VStack gap={4}>
       <VStack gap={2}>
-        <Heading level={1}>Capabilities</Heading>
+        <Heading level={1}>Production</Heading>
         <Summary counts={summarise(data.specs)} />
       </VStack>
 
@@ -440,7 +440,7 @@ export function SpecDetail({ id }) {
   return (
     <VStack gap={4}>
       <VStack gap={2}>
-        <Link href={href("specs")}>← All capabilities</Link>
+        <Link href={href("specs")}>← Production</Link>
         <HStack gap={3} align="center" wrap="wrap">
           <Heading level={1}>{data.capability}</Heading>
           <Badge

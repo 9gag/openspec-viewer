@@ -67,7 +67,7 @@ and expanded it put six rows of shell commands between the reader and the board.
 |---|---|
 | **Board** | Every change in flight, its task groups, who owns each, and how long each claim has been idle |
 | **Change** | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
-| **Capabilities** | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it |
+| **Production** | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it |
 | **Capability** | One spec in full, with its history and an outline rail |
 | **Shipped changes** | The archive, and which capability each shipped change produced |
 
