@@ -235,14 +235,19 @@ body {
 /*
  * What hangs under a side-nav item.
  *
- * Astryx indents it by 24px, which is right for a sub-menu of two or three links and wrong
- * for a tree that indents again on its own: the Production tree's top level was landing
- * 32px in, a level and a half deep for something one level down, and out of line with the
- * In flight tree sitting at the section's own edge. Reached by the id the component puts
- * on the wrapper for `aria-controls`, which is the only handle it offers.
+ * Astryx indents it by 24px, which suits a sub-menu of two or three links and not a tree
+ * that indents again on its own: Production's tree started a level and a half in, out of
+ * line with the In flight tree at the section's own edge. The two trees are the same kind
+ * of thing and now start in the same place; the chevron on the Production row is what
+ * says one of them is inside it.
+ *
+ * The padding is on the wrapper *inside* the one carrying the id — that id is on the grid
+ * that animates the collapse, and it has no padding of its own. Reached structurally
+ * because neither element offers a handle, and by the id rather than by Astryx's hashed
+ * class names, which are not ours to depend on.
  */
-.nav-section [id$="-children"] {
-  padding-inline-start: var(--spacing-2);
+.nav-section [id$="-children"] > div {
+  padding-inline-start: 0;
 }
 
 /*
