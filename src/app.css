@@ -153,6 +153,52 @@ body {
 }
 
 /*
+ * Fenced blocks, and the diagrams some of them are.
+ *
+ * Overriding Markdown's code renderer to route `mermaid` elsewhere also replaces the
+ * wrapper Astryx put around every fence, which is where `max-width: 100%` lived — without
+ * it a long line pushes the whole document wider than the window.
+ *
+ * A diagram is laid out by mermaid at whatever width its content needs, so it scrolls
+ * inside its own box rather than stretching the page: an ER diagram of eight tables is
+ * wider than a column of prose and squeezing it to fit is how the labels stop being
+ * readable. `figure` carries no margin of its own; the box is the margin.
+ */
+.code-block,
+.diagram-source {
+  max-width: 100%;
+}
+
+.diagram-source {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diagram {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1em 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-background-muted);
+}
+
+.diagram figure {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* Mermaid sizes the SVG to the diagram; without this it also scales to the box and a
+   small diagram is blown up to the width of the page. */
+.diagram svg {
+  max-width: none;
+  height: auto;
+}
+
+/*
  * Side-nav section titles.
  *
  * Astryx sets them a step below the items they head, which reads correctly for a link

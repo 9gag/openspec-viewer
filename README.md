@@ -26,9 +26,17 @@ stops it and the CLI disagreeing about what they are looking at.
 Built with [Astryx](https://astryx.atmeta.com/) (`@astryxdesign/core` + the neutral
 theme). The app supplies no visual design of its own — `src/app.css` is three imports,
 a page background, and one monospace class. The published package has **no runtime
-dependencies**: Astryx and React are bundled into `dist/` at pack time, and the servers
-under `server/` are Node built-ins only, so installing this adds nothing to a consumer's
-own tree.
+dependencies**: Astryx, React and Mermaid are bundled into `dist/` at pack time, and the
+servers under `server/` are Node built-ins only, so installing this adds nothing to a
+consumer's own tree.
+
+**Diagrams.** A ```` ```mermaid ```` block in any artifact is drawn rather than printed —
+design docs are where an OpenSpec store keeps its flowcharts and ER diagrams, and a store's
+own rules ask for them by name. Mermaid is four times the size of the rest of the app put
+together, so it is imported dynamically and splits itself further by diagram type: nothing
+is fetched until a document with a diagram in it is opened, and then only the types that
+document uses. The fence stays on screen until its picture is ready, and stays for good if
+the diagram does not parse, with the error under it.
 
 **Setup is two halves, and both are required.** The stylesheets define the design tokens;
 `<Theme>` in `src/main.jsx` applies the root class that reads them. With the CSS alone
