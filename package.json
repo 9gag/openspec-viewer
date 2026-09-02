@@ -58,8 +58,8 @@
     "prepack": "vite build"
   },
   "devDependencies": {
-    "@astryxdesign/core": "^0.1.9",
-    "@astryxdesign/theme-neutral": "^0.1.9",
+    "@astryxdesign/core": "^0.5.2",
+    "@astryxdesign/theme-neutral": "^0.5.2",
     "@stylexjs/stylex": "^0.19.0",
     "@vitejs/plugin-react": "^6.0.4",
     "mermaid": "^11.17.2",
