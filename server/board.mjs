@@ -20,6 +20,7 @@ import {
   catFile,
   changeIds,
   git,
+  headSignature,
   read,
   resolveRoot,
   specDirs,
@@ -105,7 +106,27 @@ export function readGroups(storePath, changeId, archived = false) {
  * board took seconds — the set is small per change, but the board reads every change in
  * flight on every poll, and it is process startup being paid, not git.
  */
+const snapshotCache = new Map();
+
+/**
+ * Rebuilt when HEAD moves, for the reason the commit index is: this reads committed
+ * history and nothing else, so a working tree that changes under it changes no answer
+ * here. Worth caching because the board polls every five seconds and this was two git
+ * spawns per change on every one of them — about 600ms of the poll on a store of
+ * twenty-one changes, spent re-deriving a history that had not moved.
+ */
 export function snapshots(storePath, changeId) {
+  const head = headSignature(storePath);
+  const key = `${storePath}\u0000${changeId}`;
+  const hit = snapshotCache.get(key);
+  if (hit && hit.head === head) return hit.value;
+
+  const value = readSnapshots(storePath, changeId);
+  snapshotCache.set(key, { head, value });
+  return value;
+}
+
+function readSnapshots(storePath, changeId) {
   const rel = ["openspec", "changes", changeId, "tasks.md"].join("/");
   const log = git(storePath, ["log", "--format=%H %ct", "--", rel]);
   if (!log) return [];

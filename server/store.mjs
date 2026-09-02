@@ -191,7 +191,7 @@ const indexCache = new Map();
  * indistinguishable, here, from one whose history says nothing, and handled the same
  * way by everything downstream.
  */
-function headSignature(storePath) {
+export function headSignature(storePath) {
   let gitDir = join(storePath, ".git");
   // A file rather than a directory in a worktree or a submodule, naming the real one.
   if (existsSync(gitDir) && statSync(gitDir).isFile()) {
