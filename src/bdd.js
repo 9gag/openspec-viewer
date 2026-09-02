@@ -23,6 +23,8 @@ const STEP_KINDS = {
   BUT: "conjunction",
 };
 
+import { SCENARIO_ID } from "./spec.js";
+
 /** Obligation words, which appear inline in requirement prose rather than as steps. */
 const OBLIGATIONS = [
   "MUST NOT",
@@ -39,6 +41,15 @@ export const STEP_KEYWORDS = Object.keys(STEP_KINDS);
 // the others cost nothing to accept and show up in hand-written specs.
 const STEP = /^\s*[-*]\s+(?:\*\*)?([A-Za-z]+)(?:\*\*)?[:\s]\s*(.*)$/;
 
+// `- \`loyalty-SC-07\` — Rounding happens once`: a list item that is nothing but a pointer
+// at a scenario defined elsewhere in the document. This is how the store writes a journey's
+// "Accepted by" and a test case's "Covers". The title after the dash is the store repeating
+// the scenario's own, so it is optional here — the id is the part that resolves.
+const REF = new RegExp(
+  String.raw`^\s*[-*]\s+\`(${SCENARIO_ID})\`(?:\s*[-–—:]\s*(.*))?\s*$`,
+  "i",
+);
+
 export const stepKind = (word) => STEP_KINDS[word.toUpperCase()] ?? null;
 
 /**
@@ -52,6 +63,7 @@ export function splitSpec(text) {
   const blocks = [];
   let prose = [];
   let steps = [];
+  let refs = [];
 
   const flushProse = () => {
     if (prose.join("").trim())
@@ -62,25 +74,44 @@ export function splitSpec(text) {
     if (steps.length) blocks.push({ type: "steps", steps });
     steps = [];
   };
+  const flushRefs = () => {
+    if (refs.length) blocks.push({ type: "refs", refs });
+    refs = [];
+  };
 
   for (const line of text.split("\n")) {
+    // Before the step test, which a reference cannot pass anyway — it opens with a
+    // backtick where a keyword would be — but the order is the one that survives someone
+    // loosening either pattern later.
+    const ref = line.match(REF);
+    if (ref) {
+      flushProse();
+      flushSteps();
+      refs.push({ id: ref[1], title: (ref[2] ?? "").trim() });
+      continue;
+    }
+
     const match = line.match(STEP);
     const kind = match && stepKind(match[1]);
 
     if (kind) {
       flushProse();
+      flushRefs();
       steps.push({
         keyword: match[1].toUpperCase(),
         kind,
         text: match[2].trim(),
       });
-    } else {
-      flushSteps();
-      prose.push(line);
+      continue;
     }
+
+    flushSteps();
+    flushRefs();
+    prose.push(line);
   }
 
   flushSteps();
+  flushRefs();
   flushProse();
   return blocks;
 }

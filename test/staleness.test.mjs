@@ -1,7 +1,7 @@
 /**
  * Staleness is inferred from a file's git history, so the tests build real histories
  * in a throwaway repo and read them back. The inference is the part worth testing:
- * everything it drives — the nudge to unclaim, the "in flight" warning — is wrong in a
+ * everything it drives — the nudge to unclaim, the "in development" warning — is wrong in a
  * way nobody would notice if the clock started from the wrong commit.
  */
 
@@ -151,5 +151,36 @@ describe("idleness", () => {
 
   it("is null with no history at all", () => {
     assert.equal(idleness(parse(tasksMd("dana", 0))[0], [], Date.now()), null);
+  });
+});
+
+/**
+ * The history a change's task list has is read twice per board poll and the board polls
+ * every five seconds, so it is held between polls. What makes that safe is that it is
+ * committed history: nothing but a commit can change what `git log` says, and a commit
+ * moves HEAD.
+ *
+ * These run last, because the second one commits.
+ */
+describe("snapshots", () => {
+  it("hands back the same reading while HEAD has not moved", () => {
+    assert.equal(
+      snapshots(store, CHANGE),
+      snapshots(store, CHANGE),
+      "re-derived, so two git spawns per change were paid again for an unchanged history",
+    );
+  });
+
+  it("re-reads once a commit has moved HEAD", () => {
+    const before = snapshots(store, CHANGE);
+    commit("dana", 3, 0, " and one more thing");
+    const after = snapshots(store, CHANGE);
+
+    assert.notEqual(before, after);
+    assert.equal(
+      after.length,
+      before.length + 1,
+      "the new commit is in the history the board reads",
+    );
   });
 });

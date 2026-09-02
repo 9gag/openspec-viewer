@@ -3,13 +3,13 @@
  *
  * Shipped is read off disk and cannot be wrong. Retired is inferred, and it is the kind of
  * inference that is worse than silence when it misfires: calling live work "retired" hides
- * it, and calling withdrawn behavior "in flight" points a reader at work nobody is doing.
+ * it, and calling withdrawn behavior "in development" points a reader at work nobody is doing.
  * So the cases here are mostly the ones where a REMOVED appears and the answer is still
  * not retired.
  *
  * `capabilityState` is pure over the entry the catalog has already built, so none of this
  * needs a store on disk — the store-backed half of the catalog is covered in
- * collisions.test.mjs.
+ * conflicts.test.mjs.
  */
 
 import assert from "node:assert/strict";
@@ -22,7 +22,7 @@ function archived(kinds, on, at = Date.parse(on)) {
   return { change: `${on}-a-change`, kinds, archived: true, at, archivedOn: on };
 }
 
-function inFlight(kinds, at = Date.parse("2026-08-30")) {
+function inDevelopment(kinds, at = Date.parse("2026-08-30")) {
   return { change: "a-change", kinds, archived: false, at, archivedOn: null };
 }
 
@@ -36,7 +36,7 @@ describe("capabilityState", () => {
 
   it("is unshipped for a capability a change is still bringing in", () => {
     assert.equal(
-      capabilityState({ shipped: false, history: [inFlight(["ADDED"])] }),
+      capabilityState({ shipped: false, history: [inDevelopment(["ADDED"])] }),
       "unshipped",
     );
   });
@@ -135,27 +135,27 @@ describe("capabilityState", () => {
       );
     });
 
-    // An in-flight change has not landed, so it is the newest thing that happened to the
+    // An in-development change has not landed, so it is the newest thing that happened to the
     // capability even when the archive it sits beside carries a later commit date.
-    it("puts an in-flight delta ahead of every archived one", () => {
+    it("puts an in-development delta ahead of every archived one", () => {
       assert.equal(
         capabilityState({
           shipped: false,
           history: [
             archived(["REMOVED"], "2026-08-29", Date.parse("2026-09-05")),
-            inFlight(["ADDED"], Date.parse("2026-08-01")),
+            inDevelopment(["ADDED"], Date.parse("2026-08-01")),
           ],
         }),
         "unshipped",
       );
     });
 
-    it("reads an in-flight removal as retired", () => {
+    it("reads an in-development removal as retired", () => {
       assert.equal(
         capabilityState({
           shipped: false,
           history: [
-            inFlight(["REMOVED"]),
+            inDevelopment(["REMOVED"]),
             archived(["ADDED"], "2026-08-20"),
           ],
         }),

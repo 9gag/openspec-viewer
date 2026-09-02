@@ -32,12 +32,12 @@ One unit of planned work, from proposal to archive. It is the thing that is clai
 built and shipped.
 _Avoid_: PR, ticket, epic, feature
 
-**In flight**:
+**In development**:
 A change that has been created and not yet archived. The board shows exactly these.
-_Avoid_: open, active, WIP
+_Avoid_: open, active, WIP, in flight
 
 **Planning**:
-An in-flight change with no task list yet, so there is nothing to claim or check off.
+An in-development change with no task list yet, so there is nothing to claim or check off.
 _Avoid_: draft, backlog, todo
 
 **Shipped change**:
@@ -89,11 +89,12 @@ _Avoid_: line, clause, statement
 **Namespace**:
 Everything in a capability's path before its last segment — `shared-ui` in
 `shared-ui/cart`. The store's own grouping, written by whoever named the capability,
-and what the catalog is ordered by.
+what the catalog is ordered by, and a page of its own: it holds every capability and
+every change at it or below it.
 _Avoid_: domain, area, prefix, folder, group
 
 **Baseline**:
-A capability's shipped spec — its behavior as it stands, before any in-flight change
+A capability's shipped spec — its behavior as it stands, before any in-development change
 rewrites it.
 _Avoid_: main spec, current spec, source of truth
 
@@ -103,7 +104,7 @@ introducing the capability as new.
 _Avoid_: diff, patch, spec change, override
 
 **Shipped capability**:
-A capability that has a baseline. One first named by an in-flight change is unshipped and
+A capability that has a baseline. One first named by an in-development change is unshipped and
 has no baseline text to read yet.
 _Avoid_: existing, live, released
 
@@ -115,7 +116,7 @@ doing.
 _Avoid_: deleted, deprecated, dropped, archived capability
 
 **Changed by**:
-The changes that have touched one capability, in flight or archived, newest first.
+The changes that have touched one capability, in development or archived, newest first.
 _Avoid_: history, provenance, log
 
 ### Work and ownership
@@ -163,25 +164,26 @@ An idle claim past seven days: either pick it back up or hand it back so someone
 can take it.
 _Avoid_: critical, dead, overdue
 
-**Collision**:
-Two in-flight changes deltaing the same capability. It never appears as a git conflict
-and breaks at archive time, when the second change is written against a baseline the
-first already rewrote.
-_Avoid_: conflict, overlap, clash
+**Conflict**:
+Two in-development changes deltaing the same capability. Git never flags it — each change
+is its own folder — and it breaks at archive time, when the second change is written
+against a baseline the first already rewrote. Never a git conflict, which is the one thing
+the word must not be read as: say "git will never flag it", not "it never conflicts".
+_Avoid_: collision, overlap, clash, merge conflict
 
 **Contested**:
-Of a capability: the one a collision is happening to. The collision is the event, the
+Of a capability: the one a conflict is happening to. The conflict is the event, the
 capability is contested — the board counts the first, the catalog marks the second.
 _Avoid_: conflicted, disputed, hot
 
 **Ready to archive**:
-An in-flight change with every task checked off.
+An in-development change with every task checked off.
 _Avoid_: complete, finished, done
 
 ### What it shows
 
 **Board**:
-The default view: every in-flight change, its task groups, who owns each, and how long
+The default view: every in-development change, its task groups, who owns each, and how long
 each claim has been idle.
 _Avoid_: dashboard, home, overview
 
@@ -196,7 +198,7 @@ _Avoid_: stat, metric, KPI, card
 
 **Queue**:
 A tile that can be clicked into, narrowing the board to the work it counts. There are
-four: collisions, idle claims, ready to archive, unclaimed. The store's sync state is the
+four: conflicts, idle claims, ready to archive, unclaimed. The store's sync state is the
 fifth tile and is not a queue.
 _Avoid_: filter, bucket, category
 

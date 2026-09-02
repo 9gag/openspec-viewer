@@ -25,7 +25,7 @@ export function Timeline({ roomy = false, children }) {
 /**
  * One entry.
  *
- * `when` is a word as readily as a date — a change still in flight has no date and sits
+ * `when` is a word as readily as a date — a change still in development has no date and sits
  * at the live end of the line, which the column says better than a badge could. `state`
  * names what the dot means, since colour alone is not an answer to a screen reader.
  */

@@ -1,10 +1,11 @@
 /**
  * The cross-change view: the shipped baseline, the archive, and the one thing nobody
- * can currently see coming — two in-flight changes deltaing the same capability.
+ * can currently see coming — two in-development changes deltaing the same capability.
  */
 
 import { join } from "node:path";
 
+import { capabilityDocs, readDocs } from "./artifacts.mjs";
 import { capabilities } from "./change.mjs";
 import {
   changeIds,
@@ -34,14 +35,14 @@ function shippedOn(commit, prefix) {
 }
 
 /**
- * Every in-flight delta in the store, by capability.
+ * Every in-development delta in the store, by capability.
  *
  * Split out of `capabilityCatalog()` because the contested count needs a seam a test can
  * reach: the catalog resolves its own root and cannot be pointed at a fixture, and a rule
  * about archive-time hazards that only ever runs against the real store passes whether it
  * works or not.
  */
-export function inFlightDeltas(storePath, ids = changeIds(storePath)) {
+export function deltasInDevelopment(storePath, ids = changeIds(storePath)) {
   const byCapability = new Map();
 
   for (const id of ids) {
@@ -67,7 +68,7 @@ export function inFlightDeltas(storePath, ids = changeIds(storePath)) {
 /**
  * The delta that decides a capability's state.
  *
- * In flight sorts ahead of everything archived whatever the dates say — it has not landed,
+ * In development sorts ahead of everything archived whatever the dates say — it has not landed,
  * so it is the newest thing that happened to the capability. Among archived deltas the
  * commit that moved the change into the archive wins, with the directory's date prefix
  * behind it: a store whose archive predates its git history has no commit at all, and
@@ -98,7 +99,7 @@ function newestDelta(history) {
  * Shipped is a fact: there is a baseline in `openspec/specs/`. The other two are the
  * inference. A capability with no baseline is normally behavior a change is still bringing
  * in — but one whose newest delta did nothing except remove requirements is behavior the
- * store withdrew, and filing that under "in flight" points a reader at work nobody is
+ * store withdrew, and filing that under "in development" points a reader at work nobody is
  * doing.
  *
  * REMOVED has to be alone to count. A delta that both adds and removes is a capability
@@ -117,17 +118,17 @@ export function capabilityState({ shipped, history }) {
 }
 
 /**
- * Capabilities two or more in-flight changes both touch.
+ * Capabilities two or more in-development changes both touch.
  *
- * This is the archive-time hazard, and it never shows up as a git conflict: each change
- * is its own folder, so both push cleanly. It breaks later, when the second change
+ * This is the archive-time hazard, and git never flags it: each change is its own
+ * folder, so both push cleanly. It breaks later, when the second change
  * archives against a baseline the first one already rewrote — and a MODIFIED block
  * whose headers no longer match the baseline silently drops the rest of the
  * requirement. By then the plan and the specs disagree and nothing said so.
  *
  * Sequencing them is a planning decision, so all this does is name the overlap early.
  */
-export function collisions(storePath, changeIds) {
+export function conflicts(storePath, changeIds) {
   const byCapability = new Map();
 
   for (const id of changeIds) {
@@ -157,14 +158,19 @@ export function collisions(storePath, changeIds) {
  * `withText` off by default: the index needs counts and provenance, and sending every
  * spec body to render a list of names is the difference between a page and a payload.
  *
+ * `only` narrows the result to one capability. The walk that finds which changes touched
+ * what still runs — a capability's history is spread across every change in the store, so
+ * there is nowhere smaller to look — but the per-capability work behind it, reading the
+ * spec and counting what is in it, is then done once instead of ninety times.
+ *
  * Two things this fixes. `openspec/specs/` only contains capabilities that have *shipped*,
- * so a catalogue built from it alone silently omits everything in flight — on this store
+ * so a catalogue built from it alone silently omits everything in development — on this store
  * that is two of the three capabilities. And nothing anywhere answers the question you
  * actually have in front of a spec: which change put this here, and what is about to
  * change it. Both directions of that link already exist in the tree; only the index was
  * missing.
  */
-export function capabilityCatalog({ withText = false } = {}) {
+export function capabilityCatalog({ withText = false, only = null } = {}) {
   const root = resolveRoot();
   const touched = new Map();
 
@@ -173,7 +179,7 @@ export function capabilityCatalog({ withText = false } = {}) {
     touched.get(cap).push(entry);
   };
 
-  for (const [cap, entries] of inFlightDeltas(root.path))
+  for (const [cap, entries] of deltasInDevelopment(root.path))
     for (const entry of entries) add(cap, entry);
 
   for (const name of dirs(join(root.path, "openspec", "changes", "archive"))) {
@@ -195,9 +201,11 @@ export function capabilityCatalog({ withText = false } = {}) {
 
   const shipped = specDirs(join(root.path, "openspec", "specs"));
   const all = [...new Set([...shipped, ...touched.keys()])].sort();
+  const wanted = only === null ? all : all.filter((cap) => cap === only);
 
-  return all.map((cap) => {
-    const rel = `openspec/specs/${cap}/spec.md`;
+  return wanted.map((cap) => {
+    const dir = `openspec/specs/${cap}`;
+    const rel = `${dir}/spec.md`;
     const text = shipped.includes(cap)
       ? (read(join(root.path, rel)) ?? "")
       : null;
@@ -208,20 +216,28 @@ export function capabilityCatalog({ withText = false } = {}) {
       (a, b) => (b.at ?? 0) - (a.at ?? 0),
     );
 
+    // Whatever the capability directory holds besides its spec. A capability with no
+    // baseline has no directory either, so it has nothing to find.
+    const docs = withText
+      ? readDocs(root.path, capabilityDocs(join(root.path, dir), dir))
+      : null;
+
     return {
       capability: cap,
       shipped: text !== null,
       state: capabilityState({ shipped: text !== null, history }),
-      // Two in-flight changes on one capability is the collision `collisions()` reports,
+      // Two in-development changes on one capability is the conflict `conflicts()` reports,
       // counted here from the walk already done rather than by walking every change again.
-      inFlight: history.filter((h) => !h.archived).length,
+      inDevelopment: history.filter((h) => !h.archived).length,
       path: text === null ? null : rel,
       requirements:
         text === null ? 0 : (text.match(/^###\s+Requirement:/gim) ?? []).length,
       scenarios:
         text === null ? 0 : (text.match(/^####\s+Scenario:/gim) ?? []).length,
       commit: text === null ? null : lastCommit(root.path, rel),
-      ...(withText ? { text } : {}),
+      // Bodies only for the detail view: the index is a list of names and counts, and
+      // the text of every capability in the store is a payload rather than a page.
+      ...(withText ? { text, docs } : {}),
       history,
     };
   });
@@ -265,8 +281,5 @@ export function archive() {
 
 /** One capability, with its baseline text. Null when the store has never heard of it. */
 export function capability(name) {
-  return (
-    capabilityCatalog({ withText: true }).find((c) => c.capability === name) ??
-    null
-  );
+  return capabilityCatalog({ withText: true, only: name })[0] ?? null;
 }

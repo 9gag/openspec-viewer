@@ -9,6 +9,20 @@
 @import "@astryxdesign/core/astryx.css";
 @import "@astryxdesign/theme-neutral/theme.css";
 
+/*
+ * The widths the page is built out of.
+ *
+ * One measure for a column of content, everywhere: the capability index, the board's
+ * warnings, a document, and every card above it. It is set at what a page of prose can be
+ * read at rather than at whatever the window happens to be, and the only thing allowed
+ * past it is the outline rail, which is an aside beside the column rather than part of it.
+ */
+:root {
+  --content-column: 52rem;
+  --outline-rail: 220px;
+  --outline-gap: 32px;
+}
+
 body {
   margin: 0;
   background: var(--astryx-color-background-wash, #fff);
@@ -106,6 +120,82 @@ body {
 }
 
 /*
+ * A spec's requirements and the scenarios folded under them.
+ *
+ * The disclosure carries the rule the scenarios check, so the scenarios sit inside it
+ * against a rule of their own — the same guide line the trees use, for the same reason:
+ * it says what belongs to what while the eye is scanning past it, and it costs nothing
+ * when it is closed.
+ */
+.requirement {
+  padding-block-end: 4px;
+}
+
+.scenario {
+  padding-inline-start: 14px;
+  border-inline-start: 1px solid var(--color-border);
+  padding-block: 6px;
+}
+
+/* The copy button only when the pointer is on the scenario or the button has focus: it is
+   an address, not an action, and fifty of them down a page would read as a toolbar. */
+.scenario-head button {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.scenario:hover .scenario-head button,
+.scenario-head button:focus-visible {
+  opacity: 1;
+}
+
+/* The id in front of the title, in the same monospace the store writes it in. */
+.scenario-id {
+  font-family: var(
+    --astryx-font-family-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace
+  );
+  font-size: 0.82em;
+  color: var(--color-text-secondary);
+  margin-inline-end: 8px;
+}
+
+/*
+ * A journey's "Accepted by" list: references to scenarios defined further down the page.
+ *
+ * Rows rather than bullets, because each one opens. The id keeps the monospace it has
+ * everywhere else on this page, so a reference and the heading it resolves to read as the
+ * same thing seen twice; the row is a button, so it gets the left alignment a button does
+ * not have by default.
+ */
+.refs {
+  padding-block: 4px;
+}
+
+.ref {
+  display: inline-flex;
+  align-items: baseline;
+  text-align: start;
+}
+
+/* The chevron Collapsible draws sits against the id, not the indent of the list that is
+   no longer there. */
+.ref-row button {
+  padding-inline: 0;
+}
+
+/* The scenario itself, under the reference that named it — against the same guide line a
+   scenario carries under its requirement, because it is the same relationship. */
+.ref-body {
+  padding-inline-start: 14px;
+  border-inline-start: 1px solid var(--color-border);
+  padding-block-end: 6px;
+}
+
+/*
  * Document + "On this page" rail. Below 1100px the rail is dropped rather than stacked
  * above the content: a table of contents you have to scroll past to reach the thing it
  * indexes is worse than no table of contents.
@@ -113,7 +203,7 @@ body {
 .with-outline {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 32px;
+  gap: var(--outline-gap);
 }
 
 .outline-rail {
@@ -121,8 +211,19 @@ body {
 }
 
 @media (min-width: 1100px) {
+  /*
+   * The document column is capped, not given the rest of the window. The prose inside it
+   * stops at its own measure (see .artifact), so a column of 1fr left a card three times
+   * wider than the text in it and pushed the rail out to the edge of the window — the
+   * reader's eye crossing a screen of empty card to get from a heading to its own entry.
+   *
+   * One column, the same one the capability index and the board's warnings are set at, so
+   * nothing here picks a width of its own. Left-packed, because everything above it on the
+   * page — the title, the tabs — starts at the same edge.
+   */
   .with-outline {
-    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-columns: minmax(0, var(--content-column)) var(--outline-rail);
+    justify-content: start;
   }
 
   .outline-rail {
@@ -133,6 +234,34 @@ body {
     max-height: calc(100vh - 32px);
     overflow-y: auto;
   }
+}
+
+/*
+ * A document page: its heading, its cards, its tabs, and the document itself.
+ *
+ * Capping the document alone left everything above it running to the window — a warning of
+ * sixty characters in a box two thousand pixels wide, and an Artifacts card three times
+ * the width of the spec cards directly beneath it. The page had a straight left edge and a
+ * ragged right one, which tells the reader these things are unrelated when they are the
+ * same page.
+ *
+ * So every child but the rail's grid is held to the column, and the page is exactly as
+ * wide as that column and the rail beside it. Index pages — the board, the capability
+ * index — are deliberately not this: they are built to use the width they are given.
+ */
+.doc-page {
+  max-width: calc(
+    var(--content-column) + var(--outline-gap) + var(--outline-rail)
+  );
+}
+
+.doc-page > :not(.with-outline) {
+  max-width: var(--content-column);
+}
+
+/* The same column, for the two lines about the clone that sit above every page. */
+.store-head {
+  max-width: var(--content-column);
 }
 
 /*
@@ -153,13 +282,64 @@ body {
 }
 
 /*
+ * Fenced blocks, and the diagrams some of them are.
+ *
+ * Overriding Markdown's code renderer to route `mermaid` elsewhere also replaces the
+ * wrapper Astryx put around every fence, which is where `max-width: 100%` lived — without
+ * it a long line pushes the whole document wider than the window.
+ *
+ * A diagram is laid out by mermaid at whatever width its content needs, so it scrolls
+ * inside its own box rather than stretching the page: an ER diagram of eight tables is
+ * wider than a column of prose and squeezing it to fit is how the labels stop being
+ * readable. `figure` carries no margin of its own; the box is the margin.
+ */
+.code-block,
+.diagram-source {
+  max-width: 100%;
+}
+
+.diagram-source {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diagram {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1em 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-background-muted);
+}
+
+/* `safe` so a diagram wider than the box starts at its left edge instead of overflowing
+   equally into both margins, where the left half is unreachable by scrolling. */
+.diagram figure {
+  margin: 0;
+  display: flex;
+  justify-content: safe center;
+}
+
+/* The one rule the whole box depends on. Mermaid gives the SVG its own width, but a flex
+   item shrinks below that by default — so a diagram wider than the column was quietly
+   scaled down to fit rather than scrolling, and a seven-node flowchart arrived at a third
+   of the size its labels were drawn for. Nothing else here restores that: the scroll
+   container has nothing to scroll while its content is being squeezed to fit. */
+.diagram figure > svg {
+  flex: none;
+  height: auto;
+}
+
+/*
  * Side-nav section titles.
  *
- * Astryx sets them a step below the items they head, which reads correctly when a section
- * is called "Overview" and wrongly when it is called `checkout`: the namespace is
- * what a reader is scanning for, and it was the quietest thing in the column. The title is
- * reached by the id the component puts on it for `aria-labelledby`, which is the only
- * handle it offers and at least a semantic one.
+ * Astryx sets them a step below the items they head, which reads correctly for a link
+ * list and wrongly for "In development": it heads the whole working set of the store and was
+ * the quietest thing in the column. The title is reached by the id the component puts on
+ * it for `aria-labelledby`, which is the only handle it offers and at least a semantic
+ * one.
  */
 .nav-section [id$="-title"] {
   color: var(--color-text-primary);
@@ -167,38 +347,41 @@ body {
 }
 
 /*
- * The band over the namespace sections.
+ * A tree in the nav, against the rows above it.
  *
- * A level above a section title rather than another one: it says what every section under
- * it has in common. So it is set as an eyebrow — small, spaced, quiet — which reads as a
- * band without competing with the namespace names right beneath it, and the rule above
- * separates it from the Overview links that are not changes at all.
+ * A TreeList row carries 8px of its own padding before the chevron's 4px, and a side-nav
+ * link's label starts at 4px — so the top level of a tree read as indented under nothing,
+ * which is the one level that is not nested. Pulled back by the row's padding, a root
+ * chevron lines up with the links above it and the levels below still step in by 16px
+ * each. The padding on the end puts back the width the negative margin borrowed, so the
+ * counts down the right-hand side stay on the same edge as everything else.
  */
-.nav-band {
-  margin: 14px 0 2px;
-  padding: 12px 12px 0;
-  border-top: 1px solid var(--color-border);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-/* Namespaces are paths, and read as paths everywhere else in the app. */
-.nav-section-ns [id$="-title"] {
-  font-family: var(
-    --astryx-font-family-mono,
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace
-  );
-  letter-spacing: 0;
+.nav-tree {
+  margin-inline-start: calc(var(--spacing-2) * -1);
+  padding-inline-end: var(--spacing-2);
 }
 
 /*
- * The capability index: a namespace heading, then a line per capability.
+ * What hangs under a side-nav item.
+ *
+ * Astryx indents it by 24px, which suits a sub-menu of two or three links and not a tree
+ * that indents again on its own: Production's tree started a level and a half in, out of
+ * line with the In development tree at the section's own edge. The two trees are the same kind
+ * of thing and now start in the same place; the chevron on the Production row is what
+ * says one of them is inside it.
+ *
+ * The padding is on the wrapper *inside* the one carrying the id — that id is on the grid
+ * that animates the collapse, and it has no padding of its own. Reached structurally
+ * because neither element offers a handle, and by the id rather than by Astryx's hashed
+ * class names, which are not ours to depend on.
+ */
+.nav-section [id$="-children"] > div {
+  padding-inline-start: 0;
+}
+
+/*
+ * Nested namespace headings, then a line per thing filed under one: the capability index,
+ * and the simplified board, which files changes under the same namespaces.
  *
  * Astryx has no row or section-heading primitive, so both are here — layout, not design:
  * every colour, size and weight in these rules is a theme token or comes from the Astryx
@@ -215,11 +398,40 @@ body {
 .cap-list {
   display: flex;
   flex-direction: column;
-  gap: 26px;
-  /* A row is a name against three short data columns and two buttons — none of which grow.
+  gap: 30px;
+  /* A row is a name against three short data columns and a button — none of which grow.
      Any wider and the extra all lands in the name column as a gap between a capability and
      its own counts, which is the reader's eye doing work for nothing. */
-  max-width: 52rem;
+  max-width: var(--content-column);
+}
+
+.cap-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/*
+ * What is inside a namespace sits inside it, against a rule down the level it belongs to —
+ * the same language the nav's tree uses for the same structure, so the grouping a reader
+ * learned in one place is the grouping they read in the other. The indent is deliberately
+ * small: a store nests three deep, and 24px a level would push the deepest names into the
+ * data columns beside them.
+ */
+.cap-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.cap-rows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .cap-ns {
@@ -455,4 +667,267 @@ body {
 
 .timeline-item:last-child :is(.timeline-when, .timeline-body) {
   padding-bottom: 0;
+}
+
+/*
+ * The simplified board.
+ *
+ * Two columns of namespace bands, because the list is the height of three screens in a
+ * column half the width of the window it is in — and the thing the reader came for
+ * ("is anything finished?") was below the fold every time. One column until there is
+ * genuinely room for two: at 1400px the bands are still wide enough for a change id and
+ * its four data columns, and below it the second column would only squeeze the names.
+ *
+ * As with the capability index, everything here is layout — every colour, size and weight
+ * comes from a theme token or from the Astryx component inside.
+ */
+.board-simple {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+
+@media (min-width: 1400px) {
+  .board-simple {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 44px;
+  }
+}
+
+.board-simple-column {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
+}
+
+/*
+ * The conflict warnings, one under the next and no wider than they can be read.
+ *
+ * They were side by side and full width, on the grounds that they are the same kind of
+ * thing said twice. Both halves of that were wrong once there was a window wide enough to
+ * show it. Two paragraphs abreast are read as one, so the eye finishes a line of the
+ * first warning and starts a line of the second; and at full width on a large screen each
+ * of these is a single line of about two hundred and thirty characters, which is nobody's
+ * measure for prose.
+ *
+ * Capped at the width the capability index already uses for a column of content, which
+ * puts these at about eighty characters a line — and no narrower, because a warning cut
+ * to a card in the corner of a wide page is one nobody reads either.
+ *
+ * It costs height: stacked and capped is 229px where two columns were 155px on a 1800px
+ * window. That is the trade, made deliberately — this is the one panel on the simplified
+ * board, and it is here because it is worth stopping for.
+ */
+.board-banners {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  max-width: var(--content-column);
+}
+
+.board-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/*
+ * One change, on one line.
+ *
+ * Every column is fixed but the name, for the reason the capability index fixes its own:
+ * the counts, the owners and the ages are read down the page against each other, and a
+ * column that shifts with the length of the id beside it is four ragged edges instead.
+ */
+.simple-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem 3.4rem 5rem 4rem;
+  align-items: center;
+  column-gap: 8px;
+  padding: 5px 8px;
+  /* Pulled back by its own padding so the id lines up with the heading above it. */
+  margin-left: -8px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+  color: inherit;
+}
+
+.simple-row:hover {
+  background: var(--color-background-muted);
+}
+
+.simple-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* The two states worth seeing from the side of the eye while scanning the column of ids:
+   finished, and about to be archived into a conflict. Conflict wins when a change is
+   both, because that is the one where archiving does the damage. */
+.simple-row[data-flag="ready"] {
+  border-left-color: var(--color-success);
+}
+
+.simple-row[data-flag="conflict"] {
+  border-left-color: var(--color-warning);
+}
+
+/* The id, and what has to sit beside it: a long id truncates rather than wrapping the row
+   to two lines, since one line per change is what makes the column scannable. */
+.simple-row-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.simple-row-id {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shrinks six times faster than the id beside it: when the row runs out of room, the
+   thing to lose is the note about where else the change is filed, never the id the row
+   exists to name. */
+.simple-row-else {
+  flex: 0 6 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simple-row-owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simple-row-count,
+.simple-row-age {
+  text-align: right;
+}
+
+/* Narrow enough that the data columns leave the id nothing: they drop to their own line
+   rather than truncating the one thing the row exists to name. */
+@media (max-width: 700px) {
+  .simple-row {
+    grid-template-columns: minmax(0, 1fr) 3.4rem 6rem;
+  }
+
+  .simple-row-owner,
+  .simple-row-age {
+    display: none;
+  }
+}
+
+/*
+ * A namespace, stepped through segment by segment: `storefront → checkout`.
+ *
+ * Inline-flex rather than a block, so the same component sets a page title, sits inside
+ * the change page's own title line, and drops into a sentence, without three sets of
+ * spacing rules.
+ */
+.ns-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 10px;
+}
+
+/*
+ * The type is the line's, not the link's: as a page title the line is a heading and its
+ * segments have to be heading-sized, and the same component sits inside a change page's
+ * title where the size is set the same way.
+ *
+ * The descendants too, and that is the whole rule rather than a flourish: Astryx's Link
+ * puts its text in a <Text> of its own, so setting the anchor alone left the glyphs at
+ * body size inside a heading-sized box — the arrows beside them, which are plain spans,
+ * were the only part of the line at the size it was supposed to be.
+ */
+.ns-line a,
+.ns-line a * {
+  font: inherit;
+}
+
+/*
+ * A segment is a place you can go, and at the title's own size and colour nothing said
+ * so: it read as part of the heading, which is exactly what it is the rest of the time.
+ * So each one sits on the tint a neutral Badge uses — enough to read as a control on a
+ * line of prose, quiet enough that a title is still a title.
+ *
+ * The anchor and not its descendants, which is why this is a rule of its own: the type
+ * above has to cascade into the <Text> the link wraps its words in, and a box that
+ * cascaded with it would draw a second chip inside the first — twice the padding, and the
+ * tint laid over itself at double the strength it was chosen at.
+ */
+.ns-line a {
+  padding: 0 10px;
+  border-radius: var(--radius-inner);
+  background: var(--color-neutral);
+  text-decoration: none;
+}
+
+.ns-line a:hover {
+  background: var(--color-overlay-pressed);
+}
+
+.ns-line a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Where you already are: no box at all. Boxed to match the chips it sits beside, it drew
+   more attention than the links did, which is the hierarchy upside down — the segments
+   worth noticing are the ones that go somewhere. Plain, it reads as the title it is, and
+   the tint beside it reads as the places you can still get to. */
+.ns-here {
+  padding: 0;
+}
+
+/* The same line above a change's id, where there is no <Heading> to take the type from:
+   set from the tokens Astryx's own heading-1 reads, so the two lines are one title and
+   cannot drift apart when the theme's type scale moves. */
+.change-namespace {
+  font-family: var(--font-family-heading);
+  font-size: var(--text-heading-1-size);
+  font-weight: var(--text-heading-1-weight);
+  line-height: var(--text-heading-1-leading);
+  color: var(--color-text-primary);
+}
+
+.ns-step {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* The arrow between an application and the area inside it, and the dot between two
+   namespaces. Separators, not places: at the title's own weight they read as loudly as
+   the words they divide. */
+.ns-sep {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-normal);
+}
+
+/* The dot divides two whole namespaces, so it has to breathe wider than the arrows inside
+   them — at the same spacing, the last area of the first path reads as one more step in
+   it instead of the start of the second. */
+.ns-sep[data-between] {
+  margin-inline: 8px;
+}
+
+/* A capability under a namespace: its name, and how big it is. Two columns where a change
+   row has five, because there is no owner, no progress and nothing that has stalled. */
+.ns-cap-row {
+  grid-template-columns: minmax(0, 1fr) 11rem;
+}
+
+.ns-cap-size {
+  text-align: right;
 }

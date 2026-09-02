@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-import { apiHandler } from "./server/api.mjs";
+import { apiHandler, warmUp } from "./server/api.mjs";
 
 /**
  * The store is read from disk and from git, so it has to be served by Node rather than
@@ -19,6 +19,11 @@ function storeApi() {
     name: "openspec-store-api",
     configureServer(server) {
       server.middlewares.use("/api", apiHandler);
+      // The same head start the binary gives itself, so `pnpm dev` does not pay for
+      // resolving the store on the first request the page makes.
+      server.httpServer?.once("listening", () =>
+        setTimeout(warmUp, 500).unref(),
+      );
     },
     configurePreviewServer(server) {
       server.middlewares.use("/api", apiHandler);
@@ -44,7 +49,10 @@ export default defineConfig({
         // cached from the reader's last visit.
         codeSplitting: {
           groups: [
-            { name: "react", test: /node_modules\/(react|react-dom|scheduler)\// },
+            {
+              name: "react",
+              test: /node_modules\/(react|react-dom|scheduler)\//,
+            },
             {
               name: "design-system",
               test: /node_modules\/(@astryxdesign|@stylexjs|@formatjs|intl-messageformat|lucide-react)/,

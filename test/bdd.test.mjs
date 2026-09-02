@@ -30,24 +30,66 @@ const SPEC = [
   "- **THEN** the line is removed",
 ].join("\n");
 
+/** A journey and the scenarios it names, which is the store's other list shape. */
+const JOURNEY = [
+  "### cart-US-01: Shopper builds a cart",
+  "",
+  "**Accepted by:**",
+  "",
+  "- `cart-SC-01` — Adding a new product",
+  "- `cart-SC-02` — Removing it",
+  "",
+  "Nothing else accepts it.",
+].join("\n");
+
+/** Every block turned back into the lines it came from, whatever kind it is. */
+const relines = (blocks) =>
+  blocks
+    .flatMap((b) => {
+      if (b.type === "markdown") return b.text.split("\n");
+      if (b.type === "steps")
+        return b.steps.map((s) => `- **${s.keyword}** ${s.text}`);
+      return b.refs.map((r) => `- \`${r.id}\` — ${r.title}`);
+    })
+    .join("\n");
+
+const normalise = (s) =>
+  s
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join("\n");
+
 describe("splitSpec", () => {
   it("keeps every line, so nothing can be silently dropped", () => {
-    const blocks = splitSpec(SPEC);
-    const back = blocks
-      .flatMap((b) =>
-        b.type === "markdown"
-          ? b.text.split("\n")
-          : b.steps.map((s) => `- **${s.keyword}** ${s.text}`),
-      )
-      .join("\n");
+    assert.equal(normalise(relines(splitSpec(SPEC))), normalise(SPEC));
+  });
 
-    const normalise = (s) =>
-      s
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .join("\n");
-    assert.equal(normalise(back), normalise(SPEC));
+  it("keeps every line of a reference list too", () => {
+    assert.equal(normalise(relines(splitSpec(JOURNEY))), normalise(JOURNEY));
+  });
+
+  it("pulls a run of scenario references out, id and title apart", () => {
+    const refs = splitSpec(JOURNEY).filter((b) => b.type === "refs");
+    assert.equal(refs.length, 1, "one run, not one block per item");
+    assert.deepEqual(refs[0].refs, [
+      { id: "cart-SC-01", title: "Adding a new product" },
+      { id: "cart-SC-02", title: "Removing it" },
+    ]);
+  });
+
+  it("takes a reference without a title, since the id is the part that resolves", () => {
+    const [block] = splitSpec("- `cart-SC-09`");
+    assert.equal(block.type, "refs");
+    assert.deepEqual(block.refs, [{ id: "cart-SC-09", title: "" }]);
+  });
+
+  it("leaves a bullet that merely mentions an id as markdown", () => {
+    const blocks = splitSpec("- see `cart-SC-01` for the rounding case");
+    assert.deepEqual(
+      blocks.map((b) => b.type),
+      ["markdown"],
+    );
   });
 
   it("pulls each scenario run out as steps and leaves prose as markdown", () => {
