@@ -20,7 +20,7 @@ import { href } from "../api.js";
  * component sets a page title and sits inside a change page's title without either
  * caller having to say how big it is.
  */
-export function NamespacePath({ path }) {
+export function NamespacePath({ path, current }) {
   const segments = path.split("/");
 
   return segments.map((segment, depth) => (
@@ -32,12 +32,20 @@ export function NamespacePath({ path }) {
           →
         </span>
       )}
-      <Link
-        href={href("namespace", segments.slice(0, depth + 1).join("/"))}
-        color="primary"
-      >
-        {segment}
-      </Link>
+      {/* The segment you are already on is not a link: on a namespace's own page the
+          last step is this page, and a chip that goes nowhere is the one thing on the
+          line that should not invite a click. It also answers "which of these am I
+          looking at", which the chips otherwise leave to the reader. */}
+      {segments.slice(0, depth + 1).join("/") === current ? (
+        <span className="ns-here">{segment}</span>
+      ) : (
+        <Link
+          href={href("namespace", segments.slice(0, depth + 1).join("/"))}
+          color="primary"
+        >
+          {segment}
+        </Link>
+      )}
     </span>
   ));
 }
@@ -49,7 +57,7 @@ export function NamespacePath({ path }) {
  * them — at the same spacing, the last area of the first path reads as one more step in
  * it instead of the start of the second.
  */
-export function NamespacePaths({ paths }) {
+export function NamespacePaths({ paths, current }) {
   return paths.map((path, i) => (
     <span key={path} className="ns-step">
       {i > 0 && (
@@ -57,7 +65,7 @@ export function NamespacePaths({ paths }) {
           ·
         </span>
       )}
-      <NamespacePath path={path} />
+      <NamespacePath path={path} current={current} />
     </span>
   ));
 }

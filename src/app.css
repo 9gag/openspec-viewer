@@ -791,6 +791,41 @@ body {
   font: inherit;
 }
 
+/*
+ * A segment is a place you can go, and at the title's own size and colour nothing said
+ * so: it read as part of the heading, which is exactly what it is the rest of the time.
+ * So each one sits on the tint a neutral Badge uses — enough to read as a control on a
+ * line of prose, quiet enough that a title is still a title.
+ *
+ * The anchor and not its descendants, which is why this is a rule of its own: the type
+ * above has to cascade into the <Text> the link wraps its words in, and a box that
+ * cascaded with it would draw a second chip inside the first — twice the padding, and the
+ * tint laid over itself at double the strength it was chosen at.
+ */
+.ns-line a {
+  padding: 0 10px;
+  border-radius: var(--radius-inner);
+  background: var(--color-neutral);
+  text-decoration: none;
+}
+
+.ns-line a:hover {
+  background: var(--color-overlay-pressed);
+}
+
+.ns-line a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Where you already are: no box at all. Boxed to match the chips it sits beside, it drew
+   more attention than the links did, which is the hierarchy upside down — the segments
+   worth noticing are the ones that go somewhere. Plain, it reads as the title it is, and
+   the tint beside it reads as the places you can still get to. */
+.ns-here {
+  padding: 0;
+}
+
 /* The same line above a change's id, where there is no <Heading> to take the type from:
    set from the tokens Astryx's own heading-1 reads, so the two lines are one title and
    cannot drift apart when the theme's type scale moves. */

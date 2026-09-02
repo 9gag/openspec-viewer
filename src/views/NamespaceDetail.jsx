@@ -62,7 +62,7 @@ export default function NamespaceDetail({ id, plainNames }) {
     <VStack gap={4}>
       <VStack gap={2}>
         <Heading level={1} className="ns-line">
-          <NamespacePath path={id} />
+          <NamespacePath path={id} current={id} />
         </Heading>
       </VStack>
 
