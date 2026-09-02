@@ -40,8 +40,8 @@ describe("slugify", () => {
         "@astryxdesign",
         "core",
         "dist",
-        "Outline",
-        "parseOutlineFromMarkdown.js",
+        "Markdown",
+        "parser.js",
       ),
       "utf8",
     );

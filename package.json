@@ -1,6 +1,6 @@
 {
   "name": "@seankcw/openspec-viewer",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "A read-only web view of an OpenSpec store: changes in flight, capability specs, idle claims, and archive conflicts.",
   "license": "MIT",
   "author": "seankcw",
@@ -21,10 +21,24 @@
   "bin": {
     "openspec-viewer": "bin/openspec-viewer.mjs"
   },
+  "exports": {
+    "./lib/store": {
+      "types": "./lib/store.d.mts",
+      "default": "./lib/store.mjs"
+    },
+    "./lib/spec": {
+      "types": "./lib/spec.d.mts",
+      "default": "./lib/spec.mjs"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "bin",
     "server",
     "dist",
+    "lib",
+    "src/spec.js",
+    "src/bdd.js",
     "README.md",
     "LICENSE"
   ],
@@ -44,8 +58,8 @@
     "prepack": "vite build"
   },
   "devDependencies": {
-    "@astryxdesign/core": "^0.1.9",
-    "@astryxdesign/theme-neutral": "^0.1.9",
+    "@astryxdesign/core": "^0.5.2",
+    "@astryxdesign/theme-neutral": "^0.5.2",
     "@stylexjs/stylex": "^0.19.0",
     "@vitejs/plugin-react": "^6.0.4",
     "mermaid": "^11.17.2",
