@@ -649,18 +649,29 @@ body {
   min-width: 0;
 }
 
-/* The two conflict warnings side by side once there is width for it: they are the same
-   kind of thing said twice, and stacked they pushed the board itself off the screen. */
+/*
+ * The conflict warnings, one under the next and no wider than they can be read.
+ *
+ * They were side by side and full width, on the grounds that they are the same kind of
+ * thing said twice. Both halves of that were wrong once there was a window wide enough to
+ * show it. Two paragraphs abreast are read as one, so the eye finishes a line of the
+ * first warning and starts a line of the second; and at full width on a large screen each
+ * of these is a single line of about two hundred and thirty characters, which is nobody's
+ * measure for prose.
+ *
+ * Capped at the width the capability index already uses for a column of content, which
+ * puts these at about eighty characters a line — and no narrower, because a warning cut
+ * to a card in the corner of a wide page is one nobody reads either.
+ *
+ * It costs height: stacked and capped is 229px where two columns were 155px on a 1800px
+ * window. That is the trade, made deliberately — this is the one panel on the simplified
+ * board, and it is here because it is worth stopping for.
+ */
 .board-banners {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-}
-
-@media (min-width: 1400px) {
-  .board-banners {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  max-width: 52rem;
 }
 
 .board-chips {
