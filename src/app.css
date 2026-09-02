@@ -327,7 +327,8 @@ body {
 }
 
 /*
- * The capability index: nested namespace headings, then a line per capability.
+ * Nested namespace headings, then a line per thing filed under one: the capability index,
+ * and the simplified board, which files changes under the same namespaces.
  *
  * Astryx has no row or section-heading primitive, so both are here — layout, not design:
  * every colour, size and weight in these rules is a theme token or comes from the Astryx
@@ -613,4 +614,150 @@ body {
 
 .timeline-item:last-child :is(.timeline-when, .timeline-body) {
   padding-bottom: 0;
+}
+
+/*
+ * The simplified board.
+ *
+ * Two columns of namespace bands, because the list is the height of three screens in a
+ * column half the width of the window it is in — and the thing the reader came for
+ * ("is anything finished?") was below the fold every time. One column until there is
+ * genuinely room for two: at 1400px the bands are still wide enough for a change id and
+ * its four data columns, and below it the second column would only squeeze the names.
+ *
+ * As with the capability index, everything here is layout — every colour, size and weight
+ * comes from a theme token or from the Astryx component inside.
+ */
+.board-simple {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+
+@media (min-width: 1400px) {
+  .board-simple {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 44px;
+  }
+}
+
+.board-simple-column {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
+}
+
+/* The two conflict warnings side by side once there is width for it: they are the same
+   kind of thing said twice, and stacked they pushed the board itself off the screen. */
+.board-banners {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 1400px) {
+  .board-banners {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.board-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/*
+ * One change, on one line.
+ *
+ * Every column is fixed but the name, for the reason the capability index fixes its own:
+ * the counts, the owners and the ages are read down the page against each other, and a
+ * column that shifts with the length of the id beside it is four ragged edges instead.
+ */
+.simple-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem 3.4rem 5rem 4rem;
+  align-items: center;
+  column-gap: 8px;
+  padding: 5px 8px;
+  /* Pulled back by its own padding so the id lines up with the heading above it. */
+  margin-left: -8px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+  color: inherit;
+}
+
+.simple-row:hover {
+  background: var(--color-background-muted);
+}
+
+.simple-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* The two states worth seeing from the side of the eye while scanning the column of ids:
+   finished, and about to be archived into a conflict. Conflict wins when a change is
+   both, because that is the one where archiving does the damage. */
+.simple-row[data-flag="ready"] {
+  border-left-color: var(--color-success);
+}
+
+.simple-row[data-flag="conflict"] {
+  border-left-color: var(--color-warning);
+}
+
+/* The id, and what has to sit beside it: a long id truncates rather than wrapping the row
+   to two lines, since one line per change is what makes the column scannable. */
+.simple-row-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.simple-row-id {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shrinks six times faster than the id beside it: when the row runs out of room, the
+   thing to lose is the note about where else the change is filed, never the id the row
+   exists to name. */
+.simple-row-else {
+  flex: 0 6 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simple-row-owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simple-row-count,
+.simple-row-age {
+  text-align: right;
+}
+
+/* Narrow enough that the data columns leave the id nothing: they drop to their own line
+   rather than truncating the one thing the row exists to name. */
+@media (max-width: 700px) {
+  .simple-row {
+    grid-template-columns: minmax(0, 1fr) 3.4rem 6rem;
+  }
+
+  .simple-row-owner,
+  .simple-row-age {
+    display: none;
+  }
 }

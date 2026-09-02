@@ -46,9 +46,32 @@ Times. `npx astryx init` was skipped deliberately — it writes AI-agent instruc
 
 The theme package's README calls the wrapper `XDSTheme`; 0.1.9 exports it as `Theme`.
 
+## Two readings of the board
+
+The board opens **simplified**: every change in development on one line — its id, who
+holds it, how far along it is, and when it last moved — grouped under the same namespaces
+the nav and the capability index use, in two columns once the window is wide enough for
+them. Most people who open this are asking how far along the plan is — a PM before a
+standup, a lead between meetings — and the queues, the panels and a task group table per
+change are the wrong answer to that question.
+
+Above the bands: how many changes there are, how many are finished and waiting to be
+archived, and four counts you can press to narrow the board to one of them. They are
+queues rather than states, so a change that is finished *and* in a conflict is in both and
+the counts do not sum to the total — that change is the one about to be archived into the
+hazard, and burying it in whichever count was tested first is how it gets missed. The
+conflict warnings stay in this reading for the same reason; nothing else does.
+
+A change filed under two namespaces is listed under both, and each row says where else it
+is filed, so the second sighting reads as one change seen twice rather than a duplicate.
+
+The `Simplified` switch at the top of the board turns the rest back on, and the choice is
+remembered per browser. `?board=full` and `?board=simple` do the same from a link, for the
+visit only. Everything below describes the full reading.
+
 ## The strip
 
-Five tiles across the top of the board. Four are queues — **collisions, idle claims, ready
+Five tiles across the top of the full board. Four are queues — **conflicts, idle claims, ready
 to archive, unclaimed** — and the fifth is the store's sync state, which is not a queue
 and so does not filter anything.
 
@@ -73,9 +96,9 @@ and expanded it put six rows of shell commands between the reader and the board.
 
 | View                | Answers                                                                                                                                                                     |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Board**           | Every change in development, its task groups, who owns each, and how long each claim has been idle                                                                          |
+| **Board**           | Every change in development and its overall progress; switched to full, its task groups, who owns each, and how long each claim has been idle                               |
 | **Change**          | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
-| **Production**      | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it                                                  |
+| **Namespace**       | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it                                                  |
 | **Capability**      | One spec in full, with its history and an outline rail                                                                                                                      |
 | **Shipped changes** | The archive, and which capability each shipped change produced                                                                                                              |
 
@@ -123,8 +146,8 @@ authored in bulk commits no subject pattern matches.
 When history cannot account for the current owner, the column shows `—`. An age inferred
 from missing history would aim the nudge at the wrong person.
 
-**Capability collisions.** Two in-development changes deltaing the same capability never
-conflict in git — each change is its own folder, so both push cleanly. It breaks at
+**Capability conflicts.** Two in-development changes deltaing the same capability are
+never flagged by git — each change is its own folder, so both push cleanly. It breaks at
 archive time, when the second is written against a baseline the first already rewrote,
 and a `## MODIFIED` block whose headers no longer match silently drops the rest of the
 requirement. Nothing else warns about this, so the board names the overlap early.
@@ -175,7 +198,7 @@ counts: a delta that also adds is a rewrite, and a capability re-added after a r
 arriving again.
 
 **Contested capabilities** are named on the index too. Two in-development changes deltaing one
-capability is the collision the board counts, and until now the one page that shows what is
+capability is the conflict the board counts, and until now the one page that shows what is
 changing each capability never said which one it would break.
 
 ## Reading a spec
@@ -227,7 +250,7 @@ openspec-viewer/
 │   ├── board.mjs            # changes, task groups, idle inference
 │   ├── change.mjs           # one change: artifact bodies, capabilities, completeness, validate
 │   ├── artifacts.mjs        # which files a change has, ordered by its workflow schema
-│   ├── catalog.mjs          # baseline specs, archive, capability collisions
+│   ├── catalog.mjs          # baseline specs, archive, capability conflicts
 │   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
 ├── src/
@@ -303,7 +326,7 @@ CI runs them on every push, and again before a tag publishes, so the inferences 
 checked by the pipeline rather than by whoever last opened the tool.
 
 Staleness is tested by building real git histories in a temp repo with backdated commits;
-collisions by building stores that actually overlap, since the real store has none and
+conflicts by building stores that actually overlap, since the real store has none and
 would return an empty list whether the check worked or not. The artifact test writes
 schemas and change directories that disagree with each other, since a file the viewer
 does not know about is not rendered wrong, it is simply absent, and nothing on the page

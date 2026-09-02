@@ -14,7 +14,7 @@ import {
   archive,
   capability,
   capabilityCatalog,
-  collisions,
+  conflicts,
 } from "./catalog.mjs";
 import { change, validate } from "./change.mjs";
 import { doc } from "./doc.mjs";
@@ -28,7 +28,7 @@ const ROUTES = {
     // change, and it is the warning PM most needs before the archive that would expose it.
     return {
       ...data,
-      collisions: collisions(root.path, changeIds(root.path)),
+      conflicts: conflicts(root.path, changeIds(root.path)),
     };
   },
   "/api/change": (url) => {

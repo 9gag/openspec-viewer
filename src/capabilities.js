@@ -40,7 +40,7 @@ export function summarise(caps) {
     shipped: inState("shipped"),
     unshipped: inState("unshipped"),
     retired: inState("retired"),
-    // Two in-development changes on one capability: the collision the board counts, named here
+    // Two in-development changes on one capability: the conflict the board counts, named here
     // against the capability it will break.
     contested: caps.filter((c) => c.inDevelopment > 1).length,
   };
@@ -153,7 +153,7 @@ export function changeTreeByNamespace(changes) {
  * index page's flags say, in the same words.
  *
  * A capability being rewritten outranks the state it is in, because that is the thing
- * about to change; two changes rewriting it at once is the collision the board warns
+ * about to change; two changes rewriting it at once is the conflict the board warns
  * about, and it outranks everything.
  */
 export function capabilityFlag(cap) {

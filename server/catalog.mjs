@@ -119,15 +119,15 @@ export function capabilityState({ shipped, history }) {
 /**
  * Capabilities two or more in-development changes both touch.
  *
- * This is the archive-time hazard, and it never shows up as a git conflict: each change
- * is its own folder, so both push cleanly. It breaks later, when the second change
+ * This is the archive-time hazard, and git never flags it: each change is its own
+ * folder, so both push cleanly. It breaks later, when the second change
  * archives against a baseline the first one already rewrote — and a MODIFIED block
  * whose headers no longer match the baseline silently drops the rest of the
  * requirement. By then the plan and the specs disagree and nothing said so.
  *
  * Sequencing them is a planning decision, so all this does is name the overlap early.
  */
-export function collisions(storePath, changeIds) {
+export function conflicts(storePath, changeIds) {
   const byCapability = new Map();
 
   for (const id of changeIds) {
@@ -218,7 +218,7 @@ export function capabilityCatalog({ withText = false, only = null } = {}) {
       capability: cap,
       shipped: text !== null,
       state: capabilityState({ shipped: text !== null, history }),
-      // Two in-development changes on one capability is the collision `collisions()` reports,
+      // Two in-development changes on one capability is the conflict `conflicts()` reports,
       // counted here from the walk already done rather than by walking every change again.
       inDevelopment: history.filter((h) => !h.archived).length,
       path: text === null ? null : rel,

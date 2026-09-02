@@ -163,14 +163,15 @@ An idle claim past seven days: either pick it back up or hand it back so someone
 can take it.
 _Avoid_: critical, dead, overdue
 
-**Collision**:
-Two in-development changes deltaing the same capability. It never appears as a git conflict
-and breaks at archive time, when the second change is written against a baseline the
-first already rewrote.
-_Avoid_: conflict, overlap, clash
+**Conflict**:
+Two in-development changes deltaing the same capability. Git never flags it — each change
+is its own folder — and it breaks at archive time, when the second change is written
+against a baseline the first already rewrote. Never a git conflict, which is the one thing
+the word must not be read as: say "git will never flag it", not "it never conflicts".
+_Avoid_: collision, overlap, clash, merge conflict
 
 **Contested**:
-Of a capability: the one a collision is happening to. The collision is the event, the
+Of a capability: the one a conflict is happening to. The conflict is the event, the
 capability is contested — the board counts the first, the catalog marks the second.
 _Avoid_: conflicted, disputed, hot
 
@@ -196,7 +197,7 @@ _Avoid_: stat, metric, KPI, card
 
 **Queue**:
 A tile that can be clicked into, narrowing the board to the work it counts. There are
-four: collisions, idle claims, ready to archive, unclaimed. The store's sync state is the
+four: conflicts, idle claims, ready to archive, unclaimed. The store's sync state is the
 fifth tile and is not a queue.
 _Avoid_: filter, bucket, category
 

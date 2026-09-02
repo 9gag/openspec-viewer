@@ -342,7 +342,7 @@ describe("capabilityFlag", () => {
     });
   });
 
-  // Two changes deltaing one capability is the collision the board warns about.
+  // Two changes deltaing one capability is the conflict the board warns about.
   it("counts the changes when more than one is rewriting it", () => {
     assert.deepEqual(capabilityFlag(cap({ inDevelopment: 2 })), {
       variant: "warning",

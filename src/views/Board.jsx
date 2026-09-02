@@ -7,11 +7,21 @@ import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Table } from "@astryxdesign/core/Table";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useState } from "react";
 import { href } from "../api.js";
+import { loadSimple, saveSimple, splitIntoColumns } from "../board.js";
+import {
+  changeTreeByNamespace,
+  leafOf,
+  namespaceOf,
+  TOP_LEVEL,
+} from "../capabilities.js";
+import { displayName } from "../names.js";
 import {
   Command,
   GroupState,
@@ -20,8 +30,14 @@ import {
   Progress,
 } from "../components/bits.jsx";
 import StatusStrip from "../components/StatusStrip.jsx";
-import { applyFilter, initialFilter, summarize } from "../summary.js";
-import { iso } from "../time.js";
+import {
+  applyFilter,
+  changeQueues,
+  conflictingChanges,
+  initialFilter,
+  summarize,
+} from "../summary.js";
+import { ago, exact, iso, STALE_DAYS } from "../time.js";
 
 const columns = [
   {
@@ -129,6 +145,344 @@ function ChangeCard({ change, ready }) {
 }
 
 /**
+ * The simplified board: every change in development on one line, grouped the way the store
+ * already groups everything else, with the counts that say what to do about them.
+ *
+ * Grouped by namespace rather than listed, because a flat run of twenty-one ids is sorted
+ * by nothing a reader is thinking in: "how far along is the auction work" is one question
+ * and "how far along is loyalty" is another, and the answer to either was four rows apart
+ * with three unrelated changes between them. The namespaces come from the capabilities a
+ * change deltas, so the grouping is the store's own — the same tree the nav draws, in the
+ * same bands the capability index uses.
+ *
+ * A change that deltas two namespaces is listed under both, for the reason the nav lists
+ * it twice: a change rewriting `shared/ui` is ui work however much auction work it also
+ * does, and filing it under one would hide it from whoever looked under the other. The
+ * heading's count knows the difference — it counts changes, not rows; the row says where
+ * else it is filed, so the second sighting reads as the same change rather than a bug.
+ *
+ * A headline and four counts above the bands, because the reader's first question is not
+ * about any one namespace: on a real store this was twenty-one changes of which seven
+ * were finished and waiting to be archived, and the page said so nowhere — the reader had
+ * to notice seven full bars scattered down three screens. The counts are queues, so a
+ * change that is finished *and* in a conflict is in both of them.
+ *
+ * Two columns, one line per change. Still no task groups and no commands: a group table is
+ * what you read when you are about to do something about it, and this reading is for the
+ * person who is not. But an owner and a stalled date are one line, and leaving them out
+ * meant a board where nothing said who had a change or that nothing had moved on it in a
+ * fortnight.
+ */
+function SimpleBoard({ changes, summary, plainNames }) {
+  const [queue, setQueue] = useState(null);
+  const queues = changeQueues(summary);
+  const conflicting = conflictingChanges(summary.conflicts);
+
+  // Counted against every change, never against the filtered list: a chip that recounts
+  // itself once it is pressed is a chip that can only ever read what you already chose.
+  const counted = queues.map((q) => ({
+    ...q,
+    count: changes.filter(q.has).length,
+  }));
+  const active = counted.find((q) => q.key === queue);
+  const shown = active ? changes.filter(active.has) : changes;
+
+  const tree = changeTreeByNamespace(shown);
+  // A store that namespaces nothing has one namespace, and a heading naming it would be a
+  // band around the whole list saying what the page already says.
+  const bare = tree.length === 1 && tree[0].path === TOP_LEVEL;
+  const [left, right] = splitIntoColumns(tree);
+
+  const ready = summary.ready.length;
+
+  return (
+    <VStack gap={4}>
+      <VStack gap={3}>
+        <HStack gap={3} align="baseline" wrap="wrap">
+          <Heading level={2}>
+            {changes.length} {changes.length === 1 ? "change" : "changes"} in
+            development
+          </Heading>
+          {ready > 0 && (
+            <Text color="secondary">
+              {ready} finished and waiting to be archived
+            </Text>
+          )}
+        </HStack>
+
+        <HStack gap={3} align="center" wrap="wrap">
+          <div className="board-chips">
+            {/* Buttons rather than Astryx's ToggleButton, which is ghost-only: a row of
+                five ghost buttons is a row of text, and a control the reader cannot see
+                is a filter nobody will ever press. Pressed state carries on the variant
+                and on aria-pressed, since the surface is the only other thing saying it. */}
+            {counted.map((q) => (
+              <Button
+                key={q.key}
+                size="sm"
+                variant={queue === q.key ? "primary" : "secondary"}
+                aria-pressed={queue === q.key}
+                label={`${q.label} ${q.count}`}
+                icon={<StatusDot variant={q.tone} label="" />}
+                isDisabled={q.count === 0}
+                onClick={() => setQueue(queue === q.key ? null : q.key)}
+              />
+            ))}
+          </div>
+          {active && (
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Show everything"
+              onClick={() => setQueue(null)}
+            />
+          )}
+        </HStack>
+      </VStack>
+
+      {bare ? (
+        <SimpleRows
+          changes={tree[0].items}
+          conflicting={conflicting}
+          plainNames={plainNames}
+        />
+      ) : (
+        <div className="board-simple">
+          {[left, right].map((column, i) => (
+            <div className="board-simple-column" key={i}>
+              {column.map((node) => (
+                <SimpleGroup
+                  key={node.path}
+                  node={node}
+                  depth={0}
+                  plainNames={plainNames}
+                  conflicting={conflicting}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </VStack>
+  );
+}
+
+/**
+ * One namespace band, and the namespaces inside it — the capability index's shape.
+ *
+ * The nested bands collapse and the top-level ones do not: a top-level band is the page's
+ * own structure and closing it would leave a heading standing for nothing a reader can
+ * see, while "Auction" inside it is a section of a list, which is exactly the thing a
+ * disclosure is for once you have found what you came for.
+ */
+function SimpleGroup({ node, depth, plainNames, conflicting }) {
+  const heading = (
+    <div className="cap-ns">
+      <Text
+        weight="semibold"
+        size={depth === 0 ? undefined : "sm"}
+        className={plainNames ? undefined : "mono"}
+      >
+        {displayName(node.name, plainNames)}
+      </Text>
+      <Badge variant="neutral" label={String(node.count)} />
+      <span className="cap-ns-rule" aria-hidden="true" />
+    </div>
+  );
+
+  const body = (
+    <div className="cap-group-body">
+      {node.items.length > 0 && (
+        <SimpleRows
+          changes={node.items}
+          conflicting={conflicting}
+          plainNames={plainNames}
+          band={node.path}
+        />
+      )}
+      {node.children.map((child) => (
+        <SimpleGroup
+          key={child.path}
+          node={child}
+          depth={depth + 1}
+          plainNames={plainNames}
+          conflicting={conflicting}
+        />
+      ))}
+    </div>
+  );
+
+  if (depth === 0) {
+    return (
+      <section className="cap-group">
+        {heading}
+        {body}
+      </section>
+    );
+  }
+
+  return (
+    <section className="cap-group">
+      <Collapsible defaultIsOpen trigger={heading}>
+        {body}
+      </Collapsible>
+    </section>
+  );
+}
+
+/**
+ * The changes filed directly under one namespace.
+ *
+ * Ids rather than the nav's sentences, whatever the name toggle says: the heading above is
+ * a place and reads as prose, and the row underneath is the thing you paste into the CLI.
+ *
+ * Every column is fixed but the id, so the counts, the owners and the ages line up down
+ * the whole column — the reason the capability index fixes its own.
+ */
+function SimpleRows({ changes, conflicting, plainNames, band }) {
+  return (
+    <div>
+      {changes.map((ch) => {
+        const flag = conflicting.has(ch.id)
+          ? "conflict"
+          : ch.total > 0 && ch.done === ch.total
+            ? "ready"
+            : undefined;
+
+        return (
+          <a
+            key={ch.id}
+            className="simple-row"
+            data-flag={flag}
+            href={href("change", ch.id)}
+          >
+            <span className="simple-row-name">
+              {/* The id carries its own title: a long one against a conflict badge and
+                  an "also" note runs out of column, and an id truncated with nothing to
+                  hover is a row you cannot identify. */}
+              <Text
+                className="simple-row-id"
+                weight="medium"
+                size="sm"
+                title={ch.id}
+              >
+                {ch.id}
+              </Text>
+              {/* Warning, not error, and the same word the tile counts by: the change is
+                  not broken, it is unsafe to archive without reading the banner that
+                  names the capability and the change on the other side of it. */}
+              {conflicting.has(ch.id) && (
+                <Badge variant="warning" label="conflict" />
+              )}
+              <Elsewhere change={ch} band={band} plainNames={plainNames} />
+            </span>
+
+            <Text size="sm" color="secondary" className="simple-row-owner">
+              {owners(ch)}
+            </Text>
+
+            <Text
+              size="sm"
+              color="secondary"
+              hasTabularNumbers
+              className="simple-row-count"
+            >
+              {/* A change still being planned has no tasks.md to count, and 0/0 read as
+                  work that had not started rather than work not yet written down. */}
+              {ch.planning ? "planning" : `${ch.done}/${ch.total}`}
+            </Text>
+
+            {ch.planning ? (
+              <span />
+            ) : (
+              <Progress
+                done={ch.done}
+                total={ch.total}
+                label={`${ch.id} progress`}
+              />
+            )}
+
+            <Text size="sm" color="secondary" className="simple-row-age">
+              <Stalled at={ch.lastActivity} />
+            </Text>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Who is on it, in the width of a column.
+ *
+ * A change is claimed a task group at a time, so "the owner" is however many people have
+ * claimed one. Named while there is one, counted once there are more: three handles do
+ * not fit and would not be read if they did.
+ */
+function owners(change) {
+  const held = [
+    ...new Set((change.groups ?? []).map((g) => g.owner).filter(Boolean)),
+  ];
+  if (held.length === 0) return "unassigned";
+  if (held.length === 1) return `@${held[0]}`;
+  return `@${held[0]} +${held.length - 1}`;
+}
+
+/**
+ * Where else this change is filed.
+ *
+ * Never the band it is already under — that would be the row telling the reader where
+ * they are. It exists because the same id appearing twice on one page reads as a
+ * duplicate until something says it is one change seen from its other capability, and a
+ * reader who has just been told a namespace holds ten changes should not have to count
+ * eleven rows and wonder which of them is a bug.
+ *
+ * The first one named and the rest counted: a change deltaing four namespaces is rare,
+ * and naming all four would push the id it belongs to out of the row.
+ */
+function Elsewhere({ change, band, plainNames }) {
+  const spaces = [
+    ...new Set(
+      (change.capabilities ?? []).map((c) => namespaceOf(c) ?? TOP_LEVEL),
+    ),
+  ].filter((ns) => ns !== band);
+
+  if (spaces.length === 0) return null;
+
+  const first = displayName(leafOf(spaces[0]), plainNames);
+  const rest = spaces.length > 1 ? ` +${spaces.length - 1}` : "";
+
+  return (
+    // The leaf is all that fits, and two namespaces can share one ("auction" lives under
+    // both applications), so the full paths ride along in the title for the reader the
+    // short name leaves guessing.
+    <Text
+      size="sm"
+      color="secondary"
+      className="simple-row-else"
+      title={`also filed under ${spaces.join(", ")}`}
+    >
+      also {first}
+      {rest}
+    </Text>
+  );
+}
+
+/**
+ * When a change last moved, and only once that has been long enough to notice.
+ *
+ * Empty while work is happening, so the column reads as the list of things that have
+ * stopped rather than a date beside every row. The threshold is the store's own: past it,
+ * the full board is already calling a claim on it stale.
+ */
+function Stalled({ at }) {
+  if (!at) return null;
+  const days = (Date.now() - at) / 86400000;
+  if (days < STALE_DAYS) return null;
+  return <span title={`last commit ${exact(at)}`}>{ago(at)}</span>;
+}
+
+/**
  * The changes in development that are missing an artifact.
  *
  * A change is a directory of markdown files, and which files belong there is decided by
@@ -174,8 +528,8 @@ function Coverage({ changes }) {
   );
 }
 
-function Collisions({ collisions }) {
-  return collisions.map((c) => (
+function Conflicts({ conflicts }) {
+  return conflicts.map((c) => (
     <Banner
       key={c.capability}
       status="warning"
@@ -185,11 +539,11 @@ function Collisions({ collisions }) {
         <VStack gap={2}>
           <Text size="sm">
             {c.changes.map((u) => u.change).join(" and ")} both write{" "}
-            <span className="mono">specs/{c.capability}/</span>. This never
-            conflicts in git — each change is its own folder — but whichever
-            archives second is written against a baseline the first already
-            rewrote, and a MODIFIED block whose headers no longer match silently
-            drops the rest of the requirement.
+            <span className="mono">specs/{c.capability}/</span>. Git will never
+            flag it — each change is its own folder — but whichever archives
+            second is written against a baseline the first already rewrote, and
+            a MODIFIED block whose headers no longer match silently drops the
+            rest of the requirement.
           </Text>
           {c.modifies.length > 0 && (
             <Text size="sm" color="secondary">
@@ -288,15 +642,70 @@ function Unclaimed({ unclaimed, isOpen, cli }) {
   );
 }
 
-export default function Board({ board }) {
+export default function Board({ board, plainNames }) {
   const [filter, setFilter] = useState(initialFilter);
+  const [simple, setSimple] = useState(loadSimple);
   const summary = summarize(board);
   // Ready to archive first, order otherwise untouched. Archiving is the one move on this
   // board that only PM can make, and a finished change reads as just another card if it
   // sits where it happened to fall — so it comes up to meet the panels above it.
   const isReady = (ch) => summary.ready.includes(ch.id);
+  const readyFirst = (a, b) => Number(isReady(b)) - Number(isReady(a));
+
+  const chooseSimple = (next) => {
+    setSimple(next);
+    saveSimple(next);
+  };
+
+  // Above everything, and in both readings: it is the one control that is still there
+  // after it has hidden the rest of the page.
+  const reading = (
+    <HStack justify="end">
+      <Switch label="Simplified" value={simple} onChange={chooseSimple} />
+    </HStack>
+  );
+
+  if (simple) {
+    // Not narrowed by a tile: the tiles are not on screen, so a `?filter=` in the URL
+    // would be a board silently missing changes with nothing on the page saying why.
+    // Not re-sorted either — the grouping is the order now, and floating the finished
+    // changes to the top of their namespace would sort each band by something the band
+    // above it is not sorted by.
+    //
+    // Conflicts are the exception to dropping the panels. The rest of them are queues —
+    // work waiting for somebody, which is exactly what this reading is not for. A
+    // conflict is not work waiting: it is two changes already written against the same
+    // baseline, where the damage is silent and lands at archive time, and archiving is
+    // the move only the person reading the simplified board makes.
+    return (
+      <VStack gap={4}>
+        {reading}
+        {summary.conflicts.length > 0 && (
+          <div className="board-banners">
+            <Conflicts conflicts={summary.conflicts} />
+          </div>
+        )}
+        {board.changes.length > 0 ? (
+          <SimpleBoard
+            changes={board.changes}
+            summary={summary}
+            plainNames={plainNames}
+          />
+        ) : (
+          <Card padding={4}>
+            <EmptyState
+              title="Nothing in development"
+              description="Every change in the store has been archived."
+              isCompact
+            />
+          </Card>
+        )}
+      </VStack>
+    );
+  }
+
   const changes = [...applyFilter(board.changes, filter, summary)].sort(
-    (a, b) => Number(isReady(b)) - Number(isReady(a)),
+    readyFirst,
   );
 
   // Every panel that has something to say, in one order for everyone. A tile is a
@@ -308,8 +717,8 @@ export default function Board({ board }) {
   );
 
   const rendered = [
-    only("collisions") && summary.collisions.length > 0 && (
-      <Collisions key="collisions" collisions={summary.collisions} />
+    only("conflicts") && summary.conflicts.length > 0 && (
+      <Conflicts key="conflicts" conflicts={summary.conflicts} />
     ),
     only("idle") && summary.idle.length > 0 && (
       <IdleClaims key="idle" idle={summary.idle} cli={board.store.cli} />
@@ -331,6 +740,8 @@ export default function Board({ board }) {
 
   return (
     <VStack gap={4}>
+      {reading}
+
       <StatusStrip summary={summary} active={filter} onFilter={setFilter} />
 
       {filter && (

@@ -9,7 +9,7 @@
  *
  * `capabilityState` is pure over the entry the catalog has already built, so none of this
  * needs a store on disk — the store-backed half of the catalog is covered in
- * collisions.test.mjs.
+ * conflicts.test.mjs.
  */
 
 import assert from "node:assert/strict";

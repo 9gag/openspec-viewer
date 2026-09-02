@@ -12,7 +12,9 @@ import { fileURLToPath } from "node:url";
 
 import {
   applyFilter,
+  changeQueues,
   changeState,
+  conflictingChanges,
   FILTERS,
   summarize,
 } from "../src/summary.js";
@@ -34,7 +36,7 @@ const group = (num, extra = {}) => ({
 const board = (changes, extra = {}) => ({
   store: { git: true, upstream: "origin/main", behind: 0, ahead: 0, dirty: 0 },
   changes,
-  collisions: [],
+  conflicts: [],
   ...extra,
 });
 
@@ -212,7 +214,7 @@ describe("applyFilter", () => {
   ];
   const s = summarize(
     board(changes, {
-      collisions: [
+      conflicts: [
         { capability: "cart", changes: [{ change: "guest" }], modifies: [] },
       ],
     }),
@@ -250,21 +252,125 @@ describe("applyFilter", () => {
     );
     assert.equal(ready[0].groups.length, 1);
 
-    const colliding = applyFilter(changes, "collisions", s);
+    const conflicting = applyFilter(changes, "conflicts", s);
     assert.deepEqual(
-      colliding.map((c) => c.id),
+      conflicting.map((c) => c.id),
       ["guest"],
     );
     assert.equal(
-      colliding[0].groups.length,
+      conflicting[0].groups.length,
       3,
-      "a collision is about the change, not one group",
+      "a conflict is about the change, not one group",
     );
   });
 
   it("does not mutate the board it filters", () => {
     applyFilter(changes, "idle", s);
     assert.equal(changes[0].groups.length, 3);
+  });
+
+  it("keeps exactly the changes the simplified board badges", () => {
+    const ids = conflictingChanges(s.conflicts);
+    assert.deepEqual(
+      applyFilter(changes, "conflicts", s).map((c) => c.id),
+      changes.filter((c) => ids.has(c.id)).map((c) => c.id),
+    );
+  });
+});
+
+/**
+ * The simplified board badges these rows and the tile filters the full board to them.
+ * Two readings, one set: a change the full board calls dangerous to archive and the
+ * simplified board shows as an ordinary row is the same drift the counts avoid.
+ */
+describe("conflictingChanges", () => {
+  it("is empty when nothing collides", () => {
+    assert.equal(conflictingChanges([]).size, 0);
+  });
+
+  it("names every change on both sides of a conflict", () => {
+    const ids = conflictingChanges([
+      {
+        capability: "cart",
+        changes: [{ change: "guest" }, { change: "limits" }],
+        modifies: [],
+      },
+    ]);
+    assert.deepEqual([...ids].sort(), ["guest", "limits"]);
+  });
+
+  it("counts a change once when it collides on two capabilities", () => {
+    const ids = conflictingChanges([
+      { capability: "cart", changes: [{ change: "guest" }], modifies: [] },
+      { capability: "pricing", changes: [{ change: "guest" }], modifies: [] },
+    ]);
+    assert.deepEqual([...ids], ["guest"]);
+  });
+});
+
+/**
+ * The chips over the simplified board. They are queues, not one state per change, and the
+ * case that matters is the change that is in two of them: finished and in a conflict is
+ * the change about to be archived into the hazard, and a chip that filed it under one of
+ * those would disagree with the banner naming it under the other.
+ */
+describe("changeQueues", () => {
+  const finished = {
+    id: "done",
+    planning: false,
+    done: 4,
+    total: 4,
+    groups: [],
+  };
+  const started = {
+    id: "half",
+    planning: false,
+    done: 2,
+    total: 4,
+    groups: [],
+  };
+  const fresh = { id: "new", planning: false, done: 0, total: 4, groups: [] };
+  const planned = {
+    id: "planned",
+    planning: true,
+    done: 0,
+    total: 0,
+    groups: [],
+  };
+  const all = [finished, started, fresh, planned];
+
+  const queues = (conflicts = []) =>
+    changeQueues(summarize(board(all, { conflicts })));
+
+  const keysFor = (change, conflicts = []) =>
+    queues(conflicts)
+      .filter((q) => q.has(change))
+      .map((q) => q.key);
+
+  it("puts each ordinary change in exactly one queue", () => {
+    assert.deepEqual(keysFor(finished), ["ready"]);
+    assert.deepEqual(keysFor(started), ["moving"]);
+    assert.deepEqual(keysFor(fresh), ["unstarted"]);
+  });
+
+  it("puts a finished change that is also in a conflict in both", () => {
+    const conflicts = [
+      { capability: "cart", changes: [{ change: "done" }], modifies: [] },
+    ];
+    assert.deepEqual(keysFor(finished, conflicts), ["ready", "conflicts"]);
+  });
+
+  it("leaves a change still being planned out of all of them", () => {
+    assert.deepEqual(keysFor(planned), []);
+  });
+
+  it("counts ready the way the strip counts it", () => {
+    const s = summarize(board(all));
+    const ready = changeQueues(s).find((q) => q.key === "ready");
+    assert.deepEqual(
+      all.filter(ready.has).map((c) => c.id),
+      s.ready,
+    );
   });
 });
 
@@ -303,7 +409,7 @@ describe("filter wiring", () => {
     ];
     const s = summarize(
       board(changes, {
-        collisions: [
+        conflicts: [
           { capability: "cart", changes: [{ change: "c" }], modifies: [] },
         ],
       }),
