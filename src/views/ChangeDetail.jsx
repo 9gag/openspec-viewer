@@ -351,7 +351,7 @@ export default function ChangeDetail({ id }) {
   const current = artifacts.find((a) => a.name === active);
 
   return (
-    <VStack gap={4}>
+    <VStack gap={4} className="doc-page">
       <VStack gap={2}>
         <Namespaces capabilities={data.capabilities} />
         <HStack gap={3} align="center" wrap="wrap">

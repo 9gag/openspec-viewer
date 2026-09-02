@@ -9,6 +9,20 @@
 @import "@astryxdesign/core/astryx.css";
 @import "@astryxdesign/theme-neutral/theme.css";
 
+/*
+ * The widths the page is built out of.
+ *
+ * One measure for a column of content, everywhere: the capability index, the board's
+ * warnings, a document, and every card above it. It is set at what a page of prose can be
+ * read at rather than at whatever the window happens to be, and the only thing allowed
+ * past it is the outline rail, which is an aside beside the column rather than part of it.
+ */
+:root {
+  --content-column: 52rem;
+  --outline-rail: 220px;
+  --outline-gap: 32px;
+}
+
 body {
   margin: 0;
   background: var(--astryx-color-background-wash, #fff);
@@ -189,7 +203,7 @@ body {
 .with-outline {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 32px;
+  gap: var(--outline-gap);
 }
 
 .outline-rail {
@@ -197,8 +211,19 @@ body {
 }
 
 @media (min-width: 1100px) {
+  /*
+   * The document column is capped, not given the rest of the window. The prose inside it
+   * stops at its own measure (see .artifact), so a column of 1fr left a card three times
+   * wider than the text in it and pushed the rail out to the edge of the window — the
+   * reader's eye crossing a screen of empty card to get from a heading to its own entry.
+   *
+   * One column, the same one the capability index and the board's warnings are set at, so
+   * nothing here picks a width of its own. Left-packed, because everything above it on the
+   * page — the title, the tabs — starts at the same edge.
+   */
   .with-outline {
-    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-columns: minmax(0, var(--content-column)) var(--outline-rail);
+    justify-content: start;
   }
 
   .outline-rail {
@@ -209,6 +234,34 @@ body {
     max-height: calc(100vh - 32px);
     overflow-y: auto;
   }
+}
+
+/*
+ * A document page: its heading, its cards, its tabs, and the document itself.
+ *
+ * Capping the document alone left everything above it running to the window — a warning of
+ * sixty characters in a box two thousand pixels wide, and an Artifacts card three times
+ * the width of the spec cards directly beneath it. The page had a straight left edge and a
+ * ragged right one, which tells the reader these things are unrelated when they are the
+ * same page.
+ *
+ * So every child but the rail's grid is held to the column, and the page is exactly as
+ * wide as that column and the rail beside it. Index pages — the board, the capability
+ * index — are deliberately not this: they are built to use the width they are given.
+ */
+.doc-page {
+  max-width: calc(
+    var(--content-column) + var(--outline-gap) + var(--outline-rail)
+  );
+}
+
+.doc-page > :not(.with-outline) {
+  max-width: var(--content-column);
+}
+
+/* The same column, for the two lines about the clone that sit above every page. */
+.store-head {
+  max-width: var(--content-column);
 }
 
 /*
@@ -349,7 +402,7 @@ body {
   /* A row is a name against three short data columns and a button — none of which grow.
      Any wider and the extra all lands in the name column as a gap between a capability and
      its own counts, which is the reader's eye doing work for nothing. */
-  max-width: 52rem;
+  max-width: var(--content-column);
 }
 
 .cap-group {
@@ -671,7 +724,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  max-width: 52rem;
+  max-width: var(--content-column);
 }
 
 .board-chips {

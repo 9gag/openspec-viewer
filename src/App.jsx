@@ -427,9 +427,14 @@ export default function App() {
         }
       >
         <VStack gap={4}>
-          <StoreStatus store={data.store} />
+          {/* The clone's state, held to the column the pages below it are set at. These
+              are two short sentences and a warning apiece; given the width of the window
+              they were a title alone on a line two thousand pixels long. */}
+          <VStack gap={4} className="store-head">
+            <StoreStatus store={data.store} />
 
-          <StoreWarnings store={data.store} />
+            <StoreWarnings store={data.store} />
+          </VStack>
 
           {view === "board" && <Board board={data} plainNames={plainNames} />}
           {view === "change" && <ChangeDetail id={arg} />}
