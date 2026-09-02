@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
 import {
+  capabilityDocs,
   changeArtifacts,
   completeness,
   label,
@@ -315,5 +316,67 @@ describe("completeness", () => {
       "specs/shared/ui/profile/spec.md",
       "specs/store/profile/spec.md",
     ]);
+  });
+});
+
+/**
+ * A capability directory is not only its spec, and nothing declares what else is in it —
+ * a schema names the artifacts a *change* generates and says nothing about the inside of
+ * a spec directory. So the listing is the whole rule, and the failure it prevents is the
+ * quiet one: a test-cases.md sitting next to the requirements it tests, on disk, with no
+ * page that opens it.
+ */
+describe("capabilityDocs", () => {
+  /** A capability directory: its spec, and whatever else is filed with it. */
+  function capability(cap, names) {
+    const dir = join(store, "openspec", "specs", cap);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "spec.md"), "## Purpose\n");
+    for (const name of names) writeFileSync(join(dir, name), `# ${name}\n`);
+    return dir;
+  }
+
+  it("lists what is filed with a spec, labelled and addressed", () => {
+    const dir = capability("storefront/checkout", ["test-cases.md"]);
+    assert.deepEqual(
+      capabilityDocs(dir, "openspec/specs/storefront/checkout"),
+      [
+        {
+          name: "test-cases",
+          label: "Test Cases",
+          file: "test-cases.md",
+          path: "openspec/specs/storefront/checkout/test-cases.md",
+        },
+      ],
+    );
+  });
+
+  it("leaves the spec itself out — it has a page of its own", () => {
+    const dir = capability("shared/ui/cart", []);
+    assert.deepEqual(capabilityDocs(dir, "openspec/specs/shared/ui/cart"), []);
+  });
+
+  it("ignores what it cannot render", () => {
+    // Everything the viewer renders is markdown, and a directory that also holds a
+    // diagram or a fixture should not offer a tab onto bytes.
+    const dir = capability("shared/ui/stock-alerts", ["notes.md", "flow.png"]);
+    assert.deepEqual(
+      capabilityDocs(dir, "openspec/specs/shared/ui/stock-alerts").map(
+        (d) => d.file,
+      ),
+      ["notes.md"],
+    );
+  });
+
+  it("is empty for a capability with no directory at all", () => {
+    // An unshipped capability has no baseline to sit beside. The detail page asks anyway,
+    // because it does not know that until it has asked.
+    assert.deepEqual(
+      capabilityDocs(
+        join(store, "openspec", "specs", "storefront/nothing"),
+        "x",
+      ),
+      [],
+    );
   });
 });

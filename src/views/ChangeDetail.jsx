@@ -18,7 +18,7 @@ import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { loadLens, saveLens } from "../spec.js";
-import { resolveTab } from "../tabs.js";
+import { capabilityDocTabs, resolveTab } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id }) {
@@ -212,6 +212,34 @@ function Delta({ cap, lens }) {
   );
 }
 
+/**
+ * Every capability's copy of one document, stacked.
+ *
+ * Not folded the way the deltas are: these are the second reading of a capability rather
+ * than the first, so a reader who opened the tab is already narrower than one arriving at
+ * the change — and the heading naming which capability each belongs to only earns its
+ * place when there is more than one to tell apart.
+ */
+function CapabilityDocs({ docs }) {
+  return (
+    <VStack gap={4}>
+      {docs.map((doc) => (
+        <Card key={doc.path} padding={4}>
+          <VStack gap={3}>
+            {docs.length > 1 && <Heading level={2}>{doc.capability}</Heading>}
+            <Artifact
+              text={doc.text}
+              path={doc.path}
+              commit={doc.commit}
+              prefix={doc.capability}
+            />
+          </VStack>
+        </Card>
+      ))}
+    </VStack>
+  );
+}
+
 function Tasks({ groups, archived, dir }) {
   // Only an in-development change reaches this without groups: tasks.md is the last artifact
   // written, so a change still being planned has none yet. An archived one always has it.
@@ -346,9 +374,16 @@ export default function ChangeDetail({ id }) {
 
   // The tabs are the change's own files: the schema a change was created under decides
   // which artifacts it has, and two changes in one store can sit on different schemas.
+  // Then whatever the spec directories hold besides their specs, which no schema declares
+  // and which the page would otherwise never open — after the artifacts, because the
+  // change is read through the files it was written as.
   const artifacts = data.artifacts;
-  const active = resolveTab(artifacts, tab);
-  const current = artifacts.find((a) => a.name === active);
+  const tabs = [
+    ...artifacts,
+    ...capabilityDocTabs(data.capabilities, artifacts),
+  ];
+  const active = resolveTab(tabs, tab);
+  const current = tabs.find((a) => a.name === active);
 
   return (
     <VStack gap={4} className="doc-page">
@@ -372,7 +407,7 @@ export default function ChangeDetail({ id }) {
       )}
 
       <TabList value={active} onChange={setTab} hasDivider>
-        {artifacts.map((a) => (
+        {tabs.map((a) => (
           <Tab key={a.name} value={a.name} label={a.label} />
         ))}
       </TabList>
@@ -385,6 +420,9 @@ export default function ChangeDetail({ id }) {
         )}
         {current?.kind === "tasks" && (
           <Tasks groups={data.groups} archived={data.archived} dir={data.dir} />
+        )}
+        {current?.kind === "capability-doc" && (
+          <CapabilityDocs docs={current.docs} />
         )}
         {current?.kind === "doc" && (
           <Card padding={4}>

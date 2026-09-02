@@ -15,7 +15,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { files, openspecJson, read, specDirs } from "./store.mjs";
+import { files, lastCommit, openspecJson, read, specDirs } from "./store.mjs";
 
 /**
  * Ordering used only when the schema cannot be read at all — a change directory with no
@@ -64,6 +64,38 @@ export function label(name) {
       return word[0].toUpperCase() + word.slice(1);
     })
     .join(" ");
+}
+
+/**
+ * The markdown that sits beside a capability's spec.md.
+ *
+ * A capability directory is not only its spec. A store that writes test cases per
+ * capability keeps them next to the requirements they test, and can keep anything else
+ * there for the same reason — the file is about that capability, so it lives with it.
+ * None of it is declared anywhere: a schema names the artifacts a *change* generates,
+ * and says nothing about what a spec directory holds. So this is the directory listing
+ * and nothing else, which is the same rule `changeArtifacts` already applies to the
+ * files a change carries that its schema never asked for.
+ *
+ * Listing only, no bodies. The board reads every change's capabilities on every poll,
+ * and the two pages that render these documents ask for the text themselves.
+ */
+export function capabilityDocs(abs, rel) {
+  return files(abs)
+    .filter((name) => name !== "spec.md")
+    .map((file) => {
+      const name = file.replace(/\.md$/, "");
+      return { name, label: label(name), file, path: `${rel}/${file}` };
+    });
+}
+
+/** The same list with each document's text and history, for the page that renders it. */
+export function readDocs(storePath, docs) {
+  return docs.map((doc) => ({
+    ...doc,
+    text: read(join(storePath, doc.path)),
+    commit: lastCommit(storePath, doc.path),
+  }));
 }
 
 /**

@@ -10,7 +10,12 @@
 
 import { join } from "node:path";
 
-import { changeArtifacts, completeness } from "./artifacts.mjs";
+import {
+  capabilityDocs,
+  changeArtifacts,
+  completeness,
+  readDocs,
+} from "./artifacts.mjs";
 import { readGroups } from "./board.mjs";
 import {
   changeIds,
@@ -27,6 +32,8 @@ export function capabilities(storePath, changeId, archived = false) {
   const base = archived
     ? join(storePath, "openspec", "changes", "archive", changeId, "specs")
     : join(storePath, "openspec", "changes", changeId, "specs");
+
+  const rel = `openspec/changes/${archived ? "archive/" : ""}${changeId}/specs`;
 
   return specDirs(base).map((cap) => {
     const text = read(join(base, cap, "spec.md")) ?? "";
@@ -47,7 +54,10 @@ export function capabilities(storePath, changeId, archived = false) {
           : [],
       requirements: (text.match(/^###\s+Requirement:/gim) ?? []).length,
       scenarios: (text.match(/^####\s+Scenario:/gim) ?? []).length,
-      path: `openspec/changes/${archived ? `archive/${changeId}` : changeId}/specs/${cap}/spec.md`,
+      path: `${rel}/${cap}/spec.md`,
+      // Listed, not read: this runs for every change on every board poll, and only the
+      // change page renders them. `change()` reads the bodies it is about to send.
+      docs: capabilityDocs(join(base, cap), `${rel}/${cap}`),
       text,
     };
   });
@@ -106,7 +116,12 @@ export function change(changeId) {
     // An archived change is finished, so "what is still missing" is not a question
     // anyone is asking about it.
     completeness: archived ? null : completeness(root.path, dir),
-    capabilities: capabilities(root.path, changeId, archived),
+    // The documents beside each delta carry their text here and nowhere else: the page
+    // gives them tabs of their own, and this is the only reader that renders them.
+    capabilities: capabilities(root.path, changeId, archived).map((cap) => ({
+      ...cap,
+      docs: readDocs(root.path, cap.docs),
+    })),
     groups: groups?.map((g) => ({
       num: g.num,
       title: g.title,
