@@ -17,7 +17,7 @@ import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { apiHandler, isApiPath } from "../server/api.mjs";
+import { apiHandler, isApiPath, warmUp } from "../server/api.mjs";
 import { ORIGIN } from "../server/store.mjs";
 
 const PKG_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..");
@@ -72,7 +72,10 @@ store itself. The store is resolved by the openspec CLI, which must be on PATH.
  * the only thing standing between a served directory and `GET /../../.ssh/id_rsa`.
  */
 function assetFor(pathname) {
-  const rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
+  const rel = normalize(decodeURIComponent(pathname)).replace(
+    /^(\.\.[/\\])+/,
+    "",
+  );
   const abs = join(DIST, rel);
   if (!abs.startsWith(DIST)) return null;
   if (existsSync(abs) && statSync(abs).isFile()) return abs;
@@ -95,7 +98,10 @@ function serve(req, res) {
     return;
   }
 
-  res.setHeader("content-type", TYPES[extname(file)] ?? "application/octet-stream");
+  res.setHeader(
+    "content-type",
+    TYPES[extname(file)] ?? "application/octet-stream",
+  );
   // The bundle is rebuilt on every publish and served from a package directory whose
   // contents change under the same URL on upgrade, so caching it would strand people on
   // the previous version's page.
@@ -143,9 +149,20 @@ server.listen(opts.port, () => {
     import("node:child_process").then(({ spawn }) => {
       // Opening a browser is a convenience; a machine without one (CI, a container, a
       // remote shell) should still be left with a running server.
-      spawn(cmd, [url], { stdio: "ignore", detached: true, shell: process.platform === "win32" })
+      spawn(cmd, [url], {
+        stdio: "ignore",
+        detached: true,
+        shell: process.platform === "win32",
+      })
         .on("error", () => {})
         .unref();
     });
   }
+
+  // Resolving the store blocks the event loop for about a second, so it waits until the
+  // browser has been told to open and has had a moment to start: the work then overlaps
+  // with the page loading instead of landing on its first request. A timer rather than
+  // setImmediate, which would run before the dynamic import above has spawned anything
+  // and would hold the browser back by exactly the second this is meant to hide.
+  setTimeout(warmUp, 500).unref();
 });

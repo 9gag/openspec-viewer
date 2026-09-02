@@ -56,6 +56,31 @@ const ROUTES = {
   },
 };
 
+/**
+ * Pay the first request's costs before it arrives.
+ *
+ * Opening the tool costs about two seconds of work that is then good for the rest of the
+ * process: a CLI spawn to resolve the store, a walk of the history to index it by path,
+ * and two git reads per change to date the task lists. Left lazy, every one of those
+ * lands on the first request the page makes — which is the page the reader opened the
+ * tool to look at.
+ *
+ * So the board is answered once and the answer thrown away, on a timer after the server
+ * starts listening: it touches everything the first screen needs, through the same code
+ * path that serves it, so nothing here can warm a cache the request does not use. The
+ * work overlaps with the browser starting rather than following it.
+ *
+ * Swallows everything. A store that cannot be read is a real error, but it is the
+ * request's to report with a status code, not a reason to fail before answering anything.
+ */
+export function warmUp() {
+  try {
+    ROUTES["/api/board"]();
+  } catch {
+    // Left for the first request to surface properly.
+  }
+}
+
 /** True for any path this handler owns, so a static server knows what not to answer. */
 export const isApiPath = (pathname) => pathname.startsWith("/api/");
 
