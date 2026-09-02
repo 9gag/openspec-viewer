@@ -9,8 +9,9 @@ import { Markdown } from "@astryxdesign/core/Markdown";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useApi } from "../api.js";
+import { namespaceOf } from "../capabilities.js";
 import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
@@ -190,6 +191,76 @@ function Tasks({ groups, archived, dir }) {
   );
 }
 
+/**
+ * Where this change is filed, above its name.
+ *
+ * The line under the title is the change's own directory — `openspec/changes/<id>`, which
+ * is the same shape for every change in the store and so says nothing about this one. The
+ * namespace is the part that does: it is the band the board files the change under and
+ * the branch the nav opens to reach it, and arriving here from a link or a bookmark left
+ * you with an id and no idea which application it belonged to.
+ *
+ * Read off the capabilities the change deltas rather than stored anywhere, because that is
+ * where the grouping comes from everywhere else — one source, so a change cannot appear
+ * under `storefront/checkout` on the board and claim something else here.
+ *
+ * The whole path, not the leaf: two namespaces can end in the same word — `checkout` lives
+ * under both applications — and the leaf alone would be the one thing this line exists to
+ * disambiguate.
+ *
+ * Stepped through with arrows rather than left as a slash-separated path, because that is
+ * what it is: an application, then an area inside it. `storefront/checkout` reads as one
+ * token to be matched against a directory; `storefront → checkout` reads as two places,
+ * which is how the nav draws it and how anyone says it out loud. The arrows are the
+ * separator and not the content, so they are quieter than the segments and hidden from
+ * the outline — a reader who cannot see them hears the places, not "right arrow".
+ *
+ * Set like the change id below it rather than as a quiet caption, so the two lines read as
+ * one title: where the change is filed, then what it is called. That also keeps it out of
+ * the monospace the paths use, which is the right voice for `openspec/changes/<id>` — a
+ * location on disk you copy — and the wrong one for a namespace, which is a place in the
+ * plan and is spoken out loud in a standup.
+ */
+function Namespaces({ capabilities }) {
+  const spaces = [
+    ...new Set(
+      capabilities.map((c) => namespaceOf(c.capability)).filter(Boolean),
+    ),
+  ];
+
+  if (spaces.length === 0) return null;
+
+  // One line, not one element per namespace: a change filed in two places is in one
+  // location, and two title-sized elements side by side would read as two titles.
+  return (
+    <div className="change-namespace">
+      {spaces.map((ns, i) => (
+        <Fragment key={ns}>
+          {i > 0 && (
+            <span
+              className="change-namespace-sep"
+              data-between
+              aria-hidden="true"
+            >
+              ·
+            </span>
+          )}
+          {ns.split("/").map((segment, depth) => (
+            <Fragment key={`${ns}-${segment}`}>
+              {depth > 0 && (
+                <span className="change-namespace-sep" aria-hidden="true">
+                  →
+                </span>
+              )}
+              <span>{segment}</span>
+            </Fragment>
+          ))}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
 export default function ChangeDetail({ id }) {
   // No polling: a proposal does not change while you read it, and re-fetching the full
   // text every 5s would re-render a document under the reader's cursor.
@@ -225,6 +296,7 @@ export default function ChangeDetail({ id }) {
   return (
     <VStack gap={4}>
       <VStack gap={2}>
+        <Namespaces capabilities={data.capabilities} />
         <HStack gap={3} align="center" wrap="wrap">
           <Heading level={1}>{data.id}</Heading>
           {data.archived && <Badge variant="neutral" label="archived" />}

@@ -761,3 +761,39 @@ body {
     display: none;
   }
 }
+
+/*
+ * Where a change is filed, above its name.
+ *
+ * Set from the same heading-1 tokens Astryx's own <Heading level={1}> reads, so the two
+ * lines are one title and cannot drift apart when the theme's type scale moves. A rule
+ * rather than a second <Heading>, because the page already has its heading: this line
+ * names a place, and putting it in the document outline would announce a section that
+ * does not exist.
+ */
+.change-namespace {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  font-family: var(--font-family-heading);
+  font-size: var(--text-heading-1-size);
+  font-weight: var(--text-heading-1-weight);
+  line-height: var(--text-heading-1-leading);
+  color: var(--color-text-primary);
+}
+
+/* The arrow between an application and the area inside it, and the dot between two
+   namespaces. Separators, not places: at the title's own weight they read as loudly as
+   the words they divide. */
+.change-namespace-sep {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-normal);
+}
+
+/* The dot divides two whole namespaces, so it has to breathe wider than the arrows inside
+   them — at the same spacing, "auction · shared" reads as one more step in the first
+   chain instead of the start of the second. */
+.change-namespace-sep[data-between] {
+  margin-inline: 8px;
+}
