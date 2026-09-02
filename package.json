@@ -21,10 +21,24 @@
   "bin": {
     "openspec-viewer": "bin/openspec-viewer.mjs"
   },
+  "exports": {
+    "./lib/store": {
+      "types": "./lib/store.d.mts",
+      "default": "./lib/store.mjs"
+    },
+    "./lib/spec": {
+      "types": "./lib/spec.d.mts",
+      "default": "./lib/spec.mjs"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "bin",
     "server",
     "dist",
+    "lib",
+    "src/spec.js",
+    "src/bdd.js",
     "README.md",
     "LICENSE"
   ],

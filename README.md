@@ -251,11 +251,65 @@ the build log. A dashboard that could edit the store would break both. It prints
 command to run instead — under whatever name `OPENSPEC_VIEWER_CLI` gives it — so the
 action still lands as a commit someone can push.
 
+## Borrowing the readings
+
+Two things here are not file reads — how long a claim has sat without progress, and which
+capabilities two in-development changes both delta — and a second tool over the same store
+wants those answers rather than a second implementation of them to disagree with this one
+at the edges. Same for splitting a spec into its own shapes, which is where a renderer
+that is not this one would otherwise write its own parser.
+
+So they are published, in two entries that follow the split the rest of the package does:
+
+```js
+// Node: reads disk and git. Also parseTasks, snapshots, deltasInDevelopment.
+import {
+  capabilityState,
+  changeIds,
+  conflicts,
+  idleness,
+} from "@seankcw/openspec-viewer/lib/store";
+
+// Isomorphic: pure string work. Also scenarioName, scenarioAnchor, stepKind.
+import {
+  emphasize,
+  parseSpec,
+  scenarioIndex,
+  splitSpec,
+} from "@seankcw/openspec-viewer/lib/spec";
+```
+
+**The entries are the whole contract.** Everything under `server/` and `src/` is internal
+and moves whenever the views need it to; these do not change shape without a major
+version. Reaching past them into a file directly is pinning yourself to a layout nobody
+promised to keep.
+
+Two properties make them usable from a build rather than only from this server. Every
+store-side function takes an **explicit store path** — nothing resolves a store of its own
+— and none of them spawns the openspec CLI, so a consumer that already knows where its
+store is needs no CLI on PATH. `lib/spec` touches neither disk nor `window`, so it runs in
+a build script, a test, or a browser bundle.
+
+Types ship beside each entry as hand-written `.d.mts`, because a build step to emit them
+would put a compiler between a consumer and nine functions. `test/lib.test.mjs` imports
+through the package's own name, calls every export, and asserts the shapes those files
+describe — so a return value that drifts fails the suite rather than only misleading
+whoever reads the declarations. It also checks that `files` ships everything the entries
+re-export, which is the one failure that would otherwise appear after a publish and
+nowhere before it.
+
+What is deliberately **not** published: the views, `useApi`, the hash routes, and the
+Mermaid renderer. They are Astryx components wired to this server's endpoints and its
+router, so they are the parts a consuming app has to own.
+
 ## Layout
 
 ```
 openspec-viewer/
 ├── bin/openspec-viewer.mjs  # the installed command: serves dist/ + the API over node:http
+├── lib/                     # the published entries: the readings, and their types
+│   ├── store.mjs            # idle claims, conflicts, capability state — Node only
+│   └── spec.mjs             # parsing a spec's requirements, scenarios and steps
 ├── server/                  # all disk + git access. Node only, never bundled.
 │   ├── store.mjs            # store resolution (cached), git helpers, sync status
 │   ├── api.mjs              # the read-only JSON routes, shared by the binary and Vite
