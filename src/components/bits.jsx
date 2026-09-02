@@ -3,8 +3,13 @@ import { Code } from "@astryxdesign/core/Code";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Markdown } from "@astryxdesign/core/Markdown";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@astryxdesign/core/SegmentedControl";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
+import { LENSES } from "../spec.js";
 import { exact, iso, level } from "../time.js";
 import { mdComponents } from "./markdown.jsx";
 import SpecText from "./SpecText.jsx";
@@ -136,7 +141,14 @@ export function FileMeta({ path, commit }) {
  * and design docs are ordinary prose — colouring a stray "must" in a proposal would imply
  * a normative weight the document does not carry.
  */
-export function Artifact({ text, commit, path, bdd = false, prefix = "" }) {
+export function Artifact({
+  text,
+  commit,
+  path,
+  bdd = false,
+  prefix = "",
+  lens,
+}) {
   if (!text)
     return <Text color="secondary">This artifact does not exist yet.</Text>;
 
@@ -147,7 +159,7 @@ export function Artifact({ text, commit, path, bdd = false, prefix = "" }) {
         {/* headingLevelStart=2: the page already owns the h1. `path` doubles as the base
             for resolving this document's own relative links. */}
         {bdd ? (
-          <SpecText text={text} prefix={prefix} base={path} />
+          <SpecText text={text} prefix={prefix} base={path} lens={lens} />
         ) : (
           <Markdown
             headingLevelStart={2}
@@ -158,5 +170,74 @@ export function Artifact({ text, commit, path, bdd = false, prefix = "" }) {
         )}
       </div>
     </VStack>
+  );
+}
+
+/**
+ * Which of the three readings of a spec is on screen.
+ *
+ * On the page rather than inside the document, because a change deltas several
+ * capabilities and one control over all of them is the question the reader is actually
+ * asking — "show me the requirements" is not a question per capability.
+ */
+export function LensControl({ value, onChange }) {
+  return (
+    <SegmentedControl
+      value={value}
+      onChange={onChange}
+      label="Reading"
+      size="sm"
+    >
+      {LENSES.map((l) => (
+        <SegmentedControlItem key={l.value} value={l.value} label={l.label} />
+      ))}
+    </SegmentedControl>
+  );
+}
+
+/**
+ * What a row says instead of a requirement count.
+ *
+ * "no baseline" rather than "unshipped" because the row is stating a fact about the store
+ * — there is nothing in `openspec/specs/` to read — where "unshipped" is the state that
+ * fact puts the capability in. Retired says the state, because there is no fact plainer
+ * than it: the store withdrew the behavior.
+ */
+const STATE_WORD = {
+  unshipped: "no baseline",
+  retired: "retired",
+};
+
+export function CapabilitySize({ cap }) {
+  return (
+    <Text size="sm" color="secondary" hasTabularNumbers>
+      {cap.state === "shipped"
+        ? `${cap.requirements} req · ${cap.scenarios} sc`
+        : STATE_WORD[cap.state]}
+    </Text>
+  );
+}
+
+/**
+ * Whether a change is rewriting this capability, and the warning when two are.
+ *
+ * Shared by the index and by a namespace's own page, because it is the same sentence
+ * about the same fact — and because two of them is the conflict the board raises, which
+ * nothing should be able to say quietly on one page and loudly on another.
+ *
+ * Nothing at all for a capability nobody is touching: three quarters of a catalogue is
+ * that, and a badge on every row would bury the ones that need an answer.
+ */
+export function CapabilityFlag({ cap }) {
+  if (!cap.inDevelopment) return null;
+  return (
+    <Badge
+      variant={cap.inDevelopment > 1 ? "warning" : "info"}
+      label={
+        cap.inDevelopment > 1
+          ? `${cap.inDevelopment} in development`
+          : "in development"
+      }
+    />
   );
 }

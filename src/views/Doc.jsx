@@ -53,7 +53,7 @@ export default function DocDetail({ id }) {
   }
 
   return (
-    <VStack gap={4}>
+    <VStack gap={4} className="doc-page">
       <VStack gap={2}>
         <BackLink />
         <Heading level={1}>{data.title}</Heading>

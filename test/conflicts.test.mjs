@@ -1,11 +1,11 @@
 /**
- * The collision check is the other piece of inference in this dashboard, and the real
+ * The conflict check is the other piece of inference in this dashboard, and the real
  * store has no overlap — so on live data it returns an empty list whether it works or
  * not. These build stores that do overlap.
  *
- * Getting it wrong is expensive in a specific way: the hazard it warns about never
- * appears as a git conflict, so a silent false negative means the first anyone hears of
- * it is a MODIFIED block that no longer matches its baseline at archive time.
+ * Getting it wrong is expensive in a specific way: git never flags the hazard it warns
+ * about, so a silent false negative means the first anyone hears of it is a MODIFIED
+ * block that no longer matches its baseline at archive time.
  */
 
 import assert from "node:assert/strict";
@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { collisions, inFlightDeltas } from "../server/catalog.mjs";
+import { conflicts, deltasInDevelopment } from "../server/catalog.mjs";
 
 let store;
 
@@ -42,21 +42,21 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(store, { recursive: true, force: true }));
 
-describe("collisions", () => {
+describe("conflicts", () => {
   it("is empty when changes own separate capabilities", () => {
     delta("add-guest-checkout", "guest-checkout", "## ADDED Requirements");
     delta("add-back-in-stock-alerts", "stock-alerts", "## ADDED Requirements");
     assert.deepEqual(
-      collisions(store, ["add-guest-checkout", "add-back-in-stock-alerts"]),
+      conflicts(store, ["add-guest-checkout", "add-back-in-stock-alerts"]),
       [],
     );
   });
 
-  it("names a capability two in-flight changes both delta", () => {
+  it("names a capability two in-development changes both delta", () => {
     delta("add-guest-checkout", "cart", "## MODIFIED Requirements");
     delta("add-cart-limits", "cart", "## MODIFIED Requirements");
 
-    const found = collisions(store, ["add-guest-checkout", "add-cart-limits"]);
+    const found = conflicts(store, ["add-guest-checkout", "add-cart-limits"]);
     assert.equal(found.length, 1);
     assert.equal(found[0].capability, "cart");
     assert.deepEqual(found[0].changes.map((c) => c.change).sort(), [
@@ -65,27 +65,27 @@ describe("collisions", () => {
     ]);
   });
 
-  it("reports which of the colliding changes rewrite the baseline", () => {
+  it("reports which of the conflicting changes rewrite the baseline", () => {
     // One rewrites shipped behavior, one only adds to the same capability. The MODIFIED
     // side is the one whose headers stop matching once the other archives.
     delta("rewrites", "cart", "## MODIFIED Requirements");
     delta("extends", "cart", "## ADDED Requirements");
 
-    const [found] = collisions(store, ["rewrites", "extends"]);
+    const [found] = conflicts(store, ["rewrites", "extends"]);
     assert.deepEqual(found.modifies, ["rewrites"]);
   });
 
   it("does not flag a capability only one change touches, however many deltas", () => {
     delta("solo", "cart", "## MODIFIED Requirements");
     delta("solo", "guest-checkout", "## ADDED Requirements");
-    assert.deepEqual(collisions(store, ["solo"]), []);
+    assert.deepEqual(conflicts(store, ["solo"]), []);
   });
 
   it("flags a three-way overlap once, listing every change", () => {
     for (const id of ["a", "b", "c"])
       delta(id, "cart", "## MODIFIED Requirements");
 
-    const found = collisions(store, ["a", "b", "c"]);
+    const found = conflicts(store, ["a", "b", "c"]);
     assert.equal(found.length, 1);
     assert.equal(found[0].changes.length, 3);
     assert.deepEqual(found[0].modifies, ["a", "b", "c"]);
@@ -96,26 +96,26 @@ describe("collisions", () => {
     mkdirSync(join(store, "openspec", "changes", "still-planning"), {
       recursive: true,
     });
-    assert.deepEqual(collisions(store, ["has-specs", "still-planning"]), []);
+    assert.deepEqual(conflicts(store, ["has-specs", "still-planning"]), []);
   });
 });
 
 /**
- * The catalog marks a row contested by counting its own in-flight deltas rather than
- * calling `collisions()` — the same fact, reached two ways, and the whole point of not
+ * The catalog marks a row contested by counting its own in-development deltas rather than
+ * calling `conflicts()` — the same fact, reached two ways, and the whole point of not
  * walking the store twice is lost if the two ever answer differently. The board's tile and
  * the catalog's chip would then disagree about the same capability, with nothing to say
  * which was right.
  */
-describe("contested capabilities match the collision check", () => {
+describe("contested capabilities match the conflict check", () => {
   const contested = (ids) =>
-    [...inFlightDeltas(store, ids)]
+    [...deltasInDevelopment(store, ids)]
       .filter(([, deltas]) => deltas.length > 1)
       .map(([capability]) => capability)
       .sort();
 
   const collided = (ids) =>
-    collisions(store, ids)
+    conflicts(store, ids)
       .map((c) => c.capability)
       .sort();
 

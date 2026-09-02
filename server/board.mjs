@@ -17,8 +17,10 @@ import { join } from "node:path";
 
 import { changeArtifacts } from "./artifacts.mjs";
 import {
+  catFile,
   changeIds,
   git,
+  headSignature,
   read,
   resolveRoot,
   specDirs,
@@ -99,18 +101,48 @@ export function readGroups(storePath, changeId, archived = false) {
  * amends one, or edits a heading by hand — and the fixtures in this store were
  * authored in bulk commits that no subject pattern matches. State is state.
  *
- * One `git show` per commit touching one file. That set is small by design (the plan
- * commands commit one file at a time), and it is bounded by the change, not the repo.
+ * Two spawns per change: the log, then one `git cat-file --batch` for every version of
+ * the file at once. A `git show` each was the honest way to write it and the reason the
+ * board took seconds — the set is small per change, but the board reads every change in
+ * flight on every poll, and it is process startup being paid, not git.
+ */
+const snapshotCache = new Map();
+
+/**
+ * Rebuilt when HEAD moves, for the reason the commit index is: this reads committed
+ * history and nothing else, so a working tree that changes under it changes no answer
+ * here. Worth caching because the board polls every five seconds and this was two git
+ * spawns per change on every one of them — about 600ms of the poll on a store of
+ * twenty-one changes, spent re-deriving a history that had not moved.
  */
 export function snapshots(storePath, changeId) {
+  const head = headSignature(storePath);
+  const key = `${storePath}\u0000${changeId}`;
+  const hit = snapshotCache.get(key);
+  if (hit && hit.head === head) return hit.value;
+
+  const value = readSnapshots(storePath, changeId);
+  snapshotCache.set(key, { head, value });
+  return value;
+}
+
+function readSnapshots(storePath, changeId) {
   const rel = ["openspec", "changes", changeId, "tasks.md"].join("/");
   const log = git(storePath, ["log", "--format=%H %ct", "--", rel]);
   if (!log) return [];
 
+  const commits = log
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.split(" "));
+  const texts = catFile(
+    storePath,
+    commits.map(([sha]) => `${sha}:${rel}`),
+  );
+
   const out = [];
-  for (const line of log.split("\n").filter(Boolean)) {
-    const [sha, when] = line.split(" ");
-    const text = git(storePath, ["show", `${sha}:${rel}`]);
+  for (const [sha, when] of commits) {
+    const text = texts.get(`${sha}:${rel}`);
     if (text === null) continue; // the commit that deleted or renamed it
     out.push({ sha, at: Number(when) * 1000, groups: indexByNum(parse(text)) });
   }
@@ -193,7 +225,7 @@ export function board(now = Date.now()) {
       const artifacts = changeArtifacts(
         root.path,
         join("openspec", "changes", id),
-      ).map(({ name, present }) => ({ name, present }));
+      ).map(({ name, label, present }) => ({ name, label, present }));
       const capabilities = specDirs(
         join(root.path, "openspec", "changes", id, "specs"),
       );

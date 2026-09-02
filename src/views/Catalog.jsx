@@ -8,17 +8,26 @@ import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
 import { Spinner } from "@astryxdesign/core/Spinner";
+import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { href, useApi } from "../api.js";
+import { displayName } from "../names.js";
+import { loadLens, saveLens } from "../spec.js";
 import {
-  groupByNamespace,
+  capabilityTreeByNamespace,
   leafOf,
+  NO_CAPABILITY,
   summarise,
   TOP_LEVEL,
 } from "../capabilities.js";
-import { Artifact } from "../components/bits.jsx";
+import {
+  Artifact,
+  CapabilityFlag,
+  CapabilitySize,
+  LensControl,
+} from "../components/bits.jsx";
 import {
   Timeline,
   TimelineEntry,
@@ -26,19 +35,6 @@ import {
 } from "../components/Timeline.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
-
-/**
- * What a row says instead of a requirement count.
- *
- * "no baseline" rather than "unshipped" because the row is stating a fact about the store
- * — there is nothing in `openspec/specs/` to read — where "unshipped" is the state that
- * fact puts the capability in. Retired says the state, because there is no fact plainer
- * than it: the store withdrew the behavior.
- */
-const STATE_WORD = {
-  unshipped: "no baseline",
-  retired: "retired",
-};
 
 /**
  * The capability index.
@@ -56,7 +52,7 @@ const STATE_WORD = {
  * The changed-by timeline is deliberately not here. It is the same list on every row, two
  * to seven lines apiece, and `spec/<id>` shows more of it than this page ever did.
  */
-export function Specs() {
+export function Specs({ plainNames }) {
   const { data, error, loading } = useApi("/api/specs", { poll: false });
 
   // Which row's changes are open: the capability by name, and the button it was opened
@@ -85,7 +81,10 @@ export function Specs() {
     );
   }
 
-  const groups = groupByNamespace(data.specs);
+  const tree = capabilityTreeByNamespace(data.specs);
+  // One heading over the whole page would label the page rather than a group inside it:
+  // a store that namespaces nothing has one namespace, and it is not worth naming.
+  const bare = tree.length === 1 && tree[0].path === TOP_LEVEL;
   // A capability can leave the store between reads; the panel closes rather than holding a
   // name nothing answers to.
   const showing = opened
@@ -95,19 +94,30 @@ export function Specs() {
   return (
     <VStack gap={4}>
       <VStack gap={2}>
-        <Heading level={1}>Capabilities</Heading>
+        <Heading level={1}>Namespace</Heading>
         <Summary counts={summarise(data.specs)} />
       </VStack>
 
       <div className="cap-list">
-        {groups.map((group) => (
-          <Namespace
-            key={group.name}
-            group={group}
+        {bare ? (
+          <Rows
+            caps={tree[0].items}
+            plainNames={plainNames}
             opened={opened?.capability ?? null}
             onOpen={setOpened}
           />
-        ))}
+        ) : (
+          tree.map((node) => (
+            <Namespace
+              key={node.path}
+              node={node}
+              depth={0}
+              plainNames={plainNames}
+              opened={opened?.capability ?? null}
+              onOpen={setOpened}
+            />
+          ))
+        )}
       </div>
 
       {showing && (
@@ -149,39 +159,89 @@ function Summary({ counts }) {
 }
 
 /**
- * One namespace and its capabilities.
+ * One namespace, what is filed directly under it, and the namespaces inside it.
  *
- * The heading comes off entirely when nothing in the store is namespaced — a single
- * "top level" over the whole page would label the page, not a group within it.
+ * Recursive, because the store's namespaces are: `storefront/checkout` is two levels, and
+ * a page that lists it as one string makes the reader do the grouping — everything under a
+ * product sorts together only because the paths happen to share a prefix, and nothing on
+ * the page says so. Nested, the product is a heading and its domains are inside it.
+ *
+ * The count is everything beneath the namespace rather than the rows directly under it,
+ * which is what makes a product's heading worth reading on its own.
  */
-function Namespace({ group, opened, onOpen }) {
+function Namespace({ node, depth, plainNames, opened, onOpen }) {
   return (
-    <section>
-      {group.titled && (
-        <div className="cap-ns">
+    <section className="cap-group">
+      <div className="cap-ns">
+        {/* The band's own page, the same one the board's bands and the change titles go
+            to. Not a link for the store's stand-in for "filed under nothing", which is a
+            bucket rather than a place. */}
+        {node.path === TOP_LEVEL || node.path === NO_CAPABILITY ? (
           <Text
             weight="semibold"
-            className={group.name === TOP_LEVEL ? undefined : "mono"}
+            size={depth === 0 ? undefined : "sm"}
+            // Ids are paths and read as paths everywhere else in the app; the sentence
+            // the name toggle puts here is prose, and monospacing prose only makes it
+            // narrow.
+            className={plainNames ? undefined : "mono"}
           >
-            {group.name}
+            {displayName(node.name, plainNames)}
           </Text>
-          <Badge variant="neutral" label={String(group.caps.length)} />
-          {/* Runs the heading out to the edge, so the group reads as a band rather than a
-              line of text floating above a list. */}
-          <span className="cap-ns-rule" aria-hidden="true" />
-        </div>
-      )}
-      <div>
-        {group.caps.map((cap) => (
-          <Row
-            key={cap.capability}
-            cap={cap}
-            isOpen={cap.capability === opened}
+        ) : (
+          <Link
+            href={href("namespace", node.path)}
+            weight="semibold"
+            size={depth === 0 ? undefined : "sm"}
+            color="primary"
+            className={plainNames ? undefined : "mono"}
+          >
+            {displayName(node.name, plainNames)}
+          </Link>
+        )}
+        <Badge variant="neutral" label={String(node.count)} />
+        {/* Runs the heading out to the edge, so the group reads as a band rather than a
+            line of text floating above a list. */}
+        <span className="cap-ns-rule" aria-hidden="true" />
+      </div>
+
+      <div className="cap-group-body">
+        {node.items.length > 0 && (
+          <Rows
+            caps={node.items}
+            plainNames={plainNames}
+            opened={opened}
+            onOpen={onOpen}
+          />
+        )}
+        {node.children.map((child) => (
+          <Namespace
+            key={child.path}
+            node={child}
+            depth={depth + 1}
+            plainNames={plainNames}
+            opened={opened}
             onOpen={onOpen}
           />
         ))}
       </div>
     </section>
+  );
+}
+
+/** The capabilities filed directly under one namespace. */
+function Rows({ caps, plainNames, opened, onOpen }) {
+  return (
+    <div className="cap-rows">
+      {caps.map((cap) => (
+        <Row
+          key={cap.capability}
+          cap={cap}
+          plainNames={plainNames}
+          isOpen={cap.capability === opened}
+          onOpen={onOpen}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -193,7 +253,7 @@ function Namespace({ group, opened, onOpen }) {
  * actions are their own buttons. Nothing marks a quiet shipped row, so the only colour on
  * the page is on the rows that need an answer.
  */
-function Row({ cap, isOpen, onOpen }) {
+function Row({ cap, plainNames, isOpen, onOpen }) {
   return (
     <div className="cap-row" data-open={isOpen ? "" : undefined}>
       {/* Still a link, but carrying the type it had as plain text: fifty-one names in link
@@ -206,25 +266,14 @@ function Row({ cap, isOpen, onOpen }) {
         weight="medium"
         color="primary"
       >
-        {leafOf(cap.capability)}
+        {displayName(leafOf(cap.capability), plainNames)}
       </Link>
 
-      <Text size="sm" color="secondary" hasTabularNumbers>
-        {cap.state === "shipped"
-          ? `${cap.requirements} req · ${cap.scenarios} sc`
-          : STATE_WORD[cap.state]}
-      </Text>
+      <CapabilitySize cap={cap} />
 
       <span className="cap-row-tail">
         <span className="cap-row-flag">
-          {cap.inFlight > 0 && (
-            <Badge
-              variant={cap.inFlight > 1 ? "warning" : "info"}
-              label={
-                cap.inFlight > 1 ? `${cap.inFlight} in flight` : "in flight"
-              }
-            />
-          )}
+          <CapabilityFlag cap={cap} />
         </span>
         {/* No commit means a store nobody has committed; the cell stays empty rather than
             carrying an age invented from nothing. */}
@@ -242,16 +291,9 @@ function Row({ cap, isOpen, onOpen }) {
       </span>
 
       <span className="cap-row-actions">
-        {/* A capability with no baseline still opens: that page says why there is nothing
-            to read and points at the change bringing it in. */}
-        <Button
-          size="sm"
-          variant="ghost"
-          label={`View latest ${cap.capability}`}
-          href={href("spec", cap.capability)}
-        >
-          View latest
-        </Button>
+        {/* One button, not two. The other said "View latest" and went where the row's own
+            name already goes — on a page of fifty rows that is fifty controls that do
+            nothing new, in the column the eye follows down the page. */}
         {/* The button is the panel's anchor: it opens beside the row that asked, and the
             panel keeps itself on screen from there. */}
         <Button
@@ -268,7 +310,7 @@ function Row({ cap, isOpen, onOpen }) {
             )
           }
         >
-          View changes
+          Changes
         </Button>
       </span>
     </div>
@@ -413,6 +455,49 @@ function ChangesPanel({ cap, anchor, onClose }) {
   );
 }
 
+/** The tab holding the spec itself. Not a filename, since spec.md is never a sibling. */
+const SPEC_TAB = "spec";
+
+/** What the open tab shows: the spec itself, or one of the documents kept beside it. */
+function SpecBody({ cap, doc, lens, onLens }) {
+  if (doc) {
+    return (
+      <Artifact
+        text={doc.text}
+        path={doc.path}
+        commit={doc.commit}
+        prefix={doc.name}
+      />
+    );
+  }
+
+  if (!cap.shipped) {
+    return (
+      <EmptyState
+        title="Not shipped yet"
+        description={`No baseline in openspec/specs/${cap.capability}/. Read the delta inside the change that introduces it.`}
+        isCompact
+      />
+    );
+  }
+
+  return (
+    <VStack gap={3}>
+      <HStack hAlign="end">
+        <LensControl value={lens} onChange={onLens} />
+      </HStack>
+      <Artifact
+        text={cap.text}
+        path={cap.path}
+        commit={cap.commit}
+        bdd
+        prefix={cap.capability}
+        lens={lens}
+      />
+    </VStack>
+  );
+}
+
 /**
  * One capability in full.
  *
@@ -424,6 +509,21 @@ export function SpecDetail({ id }) {
     `/api/spec?id=${encodeURIComponent(id)}`,
     { poll: false },
   );
+
+  // Which reading of the spec is on screen, remembered per browser: a reader working
+  // through scenarios is doing that all afternoon, not for one page.
+  const [lens, setLens] = useState(loadLens);
+  const chooseLens = (next) => {
+    setLens(next);
+    saveLens(next);
+  };
+
+  // Which document is open. Back to the spec whenever the capability changes: what a
+  // directory holds beside its spec is that capability's own business, and the next one
+  // may keep nothing at all.
+  const [tab, setTab] = useState(SPEC_TAB);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `id` is the whole dependency — the tab it resets is deliberately not one
+  useEffect(() => setTab(SPEC_TAB), [id]);
 
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
@@ -437,15 +537,22 @@ export function SpecDetail({ id }) {
     );
   }
 
+  // Whatever the capability directory holds besides spec.md — test cases, notes, anything
+  // the store files with the requirements it belongs to. An unshipped capability has no
+  // directory, so it has none of these.
+  const docs = data.docs ?? [];
+  const active = docs.some((d) => d.name === tab) ? tab : SPEC_TAB;
+  const doc = docs.find((d) => d.name === active);
+
   return (
-    <VStack gap={4}>
+    <VStack gap={4} className="doc-page">
       <VStack gap={2}>
-        <Link href={href("specs")}>← All capabilities</Link>
+        <Link href={href("specs")}>← Namespace</Link>
         <HStack gap={3} align="center" wrap="wrap">
           <Heading level={1}>{data.capability}</Heading>
           <Badge
             variant={data.shipped ? "success" : "info"}
-            label={data.shipped ? "shipped" : "in flight"}
+            label={data.shipped ? "shipped" : "in development"}
           />
           {data.shipped && (
             <Text size="sm" color="secondary">
@@ -461,26 +568,21 @@ export function SpecDetail({ id }) {
         <ChangedBy history={data.history} capability={data.capability} />
       </Card>
 
+      {/* Only when there is something to switch to: a lone tab reading "Requirements"
+          over the requirements is a control that decides nothing. */}
+      {docs.length > 0 && (
+        <TabList value={active} onChange={setTab} hasDivider>
+          <Tab value={SPEC_TAB} label="Requirements" />
+          {docs.map((d) => (
+            <Tab key={d.name} value={d.name} label={d.label} />
+          ))}
+        </TabList>
+      )}
+
       <WithOutline>
-        {data.shipped ? (
-          <Card padding={4}>
-            <Artifact
-              text={data.text}
-              path={data.path}
-              commit={data.commit}
-              bdd
-              prefix={data.capability}
-            />
-          </Card>
-        ) : (
-          <Card padding={4}>
-            <EmptyState
-              title="Not shipped yet"
-              description={`No baseline in openspec/specs/${data.capability}/. Read the delta inside the change that introduces it.`}
-              isCompact
-            />
-          </Card>
-        )}
+        <Card padding={4}>
+          <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
+        </Card>
       </WithOutline>
     </VStack>
   );
@@ -527,13 +629,13 @@ function ChangedBy({ history, capability }) {
 /**
  * One change on the timeline.
  *
- * The when column carries the archive date, or "in flight" for a change that has not
+ * The when column carries the archive date, or "in development" for a change that has not
  * landed — the same column, because both answer "where in the sequence is this". That
  * leaves the state to the dot alone, which is enough once the word is already in the
  * column beside it.
  */
 function Entry({ entry }) {
-  const state = entry.archived ? "archived" : "in flight";
+  const state = entry.archived ? "archived" : "in development";
   return (
     <TimelineEntry
       when={entry.archivedOn ?? state}

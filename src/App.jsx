@@ -13,18 +13,30 @@ import {
   SideNavSection,
 } from "@astryxdesign/core/SideNav";
 import { Spinner } from "@astryxdesign/core/Spinner";
+import { Switch } from "@astryxdesign/core/Switch";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
+import { TreeList } from "@astryxdesign/core/TreeList";
 import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
-import { groupChangesByNamespace } from "./capabilities.js";
+import {
+  capabilityFlag,
+  capabilityTreeByNamespace,
+  changeTreeByNamespace,
+  isCurrent,
+  leafOf,
+} from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
+import { displayName, loadPlainNames, savePlainNames } from "./names.js";
+import { changeState } from "./summary.js";
 import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
 import { Archive, SpecDetail, Specs } from "./views/Catalog.jsx";
 import ChangeDetail from "./views/ChangeDetail.jsx";
+import NamespaceDetail from "./views/NamespaceDetail.jsx";
 import DocDetail from "./views/Doc.jsx";
 
 /** Sync state of the store clone, which everything else on the page is read from. */
@@ -93,9 +105,148 @@ function StoreWarnings({ store }) {
   );
 }
 
-function Nav({ view, arg, changes, mode, onMode }) {
+/**
+ * The namespace tree as TreeList data.
+ *
+ * Recursive because the tree is: `storefront/checkout` is two levels wherever the store
+ * puts a third, and TreeList draws the guide lines and the indent from the nesting it is
+ * handed. A namespace's own changes come before the namespaces inside it — they belong to
+ * the row above them, and pushing them under an expanded subtree would separate them
+ * from it.
+ *
+ * Expanded by default at every level: a nav that opens closed makes a reader click to
+ * find out whether there was anything to click for. What they collapse stays collapsed —
+ * TreeList keeps its own overrides over this data.
+ */
+function treeItem(node, view, arg, plain) {
+  return {
+    id: node.path,
+    label: displayName(node.name, plain),
+    isExpanded: true,
+    // Every change beneath this namespace, not the rows immediately under it, so a
+    // collapsed branch still says how much is in there.
+    endContent: (
+      <Text size="sm" color="secondary" hasTabularNumbers>
+        {node.count}
+      </Text>
+    ),
+    children: [
+      ...node.items.map((change) => changeItem(node, change, view, arg, plain)),
+      ...node.children.map((child) => treeItem(child, view, arg, plain)),
+    ],
+  };
+}
+
+/**
+ * One change in the nav: where to find it, how far along it is, and the one thing about
+ * it that might need a person — see `changeState`. The dot is the only thing in this
+ * column that reports rather than links.
+ *
+ * The id carries the namespace because a change that deltas two of them is a row under
+ * each, and TreeList tracks a row by its id.
+ */
+function changeItem(node, change, view, arg, plain) {
+  const state = changeState(change);
+
+  return {
+    id: `${node.path}/${change.id}`,
+    label: displayName(change.id, plain),
+    href: href("change", change.id),
+    isSelected: view === "change" && arg === change.id,
+    endContent: (
+      <HStack gap={2} align="center">
+        <Text size="sm" color="secondary" hasTabularNumbers>
+          {change.done}/{change.total}
+        </Text>
+        <StatusDot
+          variant={state.variant}
+          label={state.label}
+          tooltip={state.label}
+        />
+      </HStack>
+    ),
+  };
+}
+
+/**
+ * The capability tree, built the same way — but opening closed, and only as far as it has
+ * to.
+ *
+ * A store has a few changes in development and every capability it has ever shipped, so the
+ * two trees are different sizes by a factor of five or so: expanding this one on arrival
+ * would bury the working set under the finished one. Closed, it is one row per product,
+ * which is the map. Reading a spec opens the branch that holds it and nothing else.
+ */
+function specTreeItem(node, open, plain) {
+  return {
+    id: `spec:${node.path}`,
+    label: displayName(node.name, plain),
+    isExpanded: open === node.path || open.startsWith(`${node.path}/`),
+    endContent: (
+      <Text size="sm" color="secondary" hasTabularNumbers>
+        {node.count}
+      </Text>
+    ),
+    children: [
+      ...node.items.map((cap) => specItem(cap, open, plain)),
+      ...node.children.map((child) => specTreeItem(child, open, plain)),
+    ],
+  };
+}
+
+/**
+ * One capability: its name without the namespace the rows above already say, and a dot
+ * only when there is something to say about it.
+ *
+ * A shipped capability nobody is rewriting gets nothing, which is the point — three
+ * quarters of this tree is that, and a dot on every row would make the ones that need an
+ * answer disappear into it. Same vocabulary as the index page's flags.
+ */
+function specItem(cap, open, plain) {
+  const flag = capabilityFlag(cap);
+
+  return {
+    id: `spec:${cap.capability}`,
+    label: displayName(leafOf(cap.capability), plain),
+    href: href("spec", cap.capability),
+    isSelected: open === cap.capability,
+    endContent: flag ? (
+      <StatusDot
+        variant={flag.variant}
+        label={flag.label}
+        tooltip={flag.label}
+      />
+    ) : undefined,
+  };
+}
+
+function Nav({
+  view,
+  arg,
+  changes,
+  specs,
+  mode,
+  onMode,
+  plainNames,
+  onPlainNames,
+}) {
+  // Nothing to hang under Production until the catalogue arrives, and the row is a
+  // disclosure and nothing else — with no tree under it there is nothing left to show.
+  const hasSpecs = specs.some(isCurrent);
+
   return (
     <SideNav
+      // Wide enough for the tree it holds: a change id under three levels of namespace
+      // wrapped to three lines at the default 260, and a nav that wraps is a nav you read
+      // rather than scan. Draggable from there because how much of it you want is a
+      // property of your screen and what you are doing, and remembered per browser for
+      // the same reason the appearance is.
+      resizable={{
+        defaultWidth: 340,
+        minWidth: 240,
+        maxWidth: 620,
+        autoSaveId: "openspec-viewer.nav-width",
+      }}
       footer={
         <VStack gap={1} padding={3}>
           <SegmentedControl
@@ -113,6 +264,14 @@ function Nav({ view, arg, changes, mode, onMode }) {
               />
             ))}
           </SegmentedControl>
+          {/* The ids are what you paste into the CLI, so they are one click away rather
+              than gone: this reads the column as sentences, and turning it off puts the
+              store's own spelling back. */}
+          <Switch
+            label="Names, not ids"
+            value={plainNames}
+            onChange={onPlainNames}
+          />
         </VStack>
       }
       header={
@@ -126,55 +285,61 @@ function Nav({ view, arg, changes, mode, onMode }) {
         <SideNavItem
           href={href("board")}
           label="Board"
+          size="sm"
           isSelected={view === "board"}
         />
+        {/* The index page is a page, so it is a row that goes to it and does nothing
+            else. It reads the catalogue by namespace, which is what it is called. */}
         <SideNavItem
           href={href("specs")}
-          label="Capabilities"
-          isSelected={view === "specs" || view === "spec"}
+          label="Namespace"
+          size="sm"
+          isSelected={view === "specs"}
         />
+        {/* The tree of what is in production, under a row of its own — the same shape as
+            In Development below it, since they are the same kind of thing: a tree of the
+            store's namespaces with no page of its own to link to. `isSelected` is never
+            set here; when a spec is open the row for it inside the tree is the one to
+            mark. */}
+        {hasSpecs && (
+          <SideNavItem
+            label="Production"
+            size="sm"
+            collapsible={{ defaultIsCollapsed: false }}
+          >
+            <TreeList
+              className="nav-tree"
+              density="compact"
+              items={capabilityTreeByNamespace(specs.filter(isCurrent)).map(
+                (node) =>
+                  specTreeItem(node, view === "spec" ? arg : "", plainNames),
+              )}
+            />
+          </SideNavItem>
+        )}
+        {/* Changes in development, under a row of their own rather than a section heading —
+            the same shape as Production above it. No link on this one either, because the
+            page for what is in development is the board directly above it. */}
+        <SideNavItem
+          label="In Development"
+          size="sm"
+          collapsible={{ defaultIsCollapsed: false }}
+        >
+          <TreeList
+            className="nav-tree"
+            density="compact"
+            items={changeTreeByNamespace(changes).map((node) =>
+              treeItem(node, view, arg, plainNames),
+            )}
+          />
+        </SideNavItem>
         <SideNavItem
           href={href("archive")}
           label="Shipped changes"
+          size="sm"
           isSelected={view === "archive"}
         />
       </SideNavSection>
-
-      {/* One band over all the namespace sections, because "in flight" is what they have
-          in common and the namespaces are a level inside it. Deliberately not another
-          section title: it would then be competing with the names a reader is scanning
-          for, at the same size, right above them. */}
-      <div className="nav-band">In flight</div>
-
-      {/* Under the namespaces each change deltas — the same grouping the catalog reads by.
-          A change touching two namespaces appears under both, so the key carries the
-          section: one change can be two items. */}
-      {groupChangesByNamespace(changes).map((group) => (
-        <SideNavSection
-          key={group.name}
-          className="nav-section nav-section-ns"
-          title={group.name}
-          endContent={
-            <Text size="sm" color="secondary" hasTabularNumbers>
-              {group.changes.length}
-            </Text>
-          }
-        >
-          {group.changes.map((ch) => (
-            <SideNavItem
-              key={`${group.name}/${ch.id}`}
-              href={href("change", ch.id)}
-              label={ch.id}
-              isSelected={view === "change" && arg === ch.id}
-              endContent={
-                <Text size="sm" color="secondary" hasTabularNumbers>
-                  {ch.done}/{ch.total}
-                </Text>
-              }
-            />
-          ))}
-        </SideNavSection>
-      ))}
     </SideNav>
   );
 }
@@ -182,11 +347,25 @@ function Nav({ view, arg, changes, mode, onMode }) {
 export default function App() {
   const { view, arg } = useRoute();
   const [mode, setMode] = useState(loadMode);
-  const { data, error, at } = useApi("/api/board");
+  const [plainNames, setPlainNames] = useState(loadPlainNames);
+  // Polled only while the board is the view being read. The nav needs this data
+  // everywhere, so it is still fetched on every view — but the store is read by shelling
+  // out to git, and a poll landing every 5s behind a spec the reader just clicked makes
+  // that spec wait for a board nobody is looking at. Coming back to the board reloads it.
+  const { data, error, at } = useApi("/api/board", { poll: view === "board" });
+  // The catalogue behind the nav's Production tree. Never polled: a capability arrives
+  // when a change is archived, which is not something that happens while you are looking
+  // at the page — and the index view asks for it again when it opens.
+  const { data: catalog } = useApi("/api/specs", { poll: false });
 
   const chooseMode = (next) => {
     setMode(next);
     saveMode(next);
+  };
+
+  const choosePlainNames = (next) => {
+    setPlainNames(next);
+    savePlainNames(next);
   };
 
   // Everything renders inside <Theme>: it applies the root class the design tokens hang
@@ -227,11 +406,14 @@ export default function App() {
         contentPadding={5}
         sideNav={
           <Nav
+            specs={catalog?.specs ?? []}
             view={view}
             arg={arg}
             changes={data.changes}
             mode={mode}
             onMode={chooseMode}
+            plainNames={plainNames}
+            onPlainNames={choosePlainNames}
           />
         }
         banner={
@@ -245,13 +427,21 @@ export default function App() {
         }
       >
         <VStack gap={4}>
-          <StoreStatus store={data.store} />
+          {/* The clone's state, held to the column the pages below it are set at. These
+              are two short sentences and a warning apiece; given the width of the window
+              they were a title alone on a line two thousand pixels long. */}
+          <VStack gap={4} className="store-head">
+            <StoreStatus store={data.store} />
 
-          <StoreWarnings store={data.store} />
+            <StoreWarnings store={data.store} />
+          </VStack>
 
-          {view === "board" && <Board board={data} />}
+          {view === "board" && <Board board={data} plainNames={plainNames} />}
           {view === "change" && <ChangeDetail id={arg} />}
-          {view === "specs" && <Specs />}
+          {view === "namespace" && (
+            <NamespaceDetail id={arg} plainNames={plainNames} />
+          )}
+          {view === "specs" && <Specs plainNames={plainNames} />}
           {view === "spec" && <SpecDetail id={arg} />}
           {view === "archive" && <Archive />}
           {/* No nav entry: a store document is reached by following a link out of an

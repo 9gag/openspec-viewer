@@ -10,80 +10,30 @@
 
 import { join } from "node:path";
 
-import { changeArtifacts } from "./artifacts.mjs";
+import {
+  capabilityDocs,
+  changeArtifacts,
+  completeness,
+  readDocs,
+} from "./artifacts.mjs";
 import { readGroups } from "./board.mjs";
 import {
   changeIds,
   dirs,
-  files,
   lastCommit,
-  openspecJson,
   openspecText,
   read,
   resolveRoot,
   specDirs,
 } from "./store.mjs";
 
-const statusCache = new Map();
-
-/**
- * A cheap stand-in for "have this change's files changed": the sorted list of files in
- * the change directory and its spec subdirectories.
- *
- * Completeness is exactly a question about which files exist, so this signature changes
- * precisely when the answer could. Two readdirs, versus a two-second CLI spawn.
- */
-function fileSignature(storePath, dir) {
-  const base = join(storePath, dir);
-  const specs = join(base, "specs");
-  return [
-    ...files(base),
-    ...specDirs(specs).flatMap((cap) =>
-      files(join(specs, cap)).map((f) => `specs/${cap}/${f}`),
-    ),
-  ].join("|");
-}
-
-/**
- * Which of the artifacts the schema expects exist, straight from the CLI rather than by
- * guessing at filenames — `openspec status --json` reports the schema's expected output path for each
- * artifact and which files actually match it, so a schema change cannot silently make
- * this wrong. Cached against the file signature so the cost is paid once per real change.
- */
-function artifactStatus(changeId, signature) {
-  const hit = statusCache.get(changeId);
-  if (hit && hit.signature === signature) return hit.value;
-
-  let status;
-  try {
-    status = openspecJson(["status", "--change", changeId]);
-  } catch {
-    return null;
-  }
-
-  const root = status.changeRoot;
-  const out = [];
-  for (const [name, info] of Object.entries(status.artifactPaths ?? {})) {
-    const paths = (info.existingOutputPaths ?? []).map((p) =>
-      p.replace(`${root}/`, ""),
-    );
-    out.push({
-      name,
-      expected: info.outputPath,
-      present: paths.length > 0,
-      paths,
-    });
-  }
-
-  statusCache.set(changeId, { signature, value: out });
-  return out;
-}
-
 /** The capabilities this change deltas, and whether each is new or a change to shipped behavior. */
 export function capabilities(storePath, changeId, archived = false) {
   const base = archived
     ? join(storePath, "openspec", "changes", "archive", changeId, "specs")
     : join(storePath, "openspec", "changes", changeId, "specs");
+
+  const rel = `openspec/changes/${archived ? "archive/" : ""}${changeId}/specs`;
 
   return specDirs(base).map((cap) => {
     const text = read(join(base, cap, "spec.md")) ?? "";
@@ -104,7 +54,10 @@ export function capabilities(storePath, changeId, archived = false) {
           : [],
       requirements: (text.match(/^###\s+Requirement:/gim) ?? []).length,
       scenarios: (text.match(/^####\s+Scenario:/gim) ?? []).length,
-      path: `openspec/changes/${archived ? `archive/${changeId}` : changeId}/specs/${cap}/spec.md`,
+      path: `${rel}/${cap}/spec.md`,
+      // Listed, not read: this runs for every change on every board poll, and only the
+      // change page renders them. `change()` reads the bodies it is about to send.
+      docs: capabilityDocs(join(base, cap), `${rel}/${cap}`),
       text,
     };
   });
@@ -130,11 +83,11 @@ export function validate(changeId) {
 
 export function change(changeId) {
   const root = resolveRoot();
-  const inFlight = changeIds(root.path).includes(changeId);
+  const inDevelopment = changeIds(root.path).includes(changeId);
   const archived =
-    !inFlight &&
+    !inDevelopment &&
     dirs(join(root.path, "openspec", "changes", "archive")).includes(changeId);
-  if (!inFlight && !archived) return null;
+  if (!inDevelopment && !archived) return null;
 
   const dir = archived
     ? join("openspec", "changes", "archive", changeId)
@@ -160,10 +113,15 @@ export function change(changeId) {
         if (kind === "doc") entry.text = read(join(root.path, dir, file));
         return entry;
       }),
-    completeness: archived
-      ? null
-      : artifactStatus(changeId, fileSignature(root.path, dir)),
-    capabilities: capabilities(root.path, changeId, archived),
+    // An archived change is finished, so "what is still missing" is not a question
+    // anyone is asking about it.
+    completeness: archived ? null : completeness(root.path, dir),
+    // The documents beside each delta carry their text here and nowhere else: the page
+    // gives them tabs of their own, and this is the only reader that renders them.
+    capabilities: capabilities(root.path, changeId, archived).map((cap) => ({
+      ...cap,
+      docs: readDocs(root.path, cap.docs),
+    })),
     groups: groups?.map((g) => ({
       num: g.num,
       title: g.title,

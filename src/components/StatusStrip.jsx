@@ -76,10 +76,10 @@ export default function StatusStrip({ summary, active, onFilter }) {
   return (
     <div className="status-strip">
       <Tile
-        count={summary.collisions.length}
-        label="collisions"
+        count={summary.conflicts.length}
+        label="conflicts"
         tone="error"
-        filter="collisions"
+        filter="conflicts"
         active={active}
         onFilter={onFilter}
         hint={{
