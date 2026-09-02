@@ -38,11 +38,17 @@ function Completeness({ completeness, id }) {
       <VStack gap={3}>
         <Heading level={2}>Artifacts</Heading>
         <HStack gap={2} wrap="wrap">
+          {/* `expected`, which is the filename the schema asks for — the completeness
+              entries carry `name`, `expected` and `present`, and never the `label` the
+              tabs are built from, so every one of these badges rendered empty and a
+              missing artifact announced itself as "undefined missing". The filename is
+              also the more useful of the two here: this card is read when something is
+              absent, and the answer to "what is missing" is a file to go and write. */}
           {completeness.map((a) => (
             <Badge
               key={a.name}
               variant={a.present ? "success" : "warning"}
-              label={a.present ? a.label : `${a.label} missing`}
+              label={a.present ? a.expected : `${a.expected} missing`}
             />
           ))}
           {validation && (
