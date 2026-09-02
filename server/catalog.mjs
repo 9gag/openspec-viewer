@@ -5,6 +5,7 @@
 
 import { join } from "node:path";
 
+import { capabilityDocs, readDocs } from "./artifacts.mjs";
 import { capabilities } from "./change.mjs";
 import {
   changeIds,
@@ -203,7 +204,8 @@ export function capabilityCatalog({ withText = false, only = null } = {}) {
   const wanted = only === null ? all : all.filter((cap) => cap === only);
 
   return wanted.map((cap) => {
-    const rel = `openspec/specs/${cap}/spec.md`;
+    const dir = `openspec/specs/${cap}`;
+    const rel = `${dir}/spec.md`;
     const text = shipped.includes(cap)
       ? (read(join(root.path, rel)) ?? "")
       : null;
@@ -213,6 +215,12 @@ export function capabilityCatalog({ withText = false, only = null } = {}) {
     const history = (touched.get(cap) ?? []).sort(
       (a, b) => (b.at ?? 0) - (a.at ?? 0),
     );
+
+    // Whatever the capability directory holds besides its spec. A capability with no
+    // baseline has no directory either, so it has nothing to find.
+    const docs = withText
+      ? readDocs(root.path, capabilityDocs(join(root.path, dir), dir))
+      : null;
 
     return {
       capability: cap,
@@ -227,7 +235,9 @@ export function capabilityCatalog({ withText = false, only = null } = {}) {
       scenarios:
         text === null ? 0 : (text.match(/^####\s+Scenario:/gim) ?? []).length,
       commit: text === null ? null : lastCommit(root.path, rel),
-      ...(withText ? { text } : {}),
+      // Bodies only for the detail view: the index is a list of names and counts, and
+      // the text of every capability in the store is a payload rather than a page.
+      ...(withText ? { text, docs } : {}),
       history,
     };
   });

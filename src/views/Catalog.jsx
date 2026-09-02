@@ -8,6 +8,7 @@ import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
 import { Spinner } from "@astryxdesign/core/Spinner";
+import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -454,6 +455,49 @@ function ChangesPanel({ cap, anchor, onClose }) {
   );
 }
 
+/** The tab holding the spec itself. Not a filename, since spec.md is never a sibling. */
+const SPEC_TAB = "spec";
+
+/** What the open tab shows: the spec itself, or one of the documents kept beside it. */
+function SpecBody({ cap, doc, lens, onLens }) {
+  if (doc) {
+    return (
+      <Artifact
+        text={doc.text}
+        path={doc.path}
+        commit={doc.commit}
+        prefix={doc.name}
+      />
+    );
+  }
+
+  if (!cap.shipped) {
+    return (
+      <EmptyState
+        title="Not shipped yet"
+        description={`No baseline in openspec/specs/${cap.capability}/. Read the delta inside the change that introduces it.`}
+        isCompact
+      />
+    );
+  }
+
+  return (
+    <VStack gap={3}>
+      <HStack hAlign="end">
+        <LensControl value={lens} onChange={onLens} />
+      </HStack>
+      <Artifact
+        text={cap.text}
+        path={cap.path}
+        commit={cap.commit}
+        bdd
+        prefix={cap.capability}
+        lens={lens}
+      />
+    </VStack>
+  );
+}
+
 /**
  * One capability in full.
  *
@@ -474,6 +518,13 @@ export function SpecDetail({ id }) {
     saveLens(next);
   };
 
+  // Which document is open. Back to the spec whenever the capability changes: what a
+  // directory holds beside its spec is that capability's own business, and the next one
+  // may keep nothing at all.
+  const [tab, setTab] = useState(SPEC_TAB);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `id` is the whole dependency — the tab it resets is deliberately not one
+  useEffect(() => setTab(SPEC_TAB), [id]);
+
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
     return (
@@ -485,6 +536,13 @@ export function SpecDetail({ id }) {
       />
     );
   }
+
+  // Whatever the capability directory holds besides spec.md — test cases, notes, anything
+  // the store files with the requirements it belongs to. An unshipped capability has no
+  // directory, so it has none of these.
+  const docs = data.docs ?? [];
+  const active = docs.some((d) => d.name === tab) ? tab : SPEC_TAB;
+  const doc = docs.find((d) => d.name === active);
 
   return (
     <VStack gap={4} className="doc-page">
@@ -510,32 +568,21 @@ export function SpecDetail({ id }) {
         <ChangedBy history={data.history} capability={data.capability} />
       </Card>
 
+      {/* Only when there is something to switch to: a lone tab reading "Requirements"
+          over the requirements is a control that decides nothing. */}
+      {docs.length > 0 && (
+        <TabList value={active} onChange={setTab} hasDivider>
+          <Tab value={SPEC_TAB} label="Requirements" />
+          {docs.map((d) => (
+            <Tab key={d.name} value={d.name} label={d.label} />
+          ))}
+        </TabList>
+      )}
+
       <WithOutline>
-        {data.shipped ? (
-          <Card padding={4}>
-            <VStack gap={3}>
-              <HStack hAlign="end">
-                <LensControl value={lens} onChange={chooseLens} />
-              </HStack>
-              <Artifact
-                text={data.text}
-                path={data.path}
-                commit={data.commit}
-                bdd
-                prefix={data.capability}
-                lens={lens}
-              />
-            </VStack>
-          </Card>
-        ) : (
-          <Card padding={4}>
-            <EmptyState
-              title="Not shipped yet"
-              description={`No baseline in openspec/specs/${data.capability}/. Read the delta inside the change that introduces it.`}
-              isCompact
-            />
-          </Card>
-        )}
+        <Card padding={4}>
+          <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
+        </Card>
       </WithOutline>
     </VStack>
   );
