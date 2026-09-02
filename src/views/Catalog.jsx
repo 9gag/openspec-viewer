@@ -20,7 +20,12 @@ import {
   summarise,
   TOP_LEVEL,
 } from "../capabilities.js";
-import { Artifact, LensControl } from "../components/bits.jsx";
+import {
+  Artifact,
+  CapabilityFlag,
+  CapabilitySize,
+  LensControl,
+} from "../components/bits.jsx";
 import {
   Timeline,
   TimelineEntry,
@@ -28,19 +33,6 @@ import {
 } from "../components/Timeline.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
-
-/**
- * What a row says instead of a requirement count.
- *
- * "no baseline" rather than "unshipped" because the row is stating a fact about the store
- * — there is nothing in `openspec/specs/` to read — where "unshipped" is the state that
- * fact puts the capability in. Retired says the state, because there is no fact plainer
- * than it: the store withdrew the behavior.
- */
-const STATE_WORD = {
-  unshipped: "no baseline",
-  retired: "retired",
-};
 
 /**
  * The capability index.
@@ -259,24 +251,11 @@ function Row({ cap, plainNames, isOpen, onOpen }) {
         {displayName(leafOf(cap.capability), plainNames)}
       </Link>
 
-      <Text size="sm" color="secondary" hasTabularNumbers>
-        {cap.state === "shipped"
-          ? `${cap.requirements} req · ${cap.scenarios} sc`
-          : STATE_WORD[cap.state]}
-      </Text>
+      <CapabilitySize cap={cap} />
 
       <span className="cap-row-tail">
         <span className="cap-row-flag">
-          {cap.inDevelopment > 0 && (
-            <Badge
-              variant={cap.inDevelopment > 1 ? "warning" : "info"}
-              label={
-                cap.inDevelopment > 1
-                  ? `${cap.inDevelopment} in development`
-                  : "in development"
-              }
-            />
-          )}
+          <CapabilityFlag cap={cap} />
         </span>
         {/* No commit means a store nobody has committed; the cell stays empty rather than
             carrying an age invented from nothing. */}

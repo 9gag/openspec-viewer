@@ -194,3 +194,50 @@ export function LensControl({ value, onChange }) {
     </SegmentedControl>
   );
 }
+
+/**
+ * What a row says instead of a requirement count.
+ *
+ * "no baseline" rather than "unshipped" because the row is stating a fact about the store
+ * — there is nothing in `openspec/specs/` to read — where "unshipped" is the state that
+ * fact puts the capability in. Retired says the state, because there is no fact plainer
+ * than it: the store withdrew the behavior.
+ */
+const STATE_WORD = {
+  unshipped: "no baseline",
+  retired: "retired",
+};
+
+export function CapabilitySize({ cap }) {
+  return (
+    <Text size="sm" color="secondary" hasTabularNumbers>
+      {cap.state === "shipped"
+        ? `${cap.requirements} req · ${cap.scenarios} sc`
+        : STATE_WORD[cap.state]}
+    </Text>
+  );
+}
+
+/**
+ * Whether a change is rewriting this capability, and the warning when two are.
+ *
+ * Shared by the index and by a namespace's own page, because it is the same sentence
+ * about the same fact — and because two of them is the conflict the board raises, which
+ * nothing should be able to say quietly on one page and loudly on another.
+ *
+ * Nothing at all for a capability nobody is touching: three quarters of a catalogue is
+ * that, and a badge on every row would bury the ones that need an answer.
+ */
+export function CapabilityFlag({ cap }) {
+  if (!cap.inDevelopment) return null;
+  return (
+    <Badge
+      variant={cap.inDevelopment > 1 ? "warning" : "info"}
+      label={
+        cap.inDevelopment > 1
+          ? `${cap.inDevelopment} in development`
+          : "in development"
+      }
+    />
+  );
+}
