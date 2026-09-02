@@ -776,10 +776,18 @@ body {
   gap: 0 10px;
 }
 
-/* The segments take the line's own type rather than the link's. As a page title the line
-   is a heading and its links have to be heading-sized; the colour is left to Astryx, so a
-   segment still answers to hover and focus like every other link on the page. */
-.ns-line a {
+/*
+ * The type is the line's, not the link's: as a page title the line is a heading and its
+ * segments have to be heading-sized, and the same component sits inside a change page's
+ * title where the size is set the same way.
+ *
+ * The descendants too, and that is the whole rule rather than a flourish: Astryx's Link
+ * puts its text in a <Text> of its own, so setting the anchor alone left the glyphs at
+ * body size inside a heading-sized box — the arrows beside them, which are plain spans,
+ * were the only part of the line at the size it was supposed to be.
+ */
+.ns-line a,
+.ns-line a * {
   font: inherit;
 }
 
