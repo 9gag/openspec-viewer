@@ -229,8 +229,8 @@ function Nav({
   plainNames,
   onPlainNames,
 }) {
-  // Nothing to hang under Production until the catalogue arrives: an empty disclosure
-  // reads as a store with no capabilities rather than as one still loading.
+  // Nothing to hang under Production until the catalogue arrives, and the row is a
+  // disclosure and nothing else — with no tree under it there is nothing left to show.
   const hasSpecs = specs.some(isCurrent);
 
   return (
@@ -287,19 +287,25 @@ function Nav({
           size="sm"
           isSelected={view === "board"}
         />
-        {/* The index page and the tree of what is in it are one thing, so they are one
-            row: the label goes to the page, the chevron opens the tree under it. Two
-            entries called Production, one a link and one a heading, was the reader being
-            asked to work out that they were the same. `isSelected` is the page only —
-            when a spec is open the row for it inside the tree is the one to mark. */}
+        {/* The index page is a page, so it is a row that goes to it and does nothing
+            else. It reads the catalogue by namespace, which is what it is called. */}
         <SideNavItem
           href={href("specs")}
-          label="Production"
+          label="Namespace"
           size="sm"
           isSelected={view === "specs"}
-          collapsible={hasSpecs ? { defaultIsCollapsed: false } : undefined}
-        >
-          {hasSpecs && (
+        />
+        {/* The tree of what is in production, under a row of its own — the same shape as
+            In Development below it, since they are the same kind of thing: a tree of the
+            store's namespaces with no page of its own to link to. `isSelected` is never
+            set here; when a spec is open the row for it inside the tree is the one to
+            mark. */}
+        {hasSpecs && (
+          <SideNavItem
+            label="Production"
+            size="sm"
+            collapsible={{ defaultIsCollapsed: false }}
+          >
             <TreeList
               className="nav-tree"
               density="compact"
@@ -308,12 +314,11 @@ function Nav({
                   specTreeItem(node, view === "spec" ? arg : "", plainNames),
               )}
             />
-          )}
-        </SideNavItem>
+          </SideNavItem>
+        )}
         {/* Changes in development, under a row of their own rather than a section heading —
-            the same shape as Production above it, since they are the same kind of thing:
-            a tree of the store's namespaces. No link on this one, because the page for
-            what is in development is the board directly above it. */}
+            the same shape as Production above it. No link on this one either, because the
+            page for what is in development is the board directly above it. */}
         <SideNavItem
           label="In Development"
           size="sm"
@@ -425,7 +430,7 @@ export default function App() {
 
           <StoreWarnings store={data.store} />
 
-          {view === "board" && <Board board={data} />}
+          {view === "board" && <Board board={data} plainNames={plainNames} />}
           {view === "change" && <ChangeDetail id={arg} />}
           {view === "specs" && <Specs plainNames={plainNames} />}
           {view === "spec" && <SpecDetail id={arg} />}
