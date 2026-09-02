@@ -1,6 +1,7 @@
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Card } from "@astryxdesign/core/Card";
+import { Collapsible, CollapsibleGroup } from "@astryxdesign/core/Collapsible";
 import { CodeBlock } from "@astryxdesign/core/CodeBlock";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -80,52 +81,133 @@ function Capabilities({ capabilities }) {
     setLens(next);
     saveLens(next);
   };
+  // Which capability is open, held here rather than by the group, because the panel's
+  // contents depend on it — see below.
+  const [open, setOpen] = useState(null);
 
   if (capabilities.length === 0) {
     return <Text color="secondary">This change has no spec deltas.</Text>;
   }
 
-  return (
-    <VStack gap={4}>
-      <HStack hAlign="end">
-        <LensControl value={lens} onChange={chooseLens} />
-      </HStack>
-      {capabilities.map((cap) => (
-        <Card key={cap.capability} padding={4}>
+  const control = (
+    <HStack hAlign="end">
+      <LensControl value={lens} onChange={chooseLens} />
+    </HStack>
+  );
+
+  // A change deltaing one capability has nothing to fold: a disclosure around the only
+  // thing on the tab is a click between the reader and what they came for.
+  if (capabilities.length === 1) {
+    return (
+      <VStack gap={4}>
+        {control}
+        <Card padding={4}>
           <VStack gap={3}>
-            <HStack gap={2} align="center" wrap="wrap">
-              <Heading level={2}>{cap.capability}</Heading>
-              {cap.kinds.map((k) => (
-                <Badge
-                  key={k}
-                  variant={k === "MODIFIED" ? "warning" : "info"}
-                  label={k}
-                />
-              ))}
-              <Text size="sm" color="secondary">
-                {cap.requirements} requirement
-                {cap.requirements === 1 ? "" : "s"} · {cap.scenarios} scenario
-                {cap.scenarios === 1 ? "" : "s"}
-              </Text>
-            </HStack>
-            {cap.kinds.includes("MODIFIED") && (
-              <Banner
-                status="info"
-                container="section"
-                title="Rewrites shipped behavior"
-                description="A MODIFIED block must contain the entire updated requirement, with headers matching the baseline exactly. A partial block silently drops the rest at archive time."
-              />
-            )}
-            <Artifact
-              text={cap.text}
-              path={cap.path}
-              bdd
-              prefix={cap.capability}
-              lens={lens}
-            />
+            <DeltaHeading cap={capabilities[0]} />
+            <Delta cap={capabilities[0]} lens={lens} />
           </VStack>
         </Card>
+      </VStack>
+    );
+  }
+
+  /*
+   * More than one, and they fold.
+   *
+   * Two deltas on a change here run to twenty-four thousand characters — sixteen
+   * requirements over forty-nine scenarios — and stacked end to end the second one begins
+   * below anything a reader is going to scroll to. Which capabilities a change touches is
+   * itself the answer to a question, and closed they are exactly that list: the name,
+   * whether it rewrites shipped behavior, and how big it is.
+   *
+   * All closed to start, and one open at a time after that. Opening the first for the
+   * reader picks a capability on their behalf, and there is no reason it should be the
+   * one the store happens to sort first; closed, the tab opens as the list of what this
+   * change touches, which is a question in its own right and the one a reader arriving
+   * here asks before "what does it say". Nothing is lost by it: every heading carries its
+   * own summary, so which one to open is decided without opening any of them.
+   *
+   * A closed panel renders nothing, rather than being handed its spec and hidden. Astryx
+   * closes a Collapsible by animating its height to zero with the content still mounted,
+   * and the outline rail is read from the DOM: left to itself it listed every requirement
+   * of every capability while the page showed none of them, and each entry scrolled to an
+   * anchor inside a collapsed box. That is the rule the lens already follows for its own
+   * scenarios, for the same reason — the rail cannot be allowed to offer a heading that
+   * is not on the page.
+   */
+  return (
+    <VStack gap={4}>
+      {control}
+      <CollapsibleGroup
+        type="single"
+        value={open ?? ""}
+        onChange={(next) =>
+          setOpen((Array.isArray(next) ? next[0] : next) || null)
+        }
+      >
+        <VStack gap={3}>
+          {capabilities.map((cap) => (
+            <Card key={cap.capability} padding={4}>
+              <Collapsible
+                value={cap.capability}
+                trigger={<DeltaHeading cap={cap} />}
+              >
+                {open === cap.capability && (
+                  <VStack paddingBlock={3}>
+                    <Delta cap={cap} lens={lens} />
+                  </VStack>
+                )}
+              </Collapsible>
+            </Card>
+          ))}
+        </VStack>
+      </CollapsibleGroup>
+    </VStack>
+  );
+}
+
+/**
+ * What a capability says before it is opened: its name, what this change does to it, and
+ * how much of it there is. Enough to choose one without opening any.
+ */
+function DeltaHeading({ cap }) {
+  return (
+    <HStack gap={2} align="center" wrap="wrap">
+      <Heading level={2}>{cap.capability}</Heading>
+      {cap.kinds.map((k) => (
+        <Badge
+          key={k}
+          variant={k === "MODIFIED" ? "warning" : "info"}
+          label={k}
+        />
       ))}
+      <Text size="sm" color="secondary">
+        {cap.requirements} requirement{cap.requirements === 1 ? "" : "s"} ·{" "}
+        {cap.scenarios} scenario{cap.scenarios === 1 ? "" : "s"}
+      </Text>
+    </HStack>
+  );
+}
+
+/** One capability's delta: the warning it may need, and the spec itself. */
+function Delta({ cap, lens }) {
+  return (
+    <VStack gap={3}>
+      {cap.kinds.includes("MODIFIED") && (
+        <Banner
+          status="info"
+          container="section"
+          title="Rewrites shipped behavior"
+          description="A MODIFIED block must contain the entire updated requirement, with headers matching the baseline exactly. A partial block silently drops the rest at archive time."
+        />
+      )}
+      <Artifact
+        text={cap.text}
+        path={cap.path}
+        bdd
+        prefix={cap.capability}
+        lens={lens}
+      />
     </VStack>
   );
 }
