@@ -79,12 +79,32 @@ const kindOf = (generates) => {
   return "doc";
 };
 
-/** The schema a change was created under, from the `.openspec.yaml` the CLI writes beside its artifacts. */
+/** The schema a change records for itself, in the `.openspec.yaml` the CLI writes beside its artifacts. */
 export function schemaName(changeDir) {
   return read(join(changeDir, ".openspec.yaml"))?.match(
     /^schema:\s*["']?([^"'\s]+)/m,
   )?.[1];
 }
+
+/**
+ * The schema a change gets when it records none of its own: the store's, from its
+ * `openspec/config.yaml`.
+ *
+ * Not the CLI's built-in default, which is a different schema — a store that configures
+ * `full-planning` and a change created before the CLI started writing `.openspec.yaml`
+ * expects five artifacts, and guessing at the built-in would have reported a ui.md that
+ * schema never asked for as missing. Anchored at column zero so the `context:` block
+ * below it, which is prose and can contain anything, cannot answer this.
+ */
+function storeSchema(storePath) {
+  return read(join(storePath, "openspec", "config.yaml"))?.match(
+    /^schema:\s*["']?([^"'\s]+)/m,
+  )?.[1];
+}
+
+/** The schema this change is read under: its own if it records one, else the store's. */
+export const schemaFor = (storePath, changeDir) =>
+  schemaName(changeDir) ?? storeSchema(storePath);
 
 const schemaCache = new Map();
 
@@ -154,7 +174,7 @@ export function changeArtifacts(storePath, dir) {
   const unclaimed = new Set(files(base));
   const hasSpecs = specDirs(join(base, "specs")).length > 0;
 
-  const declared = schemaArtifacts(storePath, schemaName(base));
+  const declared = schemaArtifacts(storePath, schemaFor(storePath, base));
   const order = declared.length
     ? declared
     : FALLBACK.map((id) => ({
@@ -180,4 +200,41 @@ export function changeArtifacts(storePath, dir) {
   }
 
   return out;
+}
+
+/**
+ * Which of the artifacts the schema asked for exist, and where.
+ *
+ * The same question `changeArtifacts` answers for the tabs, told the other way round:
+ * tabs are the files that are there, completeness is the schema's list with a yes or no
+ * against each. Both come from one read of the schema, so they cannot disagree about what
+ * a change was supposed to have.
+ *
+ * This used to be `openspec status --change <id>`, which is authoritative and takes about
+ * a second — paid on the first view of every change page, which is most views of it. What
+ * it reports is the schema's `generates` for each artifact and which files match it, and
+ * both halves were already in hand: the schema is read here anyway to build the tabs, and
+ * matching it is a directory listing. Checked against the CLI's answer for every change
+ * in a real store before the call came out, which is what turned up the fallback below.
+ *
+ * Null when the schema cannot be read at all, which is the one case the local answer is
+ * not equivalent: `changeArtifacts` falls back to a conventional list so the tabs still
+ * open the files that exist, but a *missing* artifact from a list nobody declared is an
+ * expectation this tool invented. The card is absent rather than wrong.
+ */
+export function completeness(storePath, dir) {
+  const base = join(storePath, dir);
+  const declared = schemaArtifacts(storePath, schemaFor(storePath, base));
+  if (!declared.length) return null;
+
+  const here = files(base);
+  return declared.map(({ id, generates }) => {
+    const paths =
+      kindOf(generates) === "specs"
+        ? specDirs(join(base, "specs")).map((cap) => `specs/${cap}/spec.md`)
+        : here.includes(generates)
+          ? [generates]
+          : [];
+    return { name: id, expected: generates, present: paths.length > 0, paths };
+  });
 }

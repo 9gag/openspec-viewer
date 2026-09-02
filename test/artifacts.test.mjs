@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 
 import {
   changeArtifacts,
+  completeness,
   label,
   schemaArtifacts,
 } from "../server/artifacts.mjs";
@@ -198,5 +199,121 @@ describe("label", () => {
   it("leaves acronyms and shouted filenames alone", () => {
     assert.equal(label("api"), "API");
     assert.equal(label("README"), "README");
+  });
+});
+
+/**
+ * What the Artifacts card reads. This used to be `openspec status --change`, and the
+ * only reason to have replaced a CLI that is authoritative with a local read is that the
+ * local read gives the same answer — so these pin the cases where it could quietly stop
+ * doing that.
+ */
+describe("completeness", () => {
+  const declared = [
+    ["proposal", "proposal.md"],
+    ["specs", '"specs/**/*.md"'],
+    ["design", "design.md"],
+    ["ui", "ui.md"],
+    ["tasks", "tasks.md"],
+  ];
+
+  it("answers the schema's list, with what is there and where", () => {
+    schema("full-planning", declared);
+    const dir = change(
+      "add-guest-checkout",
+      "full-planning",
+      ["proposal.md", "design.md", "tasks.md"],
+      ["checkout"],
+    );
+
+    assert.deepEqual(completeness(store, dir), [
+      {
+        name: "proposal",
+        expected: "proposal.md",
+        present: true,
+        paths: ["proposal.md"],
+      },
+      {
+        name: "specs",
+        expected: "specs/**/*.md",
+        present: true,
+        paths: ["specs/checkout/spec.md"],
+      },
+      {
+        name: "design",
+        expected: "design.md",
+        present: true,
+        paths: ["design.md"],
+      },
+      { name: "ui", expected: "ui.md", present: false, paths: [] },
+      {
+        name: "tasks",
+        expected: "tasks.md",
+        present: true,
+        paths: ["tasks.md"],
+      },
+    ]);
+  });
+
+  it("falls back to the store's schema for a change that records none", () => {
+    // A change made before the CLI started writing `.openspec.yaml` beside its
+    // artifacts. Answering from the CLI's built-in default instead of the store's would
+    // report artifacts this store's schema never asked for as missing.
+    schema("full-planning", declared);
+    mkdirSync(join(store, "openspec"), { recursive: true });
+    writeFileSync(
+      join(store, "openspec", "config.yaml"),
+      [
+        "schema: full-planning",
+        "",
+        "context: |",
+        "  A store can say anything here, including",
+        "  schema: not-this-one",
+        "",
+      ].join("\n"),
+    );
+    const dir = change("add-cart-limits", null, ["proposal.md"], []);
+
+    assert.deepEqual(
+      completeness(store, dir).map((a) => `${a.name}:${a.present}`),
+      [
+        "proposal:true",
+        "specs:false",
+        "design:false",
+        "ui:false",
+        "tasks:false",
+      ],
+    );
+  });
+
+  it("is absent, not invented, when no schema can be resolved", () => {
+    // The change page still gets its tabs, because those are the files that are there
+    // and the conventional order is only deciding what order they come in. What it does
+    // not get is the card: a *missing* artifact from a list nobody declared is an
+    // expectation this tool made up.
+    const dir = change("add-back-in-stock-alerts", null, ["proposal.md"], []);
+    assert.equal(completeness(store, dir), null);
+    assert.deepEqual(
+      changeArtifacts(store, dir)
+        .filter((a) => a.present)
+        .map((a) => a.name),
+      ["proposal"],
+    );
+  });
+
+  it("counts every spec file a delta wrote, not just the first", () => {
+    schema("full-planning", declared);
+    const dir = change(
+      "add-account-profile",
+      "full-planning",
+      ["proposal.md"],
+      ["store/profile", "shared/ui/profile"],
+    );
+
+    const specs = completeness(store, dir).find((a) => a.name === "specs");
+    assert.deepEqual(specs.paths, [
+      "specs/shared/ui/profile/spec.md",
+      "specs/store/profile/spec.md",
+    ]);
   });
 });
