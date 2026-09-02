@@ -1,7 +1,7 @@
 import { Badge } from "@astryxdesign/core/Badge";
 import { Text } from "@astryxdesign/core/Text";
 import { href } from "../api.js";
-import { leafOf, namespaceOf, TOP_LEVEL } from "../capabilities.js";
+import { isUnder, leafOf, namespaceOf, TOP_LEVEL } from "../capabilities.js";
 import { displayName } from "../names.js";
 import { ago, exact, STALE_DAYS } from "../time.js";
 import { Progress } from "./bits.jsx";
@@ -50,7 +50,12 @@ export function ChangeRows({ changes, conflicting, plainNames, band, within }) {
               {conflicting.has(ch.id) && (
                 <Badge variant="warning" label="conflict" />
               )}
-              <Elsewhere change={ch} band={band} plainNames={plainNames} />
+              <Elsewhere
+                change={ch}
+                band={band}
+                within={within}
+                plainNames={plainNames}
+              />
             </span>
 
             <Text size="sm" color="secondary" className="simple-row-owner">
@@ -115,13 +120,19 @@ function owners(change) {
  *
  * The first one named and the rest counted: a change deltaing four namespaces is rare,
  * and naming all four would push the id it belongs to out of the row.
+ *
+ * `band` is one namespace exactly, which is what a band on the board is: a change filed
+ * under both `shared` and `shared/ui` is somewhere else from the `shared` band's point of
+ * view, and the row says so. `within` is a whole subtree, which is what a namespace's own
+ * page covers: there, an area inside the page is not somewhere else, it is here, and
+ * "also" would be the wrong word for it.
  */
-function Elsewhere({ change, band, plainNames }) {
+function Elsewhere({ change, band, within, plainNames }) {
   const spaces = [
     ...new Set(
       (change.capabilities ?? []).map((c) => namespaceOf(c) ?? TOP_LEVEL),
     ),
-  ].filter((ns) => ns !== band);
+  ].filter((ns) => (within ? !isUnder(within, ns) : ns !== band));
 
   if (spaces.length === 0) return null;
 

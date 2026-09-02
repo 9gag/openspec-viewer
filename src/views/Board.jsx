@@ -15,7 +15,11 @@ import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useState } from "react";
 import { href } from "../api.js";
 import { loadSimple, saveSimple, splitIntoColumns } from "../board.js";
-import { changeTreeByNamespace, TOP_LEVEL } from "../capabilities.js";
+import {
+  changeTreeByNamespace,
+  NO_CAPABILITY,
+  TOP_LEVEL,
+} from "../capabilities.js";
 import { displayName } from "../names.js";
 import {
   Command,
@@ -274,13 +278,28 @@ function SimpleBoard({ changes, summary, plainNames }) {
 function SimpleGroup({ node, depth, plainNames, conflicting }) {
   const heading = (
     <div className="cap-ns">
-      <Text
-        weight="semibold"
-        size={depth === 0 ? undefined : "sm"}
-        className={plainNames ? undefined : "mono"}
-      >
-        {displayName(node.name, plainNames)}
-      </Text>
+      {/* The band's own page: a namespace heads a band here, a band in the catalogue and
+          two trees in the nav, and it is the same place every time. Not a link when it is
+          the store's stand-in for "filed under nothing", which is not a place to open. */}
+      {node.path === TOP_LEVEL || node.path === NO_CAPABILITY ? (
+        <Text
+          weight="semibold"
+          size={depth === 0 ? undefined : "sm"}
+          className={plainNames ? undefined : "mono"}
+        >
+          {displayName(node.name, plainNames)}
+        </Text>
+      ) : (
+        <Link
+          href={href("namespace", node.path)}
+          weight="semibold"
+          size={depth === 0 ? undefined : "sm"}
+          color="primary"
+          className={plainNames ? undefined : "mono"}
+        >
+          {displayName(node.name, plainNames)}
+        </Link>
+      )}
       <Badge variant="neutral" label={String(node.count)} />
       <span className="cap-ns-rule" aria-hidden="true" />
     </div>

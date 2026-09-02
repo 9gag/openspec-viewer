@@ -36,6 +36,7 @@ import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
 import { Archive, SpecDetail, Specs } from "./views/Catalog.jsx";
 import ChangeDetail from "./views/ChangeDetail.jsx";
+import NamespaceDetail from "./views/NamespaceDetail.jsx";
 import DocDetail from "./views/Doc.jsx";
 
 /** Sync state of the store clone, which everything else on the page is read from. */
@@ -432,6 +433,9 @@ export default function App() {
 
           {view === "board" && <Board board={data} plainNames={plainNames} />}
           {view === "change" && <ChangeDetail id={arg} />}
+          {view === "namespace" && (
+            <NamespaceDetail id={arg} plainNames={plainNames} />
+          )}
           {view === "specs" && <Specs plainNames={plainNames} />}
           {view === "spec" && <SpecDetail id={arg} />}
           {view === "archive" && <Archive />}

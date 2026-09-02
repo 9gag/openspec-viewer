@@ -89,7 +89,8 @@ _Avoid_: line, clause, statement
 **Namespace**:
 Everything in a capability's path before its last segment — `shared-ui` in
 `shared-ui/cart`. The store's own grouping, written by whoever named the capability,
-and what the catalog is ordered by.
+what the catalog is ordered by, and a page of its own: it holds every capability and
+every change at it or below it.
 _Avoid_: domain, area, prefix, folder, group
 
 **Baseline**:

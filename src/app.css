@@ -763,19 +763,30 @@ body {
 }
 
 /*
- * Where a change is filed, above its name.
+ * A namespace, stepped through segment by segment: `storefront → checkout`.
  *
- * Set from the same heading-1 tokens Astryx's own <Heading level={1}> reads, so the two
- * lines are one title and cannot drift apart when the theme's type scale moves. A rule
- * rather than a second <Heading>, because the page already has its heading: this line
- * names a place, and putting it in the document outline would announce a section that
- * does not exist.
+ * Inline-flex rather than a block, so the same component sets a page title, sits inside
+ * the change page's own title line, and drops into a sentence, without three sets of
+ * spacing rules.
  */
-.change-namespace {
+.ns-line {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 0 10px;
+}
+
+/* The segments take the line's own type rather than the link's. As a page title the line
+   is a heading and its links have to be heading-sized; the colour is left to Astryx, so a
+   segment still answers to hover and focus like every other link on the page. */
+.ns-line a {
+  font: inherit;
+}
+
+/* The same line above a change's id, where there is no <Heading> to take the type from:
+   set from the tokens Astryx's own heading-1 reads, so the two lines are one title and
+   cannot drift apart when the theme's type scale moves. */
+.change-namespace {
   font-family: var(--font-family-heading);
   font-size: var(--text-heading-1-size);
   font-weight: var(--text-heading-1-weight);
@@ -783,17 +794,33 @@ body {
   color: var(--color-text-primary);
 }
 
+.ns-step {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
 /* The arrow between an application and the area inside it, and the dot between two
    namespaces. Separators, not places: at the title's own weight they read as loudly as
    the words they divide. */
-.change-namespace-sep {
+.ns-sep {
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-normal);
 }
 
 /* The dot divides two whole namespaces, so it has to breathe wider than the arrows inside
-   them — at the same spacing, "auction · shared" reads as one more step in the first
-   chain instead of the start of the second. */
-.change-namespace-sep[data-between] {
+   them — at the same spacing, the last area of the first path reads as one more step in
+   it instead of the start of the second. */
+.ns-sep[data-between] {
   margin-inline: 8px;
+}
+
+/* A capability under a namespace: its name, and how big it is. Two columns where a change
+   row has five, because there is no owner, no progress and nothing that has stalled. */
+.ns-cap-row {
+  grid-template-columns: minmax(0, 1fr) 11rem;
+}
+
+.ns-cap-size {
+  text-align: right;
 }

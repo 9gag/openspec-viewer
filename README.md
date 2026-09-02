@@ -172,6 +172,18 @@ and whether a change is rewriting it — one line each. The text lives one click
 hardest thing to find, and the page grew with the store; the list endpoint no longer ships
 the bodies either.
 
+**A namespace opens.** Every place a namespace is written — the bands on the board, the
+bands in the index, the line above a change's id — goes to `#/namespace/<path>`, which
+lists what is being built in it and what it already covers. It was the one piece of
+structure the store names everywhere and nothing could open, and the two halves answer
+different questions: the capabilities say what the area covers, and the changes say what
+else is being built in it, which is the softer version of the warning the board only
+raises once two changes write the same capability. A nested path is stepped through
+segment by segment — `storefront → checkout` — and each segment is its own link, since a
+product is a place in the tree exactly as much as an area inside it. The page holds
+everything below the namespace, not only what is filed at it, and needs no endpoint: both
+lists are filters over what the board and the index already return.
+
 **Grouped by namespace**, because the store already writes one into every capability path —
 `shared-ui/cart`, `checkout/guest-checkout` — and a flat alphabetical run throws
 it away. On a store of fifty-odd capabilities that is nine or ten groups instead of one

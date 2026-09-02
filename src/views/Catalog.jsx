@@ -17,6 +17,7 @@ import { loadLens, saveLens } from "../spec.js";
 import {
   capabilityTreeByNamespace,
   leafOf,
+  NO_CAPABILITY,
   summarise,
   TOP_LEVEL,
 } from "../capabilities.js";
@@ -171,15 +172,31 @@ function Namespace({ node, depth, plainNames, opened, onOpen }) {
   return (
     <section className="cap-group">
       <div className="cap-ns">
-        <Text
-          weight="semibold"
-          size={depth === 0 ? undefined : "sm"}
-          // Ids are paths and read as paths everywhere else in the app; the sentence the
-          // name toggle puts here is prose, and monospacing prose only makes it narrow.
-          className={plainNames ? undefined : "mono"}
-        >
-          {displayName(node.name, plainNames)}
-        </Text>
+        {/* The band's own page, the same one the board's bands and the change titles go
+            to. Not a link for the store's stand-in for "filed under nothing", which is a
+            bucket rather than a place. */}
+        {node.path === TOP_LEVEL || node.path === NO_CAPABILITY ? (
+          <Text
+            weight="semibold"
+            size={depth === 0 ? undefined : "sm"}
+            // Ids are paths and read as paths everywhere else in the app; the sentence
+            // the name toggle puts here is prose, and monospacing prose only makes it
+            // narrow.
+            className={plainNames ? undefined : "mono"}
+          >
+            {displayName(node.name, plainNames)}
+          </Text>
+        ) : (
+          <Link
+            href={href("namespace", node.path)}
+            weight="semibold"
+            size={depth === 0 ? undefined : "sm"}
+            color="primary"
+            className={plainNames ? undefined : "mono"}
+          >
+            {displayName(node.name, plainNames)}
+          </Link>
+        )}
         <Badge variant="neutral" label={String(node.count)} />
         {/* Runs the heading out to the edge, so the group reads as a band rather than a
             line of text floating above a list. */}

@@ -15,6 +15,7 @@ import {
   capabilityTreeByNamespace,
   changeTreeByNamespace,
   isCurrent,
+  isUnder,
   leafOf,
   namespaceOf,
   NO_CAPABILITY,
@@ -391,5 +392,34 @@ describe("isCurrent", () => {
   // The renamed-away path: archived changes still name it, nothing else does.
   it("drops one only an archived change ever named", () => {
     assert.equal(isCurrent(cap({})), false);
+  });
+});
+
+/**
+ * A namespace holds everything below it, which is what makes a page about one worth
+ * opening: `storefront` is where the checkout work is, even though nothing is filed at
+ * `storefront` itself.
+ */
+describe("isUnder", () => {
+  it("holds a namespace and everything inside it", () => {
+    assert.equal(isUnder("storefront", "storefront"), true);
+    assert.equal(isUnder("storefront", "storefront/checkout"), true);
+    assert.equal(isUnder("storefront", "storefront/checkout/payment"), true);
+  });
+
+  it("does not hold a namespace that merely starts with the same letters", () => {
+    // The separator is the whole test: without it, a page about `shared` would claim
+    // every capability in `shared-ui`, which is a different application.
+    assert.equal(isUnder("shared", "shared-ui"), false);
+    assert.equal(isUnder("shared", "shared-ui/cart"), false);
+  });
+
+  it("does not hold the namespace above it", () => {
+    assert.equal(isUnder("storefront/checkout", "storefront"), false);
+  });
+
+  it("holds nothing when there is no namespace to place", () => {
+    assert.equal(isUnder("storefront", null), false);
+    assert.equal(isUnder("storefront", undefined), false);
   });
 });

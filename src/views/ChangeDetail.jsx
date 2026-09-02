@@ -12,6 +12,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { Fragment, useEffect, useState } from "react";
 import { useApi } from "../api.js";
 import { namespaceOf } from "../capabilities.js";
+import { NamespacePaths } from "../components/NamespacePath.jsx";
 import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
@@ -207,19 +208,11 @@ function Tasks({ groups, archived, dir }) {
  * you with an id and no idea which application it belonged to.
  *
  * Read off the capabilities the change deltas rather than stored anywhere, because that is
- * where the grouping comes from everywhere else — one source, so a change cannot appear
- * under `storefront/checkout` on the board and claim something else here.
+ * where the grouping comes from everywhere else — one source, so a change cannot sit
+ * under one namespace on the board and claim another here.
  *
- * The whole path, not the leaf: two namespaces can end in the same word — `checkout` lives
- * under both applications — and the leaf alone would be the one thing this line exists to
- * disambiguate.
- *
- * Stepped through with arrows rather than left as a slash-separated path, because that is
- * what it is: an application, then an area inside it. `storefront/checkout` reads as one
- * token to be matched against a directory; `storefront → checkout` reads as two places,
- * which is how the nav draws it and how anyone says it out loud. The arrows are the
- * separator and not the content, so they are quieter than the segments and hidden from
- * the outline — a reader who cannot see them hears the places, not "right arrow".
+ * The whole path, not the leaf: two applications can hold an area of the same name, and
+ * the leaf alone would be the one thing this line exists to disambiguate.
  *
  * Set like the change id below it rather than as a quiet caption, so the two lines read as
  * one title: where the change is filed, then what it is called. That also keeps it out of
@@ -236,33 +229,9 @@ function Namespaces({ capabilities }) {
 
   if (spaces.length === 0) return null;
 
-  // One line, not one element per namespace: a change filed in two places is in one
-  // location, and two title-sized elements side by side would read as two titles.
   return (
-    <div className="change-namespace">
-      {spaces.map((ns, i) => (
-        <Fragment key={ns}>
-          {i > 0 && (
-            <span
-              className="change-namespace-sep"
-              data-between
-              aria-hidden="true"
-            >
-              ·
-            </span>
-          )}
-          {ns.split("/").map((segment, depth) => (
-            <Fragment key={`${ns}-${segment}`}>
-              {depth > 0 && (
-                <span className="change-namespace-sep" aria-hidden="true">
-                  →
-                </span>
-              )}
-              <span>{segment}</span>
-            </Fragment>
-          ))}
-        </Fragment>
-      ))}
+    <div className="ns-line change-namespace">
+      <NamespacePaths paths={spaces} />
     </div>
   );
 }

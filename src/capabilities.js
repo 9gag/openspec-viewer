@@ -19,6 +19,13 @@ export function namespaceOf(capability) {
   return cut === -1 ? null : capability.slice(0, cut);
 }
 
+/**
+ * Is this namespace the given one, or inside it? A product holds its areas, so a page
+ * about `storefront` is about `storefront/checkout` too.
+ */
+export const isUnder = (path, ns) =>
+  ns === path || !!ns?.startsWith(`${path}/`);
+
 /** The part of the path the namespace heading does not already say. */
 export function leafOf(capability) {
   const cut = capability.lastIndexOf("/");
