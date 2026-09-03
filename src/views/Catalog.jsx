@@ -706,13 +706,17 @@ export function Archive() {
                   <Text size="sm" color="secondary" hasTabularNumbers>
                     {a.tasks} tasks
                   </Text>
-                  {a.commit && (
+                  {/* The day it shipped, said again as an age — the column beside it
+                      gives the date, and "three weeks ago" is the half of that a reader
+                      does the arithmetic for otherwise. Not the commit: a store imported
+                      in one go carries one commit date across a year of releases. */}
+                  {a.at > 0 && (
                     <HStack gap={1} align="center">
                       <Text size="sm" color="secondary">
                         archived
                       </Text>
                       <Timestamp
-                        value={iso(a.commit.at)}
+                        value={iso(a.at)}
                         format="relative"
                         size="sm"
                         color="secondary"

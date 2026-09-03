@@ -58,9 +58,12 @@ export type DeltaEntry = {
    * introduces. Empty when the delta names no section at all. */
   kinds: string[];
   archived: boolean;
-  /** Milliseconds of the commit that last touched the change, or null with no history. */
+  /** Milliseconds: for an archived change the day it shipped, taken from its directory's
+   * date prefix; for one in development the commit that last touched it, or null with no
+   * history. */
   at: number | null;
-  /** `YYYY-MM-DD` for an archived change, else null. */
+  /** `YYYY-MM-DD` for an archived change — its directory's date prefix, falling back to
+   * the commit that last touched it. Null for a change in development. */
   archivedOn: string | null;
 };
 

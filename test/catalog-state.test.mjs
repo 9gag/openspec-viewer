@@ -15,11 +15,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { capabilityState } from "../server/catalog.mjs";
+import { capabilityState, shippedAt, shippedOn } from "../server/catalog.mjs";
 
 /** One delta on a capability, as capabilityCatalog() records it. */
 function archived(kinds, on, at = Date.parse(on)) {
-  return { change: `${on}-a-change`, kinds, archived: true, at, archivedOn: on };
+  return {
+    change: `${on}-a-change`,
+    kinds,
+    archived: true,
+    at,
+    archivedOn: on,
+  };
 }
 
 function inDevelopment(kinds, at = Date.parse("2026-08-30")) {
@@ -29,7 +35,10 @@ function inDevelopment(kinds, at = Date.parse("2026-08-30")) {
 describe("capabilityState", () => {
   it("is shipped whenever there is a baseline, whatever the deltas say", () => {
     assert.equal(
-      capabilityState({ shipped: true, history: [archived(["ADDED"], "2026-08-01")] }),
+      capabilityState({
+        shipped: true,
+        history: [archived(["ADDED"], "2026-08-01")],
+      }),
       "shipped",
     );
   });
@@ -162,5 +171,52 @@ describe("capabilityState", () => {
         "retired",
       );
     });
+  });
+});
+
+/**
+ * When a shipped change shipped.
+ *
+ * The two answers disagree in the case that matters: a store whose archive arrived in one
+ * import, or through a squash or a branch merged weeks later, has one commit date across
+ * every change in it. Dating the archive from that turns a year of releases into a single
+ * afternoon, and every row of the page reads the same day — which is exactly the state this
+ * was found in.
+ */
+describe("shippedOn", () => {
+  const commit = { at: Date.parse("2026-09-03T11:20:00") };
+
+  it("takes the day from the archive directory's own name", () => {
+    assert.equal(shippedOn("2026-08-26", commit), "2026-08-26");
+  });
+
+  it("falls back to the commit for a directory nobody dated", () => {
+    assert.equal(shippedOn(null, commit), "2026-09-03");
+  });
+
+  it("is null when there is neither, rather than inventing a day", () => {
+    assert.equal(shippedOn(null, null), null);
+  });
+});
+
+describe("shippedAt", () => {
+  it("orders by the day the directory names, not the commit holding it", () => {
+    const older = { at: Date.parse("2026-09-03T11:20:00") };
+    const newer = { at: Date.parse("2026-09-03T11:20:00") };
+    assert.ok(shippedAt("2026-08-26", older) < shippedAt("2026-08-27", newer));
+  });
+
+  it("reads a date in the timezone it was stamped in", () => {
+    // `openspec archive` writes the prefix from the clock of whoever ran it, so the day
+    // is taken at local midnight — read as UTC it lands on the day before for anyone
+    // west of it, and the archive page shows a change shipping the day before it did.
+    assert.equal(
+      shippedAt("2026-08-26", null),
+      Date.parse("2026-08-26T00:00:00"),
+    );
+  });
+
+  it("sorts a change with neither date nor commit last", () => {
+    assert.equal(shippedAt(null, null), 0);
   });
 });

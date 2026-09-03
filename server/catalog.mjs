@@ -16,16 +16,9 @@ import {
   specDirs,
 } from "./store.mjs";
 
-/**
- * When a shipped change actually shipped, as YYYY-MM-DD.
- *
- * The archive directory's date prefix is assigned by whoever ran `openspec archive`, and
- * on a change whose folder was created days before it shipped it names the wrong day.
- * The commit that moved the folder into the archive is the real one, so it wins; the
- * prefix is the fallback for a store whose archive predates its git history.
- */
-function shippedOn(commit, prefix) {
-  if (!commit) return prefix;
+/** A commit's day, in the reader's own timezone, as YYYY-MM-DD. */
+function dayOf(commit) {
+  if (!commit) return null;
   const d = new Date(commit.at);
   return [
     d.getFullYear(),
@@ -33,6 +26,32 @@ function shippedOn(commit, prefix) {
     String(d.getDate()).padStart(2, "0"),
   ].join("-");
 }
+
+/**
+ * When a shipped change shipped, as YYYY-MM-DD.
+ *
+ * The archive directory's own name says it: `openspec archive` stamps the directory on the
+ * day it runs, which is the day PM decided the change was deployed. That is the fact, and
+ * it stays true however the directory later travels — through a squash, a rebase, a
+ * branch merged weeks afterwards, or a store imported wholesale into a new repository,
+ * every one of which rewrites the commit and none of which un-ships anything. A store
+ * whose archive arrived in one import has one commit date across all of it, and dating
+ * the archive from that turns a year of releases into a single afternoon.
+ *
+ * The commit is the fallback, for a directory nobody dated.
+ */
+export const shippedOn = (prefix, commit) => prefix ?? dayOf(commit);
+
+/**
+ * The same moment as a number, for ordering.
+ *
+ * A date is a day and a commit is an instant, so the day is taken at local midnight —
+ * the frame the prefix was written in, since `openspec archive` stamps it from the clock
+ * of whoever ran it. Zero for a change with neither, which sorts last rather than
+ * pretending to be the oldest thing in the store.
+ */
+export const shippedAt = (prefix, commit) =>
+  prefix ? Date.parse(`${prefix}T00:00:00`) : (commit?.at ?? 0);
 
 /**
  * Every in-development delta in the store, by capability.
@@ -69,10 +88,8 @@ export function deltasInDevelopment(storePath, ids = changeIds(storePath)) {
  * The delta that decides a capability's state.
  *
  * In development sorts ahead of everything archived whatever the dates say — it has not landed,
- * so it is the newest thing that happened to the capability. Among archived deltas the
- * commit that moved the change into the archive wins, with the directory's date prefix
- * behind it: a store whose archive predates its git history has no commit at all, and
- * without the fallback the order there is whatever readdir happened to return.
+ * so it is the newest thing that happened to the capability. Among archived deltas it is the
+ * day each one shipped, which the catalog has already read off the directory's own name.
  */
 function newestDelta(history) {
   const rank = (h) => [
@@ -184,17 +201,21 @@ export function capabilityCatalog({ withText = false, only = null } = {}) {
 
   for (const name of dirs(join(root.path, "openspec", "changes", "archive"))) {
     const date = name.match(/^(\d{4}-\d{2}-\d{2})-(.+)$/);
-    const at =
-      lastCommit(root.path, join("openspec", "changes", "archive", name))?.at ??
-      null;
+    const commit = lastCommit(
+      root.path,
+      join("openspec", "changes", "archive", name),
+    );
     for (const cap of capabilities(root.path, name, true)) {
       add(cap.capability, {
         change: name,
         changeId: date?.[2] ?? name,
         kinds: cap.kinds,
         archived: true,
-        at,
-        archivedOn: shippedOn(at === null ? null : { at }, date?.[1] ?? null),
+        // The day it shipped, not the commit that happens to hold it now — the same
+        // reading the archive page is ordered by, so a capability's history and the
+        // archive cannot date one change two ways.
+        at: shippedAt(date?.[1] ?? null, commit),
+        archivedOn: shippedOn(date?.[1] ?? null, commit),
       });
     }
   }
@@ -246,11 +267,10 @@ export function capabilityCatalog({ withText = false, only = null } = {}) {
 /**
  * Shipped changes, newest first.
  *
- * Not directory order: archive directories are named `<date>-<change-id>`, so listing
- * them sorts a day's changes by name rather than by when they shipped, and a folder
- * whose prefix was set days before it archived sorts under the wrong day entirely. The
- * commit that moved the folder into the archive is what "shipped" means here, so both
- * the order and the date shown come from it, with the name's prefix as the fallback.
+ * The date is the directory's own prefix, which is the day `openspec archive` ran and so
+ * the day PM said the change was deployed. Within a day the commits decide, since a
+ * prefix is a date and several changes archive on one — and where there is no prefix at
+ * all the commit is the whole answer.
  */
 export function archive() {
   const root = resolveRoot();
@@ -265,9 +285,8 @@ export function archive() {
       return {
         id: name,
         changeId: date?.[2] ?? name,
-        archivedOn: shippedOn(commit, date?.[1] ?? null),
-        // Undated and uncommitted sorts last rather than pretending to be oldest-known.
-        at: commit?.at ?? (date ? Date.parse(date[1]) : 0),
+        archivedOn: shippedOn(date?.[1] ?? null, commit),
+        at: shippedAt(date?.[1] ?? null, commit),
         dir,
         capabilities: capabilities(root.path, name, true).map(
           (c) => c.capability,
@@ -276,7 +295,12 @@ export function archive() {
         commit,
       };
     })
-    .sort((a, b) => b.at - a.at || (a.id < b.id ? 1 : -1));
+    .sort(
+      (a, b) =>
+        b.at - a.at ||
+        (b.commit?.at ?? 0) - (a.commit?.at ?? 0) ||
+        (a.id < b.id ? 1 : -1),
+    );
 }
 
 /** One capability, with its baseline text. Null when the store has never heard of it. */
