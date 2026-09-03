@@ -16,6 +16,7 @@ import {
   changeState,
   conflictingChanges,
   FILTERS,
+  gapsIn,
   summarize,
 } from "../src/summary.js";
 import { QUIET_DAYS, STALE_DAYS } from "../src/time.js";
@@ -32,6 +33,19 @@ const group = (num, extra = {}) => ({
   idle: null,
   ...extra,
 });
+
+/**
+ * A change's artifact list as the board carries it: the schema's own, in its order, each
+ * either written or not. `declared` is what separates the schema's expectation from this
+ * tool's fallback list, and a gap is only ever read against the schema's.
+ */
+const artifacts = (...written) =>
+  ["proposal", "specs", "design", "tasks"].map((name, i) => ({
+    name,
+    label: name,
+    declared: true,
+    present: written[i] ?? false,
+  }));
 
 const board = (changes, extra = {}) => ({
   store: { git: true, upstream: "origin/main", behind: 0, ahead: 0, dirty: 0 },
@@ -129,6 +143,133 @@ describe("summarize", () => {
       ]),
     );
     assert.deepEqual(s.ready, []);
+  });
+});
+
+/**
+ * The reading that makes "incomplete" worth a tile.
+ *
+ * A store mid-planning has an artifact missing almost everywhere — twenty-five of
+ * twenty-nine changes in one here — so counting those is a tile that means nothing. The
+ * order is what carries the signal: the schema writes its artifacts in dependency order,
+ * so the last one absent is the next one due, and one absent *underneath* a written one
+ * was passed over.
+ */
+describe("gapsIn", () => {
+  const change = (...written) => ({
+    artifacts: ["proposal", "specs", "design", "tasks"].map((name, i) => ({
+      name,
+      label: name,
+      declared: true,
+      present: written[i] ?? false,
+    })),
+  });
+
+  it("says nothing about a change that is simply not finished being written", () => {
+    // Proposal and specs, nothing after them. That is a change halfway through its
+    // schema, which is what every change looks like on the way through.
+    assert.deepEqual(gapsIn(change(true, true, false, false)), []);
+  });
+
+  it("names an artifact a later one was written over", () => {
+    assert.deepEqual(
+      gapsIn(change(true, true, false, true)).map((a) => a.name),
+      ["design"],
+    );
+  });
+
+  it("names every one of them, not just the first", () => {
+    assert.deepEqual(
+      gapsIn(change(false, false, false, true)).map((a) => a.name),
+      ["proposal", "specs", "design"],
+    );
+  });
+
+  it("ignores a file the schema never asked for", () => {
+    // A README filed with a change is written by nobody's instruction and sits at the end
+    // of the list. Counted as part of the sequence it would overtake every artifact in
+    // front of it, and report a change that has only started as one built past its whole
+    // schema.
+    const withReadme = {
+      artifacts: [
+        ...change(true, false, false, false).artifacts,
+        { name: "README", label: "README", declared: false, present: true },
+      ],
+    };
+    assert.deepEqual(gapsIn(withReadme), []);
+  });
+
+  it("says nothing at all when no schema could be resolved", () => {
+    // The list is then this tool's own convention, and a gap in a list nobody declared is
+    // an expectation invented twice over — the same reason the artifacts card is absent
+    // rather than wrong for such a store.
+    const undeclared = {
+      artifacts: change(true, false, false, true).artifacts.map((a) => ({
+        ...a,
+        declared: false,
+      })),
+    };
+    assert.deepEqual(gapsIn(undeclared), []);
+  });
+
+  it("survives a change whose artifacts were never read", () => {
+    assert.deepEqual(gapsIn({}), []);
+  });
+});
+
+/**
+ * The queue is narrower than the reading: a gap with nothing built on it is closed by the
+ * next artifact somebody writes, and counting it would put most of a planning store in a
+ * tile that is supposed to be zero when there is nothing to do.
+ */
+describe("summarize gaps", () => {
+  const withArtifacts = (id, done, total, ...written) => ({
+    id,
+    planning: false,
+    done,
+    total,
+    groups: [group("1", { done, total })],
+    artifacts: ["proposal", "specs", "design", "tasks"].map((name, i) => ({
+      name,
+      label: name,
+      declared: true,
+      present: written[i] ?? false,
+    })),
+  });
+
+  it("counts a gap only once work has been checked off over it", () => {
+    const s = summarize(
+      board([
+        withArtifacts("building", 4, 8, true, true, false, true),
+        withArtifacts("planned", 0, 8, true, true, false, true),
+      ]),
+    );
+    assert.deepEqual(
+      s.gaps.map((g) => g.change),
+      ["building"],
+    );
+    assert.deepEqual(s.gaps[0].artifacts, ["design"]);
+  });
+
+  it("counts nothing for a change written in order", () => {
+    const s = summarize(
+      board([withArtifacts("tidy", 4, 8, true, true, true, true)]),
+    );
+    assert.deepEqual(s.gaps, []);
+  });
+
+  it("selects exactly the changes it counted", () => {
+    // The tile and the board under it come from one list, for the same reason the counts
+    // and the panels do.
+    const changes = [
+      withArtifacts("building", 4, 8, true, true, false, true),
+      withArtifacts("tidy", 4, 8, true, true, true, true),
+    ];
+    const s = summarize(board(changes));
+    assert.deepEqual(
+      applyFilter(changes, "gaps", s).map((c) => c.id),
+      ["building"],
+    );
   });
 });
 
@@ -400,6 +541,9 @@ describe("filter wiring", () => {
         planning: false,
         done: 4,
         total: 4,
+        // Written past its design: tasks exist and are being checked off, and the
+        // artifact the schema puts before them never got written.
+        artifacts: artifacts(true, true, false, true),
         groups: [
           group("1", { done: 4, total: 4 }),
           group("2"),

@@ -220,19 +220,32 @@ export function changeArtifacts(storePath, dir) {
   const unclaimed = new Set(files(base));
   const caps = specDirs(join(base, "specs"));
 
-  const declared = schemaArtifacts(storePath, schemaFor(storePath, base));
-  const order = declared.length
-    ? declared
+  const schema = schemaArtifacts(storePath, schemaFor(storePath, base));
+  const order = schema.length
+    ? schema
     : FALLBACK.map((id) => ({
         id,
         generates: id === "specs" ? "specs/**/*.md" : `${id}.md`,
       }));
 
+  // Whether a schema was read at all, carried on every entry. It is the difference
+  // between "the schema asked for this and it is not there", which is a fact about the
+  // change, and "the conventional list has one and it is not there", which is an
+  // expectation this tool invented — the same line `completeness` draws by answering
+  // null. A reader downstream cannot tell the two apart from `present` alone.
+  const declared = schema.length > 0;
+
   const out = [];
   for (const { id, generates } of order) {
     const kind = kindOf(generates);
     if (kind === "specs") {
-      out.push({ name: id, label: label(id), kind, present: caps.length > 0 });
+      out.push({
+        name: id,
+        label: label(id),
+        kind,
+        declared,
+        present: caps.length > 0,
+      });
       continue;
     }
     // One file per capability rather than one on the change, so `file` is the bare
@@ -244,18 +257,35 @@ export function changeArtifacts(storePath, dir) {
         label: label(id),
         kind,
         file,
+        declared,
         present: capabilityPaths(base, caps, file).length > 0,
       });
       continue;
     }
     // `delete` reports whether it was there, and removes it from the leftovers in one go.
     const present = unclaimed.delete(generates);
-    out.push({ name: id, label: label(id), kind, file: generates, present });
+    out.push({
+      name: id,
+      label: label(id),
+      kind,
+      file: generates,
+      declared,
+      present,
+    });
   }
 
+  // Nothing asked for these, so they are declared by nobody — which is what stops a
+  // README at the end of the list from making every artifact before it look overtaken.
   for (const file of [...unclaimed].sort()) {
     const name = file.replace(/\.md$/, "");
-    out.push({ name, label: label(name), kind: "doc", file, present: true });
+    out.push({
+      name,
+      label: label(name),
+      kind: "doc",
+      file,
+      declared: false,
+      present: true,
+    });
   }
 
   return out;

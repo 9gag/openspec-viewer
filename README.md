@@ -71,9 +71,9 @@ visit only. Everything below describes the full reading.
 
 ## The strip
 
-Five tiles across the top of the full board. Four are queues — **conflicts, idle claims, ready
-to archive, unclaimed** — and the fifth is the store's sync state, which is not a queue
-and so does not filter anything.
+Six tiles across the top of the full board. Five are queues — **conflicts, idle claims, ready
+to archive, built on a gap, unclaimed** — and the sixth is the store's sync state, which is
+not a queue and so does not filter anything.
 
 The design rule is that **every tile is zero when there is nothing to do.** Inventory
 counts ("48 specs, 81 archived, 100% complete") describe a store at rest and read most
@@ -88,6 +88,16 @@ over a list showing 3 is how a status strip stops being believed.
 **Ready to archive** is the only tile that is new information rather than a re-ranking: a
 change at 20/20 still in development. `plan done` says so when the last box is ticked, but only
 to whoever ticked it, and archiving is PM's call alone.
+
+**Built on a gap** is the second. A schema declares its artifacts in the order they are
+written, each built on the one before, so an artifact missing at the *end* of that list is
+the next one due and says nothing — which is why "changes missing an artifact" was a panel
+listing twenty-five of twenty-nine changes in a store here, and no help. A gap is one
+missing *underneath* a written one: passed over, with everything after it written anyway.
+Even that is not a queue until somebody has checked a box over it, and then it is: thirteen
+changes here, seven of them with every task done, which means seven changes about to fold a
+capability into the baseline with no user journeys and no test cases, silently. The panel
+puts those first, since archiving is the last moment the gap can be filled.
 
 Unclaimed work is collapsed by default — it is the longest list and the least urgent,
 and expanded it put six rows of shell commands between the reader and the board.
@@ -124,10 +134,10 @@ so a link can carry the view it was written for. The three values are Astryx's o
 `dark` and treats anything else as "follow the system", so a typo would quietly behave
 like Auto rather than fail, and a test pins them to the published type.
 
-## The two things it infers
+## The three things it infers
 
-Everything else on the page is a file read. These two are derived, so both are tested
-against fixtures rather than trusted.
+Everything else on the page is a file read. These three are derived, so all of them are
+tested against fixtures rather than trusted.
 
 **Idle claims.** The CLI can tell you @dana owns group 5; it cannot tell you the
 claim landed nine days ago and nothing has been checked off since — the exact failure
@@ -151,6 +161,15 @@ never flagged by git — each change is its own folder, so both push cleanly. It
 archive time, when the second is written against a baseline the first already rewrote,
 and a `## MODIFIED` block whose headers no longer match silently drops the rest of the
 requirement. Nothing else warns about this, so the board names the overlap early.
+
+**Gaps in a plan.** A schema declares a change's artifacts in the order they are written,
+each built on the one before, and the store's own config says so. Nothing checks it. An
+artifact missing at the end of that list is simply the next one due — but one missing
+underneath an artifact that *was* written was passed over, and everything after it was
+written without it. That alone is still not work anybody has to do: it is closed by the
+next artifact somebody writes. What makes it a queue is a checkmark on top of it, and the
+worst case is a change with every box ticked, because archiving folds its deltas into the
+baseline as they stand and takes the gap with them.
 
 ## Getting around
 

@@ -184,12 +184,19 @@ describe("changeArtifacts", () => {
     capabilityDoc(dir, "checkout", "user-journeys.md");
 
     assert.deepEqual(changeArtifacts(store, dir), [
-      { name: "specs", label: "Specs", kind: "specs", present: true },
+      {
+        name: "specs",
+        label: "Specs",
+        kind: "specs",
+        declared: true,
+        present: true,
+      },
       {
         name: "user-journeys",
         label: "User Journeys",
         kind: "capability-doc",
         file: "user-journeys.md",
+        declared: true,
         present: true,
       },
     ]);
@@ -215,6 +222,10 @@ describe("changeArtifacts", () => {
 
   it("falls back to a conventional order when no schema is named", () => {
     const dir = change("unmarked", null, ["tasks.md", "proposal.md"]);
+
+    // Declared by nobody: the order is this tool's convention, so an artifact missing
+    // from it is an expectation the tool invented rather than one the store made.
+    assert.ok(changeArtifacts(store, dir).every((a) => !a.declared));
 
     const present = changeArtifacts(store, dir)
       .filter((a) => a.present)

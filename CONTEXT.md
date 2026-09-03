@@ -147,8 +147,21 @@ _Avoid_: free, available, backlog
 
 ### What the viewer infers
 
-Two facts nothing in the store states outright, and the reason the viewer exists beside
+Three facts nothing in the store states outright, and the reason the viewer exists beside
 the CLI.
+
+**Gap**:
+An artifact a change's schema asked for that nobody wrote, with a later one written over
+it. Not the same as an artifact that is merely absent: the schema declares them in the
+order they are written, so the last one missing is the next one due, and only one missing
+underneath a written one was passed over.
+_Avoid_: missing artifact, incomplete, hole, blocker
+
+**Built on a gap**:
+Of a change: it has a gap and tasks checked off over it, so the plan skipped a step and
+the building started anyway. This is the queue; a gap with no work on it is closed by the
+next artifact somebody writes.
+_Avoid_: out of order, skipped, unplanned, non-compliant
 
 **Idle claim**:
 A claimed, unfinished group where neither the claim nor the last checkmark is recent — a

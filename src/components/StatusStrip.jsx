@@ -6,7 +6,7 @@ import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
 
 /**
- * Five facts across the top, four of which are queues you can click into.
+ * Six facts across the top, five of which are queues you can click into.
  *
  * Each tile is zero when there is nothing to do. That is the whole design rule: a number
  * that only gets more reassuring as the store goes quiet — total specs, percent complete —
@@ -111,6 +111,18 @@ export default function StatusStrip({ summary, active, onFilter }) {
         hint={{
           clear: "nothing is fully checked off",
           some: "archive once it's deployed — PM's call",
+        }}
+      />
+      <Tile
+        count={summary.gaps.length}
+        label="built on a gap"
+        tone="warning"
+        filter="gaps"
+        active={active}
+        onFilter={onFilter}
+        hint={{
+          clear: "nothing is being built past a missing artifact",
+          some: "tasks checked off over an artifact nobody wrote",
         }}
       />
       <Tile

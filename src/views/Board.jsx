@@ -34,6 +34,7 @@ import {
   applyFilter,
   changeQueues,
   conflictingChanges,
+  gapsIn,
   initialFilter,
   summarize,
 } from "../summary.js";
@@ -346,46 +347,81 @@ function SimpleGroup({ node, depth, plainNames, conflicting }) {
 }
 
 /**
- * The changes in development that are missing an artifact.
+ * The changes being built past an artifact their schema asked for and nobody wrote.
  *
- * A change is a directory of markdown files, and which files belong there is decided by
- * the schema it was created under — so this is read from the change, not from a list
- * kept here. Missing one while a change is still being planned is a normal state; being
- * *built* with one missing is the thing worth spotting early, which is why the count of
- * checked-off tasks is on the line.
+ * The panel used to list every change missing anything, which on a store mid-planning is
+ * nearly all of them — twenty-five of twenty-nine here, so the answer to "which of these
+ * needs me" was to read all twenty-five. Most of that is not a problem: a schema declares
+ * its artifacts in the order they are written, so a change carrying a proposal and nothing
+ * else is not incomplete, it is early, and the artifact it lacks is the one somebody is
+ * about to write.
+ *
+ * What is left is the gap — an artifact passed over, with later ones written on top of it —
+ * and then only where a checkmark says the building has started. Thirteen changes here,
+ * and eight of those have every box ticked: a change that archives with no user journeys
+ * folds a capability into the baseline with none, and the fold is silent about it.
+ *
+ * Ready to archive first, for that reason. It is the last moment the gap can be filled,
+ * and the one move on this board that only PM makes.
  */
-function Coverage({ changes }) {
+function Gaps({ gaps, changes, summary }) {
+  const by = new Map(changes.map((ch) => [ch.id, ch]));
+  const ready = (id) => summary.ready.includes(id);
+  const ordered = [...gaps].sort(
+    (a, b) =>
+      Number(ready(b.change)) - Number(ready(a.change)) ||
+      (by.get(b.change)?.done ?? 0) - (by.get(a.change)?.done ?? 0),
+  );
+
+  // Planned past, but nobody has built on it yet. Not in the count — there is no work to
+  // undo and the next artifact written closes it — but saying nothing would leave the
+  // panel looking like the whole answer to a question it has narrowed.
+  const quiet = changes.filter(
+    (ch) => ch.done === 0 && gapsIn(ch).length > 0,
+  ).length;
+
   return (
     <Card padding={4}>
       <VStack gap={3}>
-        <Heading level={2}>Artifact coverage</Heading>
+        <Heading level={2}>Built on a gap</Heading>
+        <Text size="sm" color="secondary">
+          The schema writes these in order, each built on the one before. Every
+          change here has work checked off over one that was never written.
+        </Text>
         <VStack gap={3}>
-          {changes.map((ch) => {
-            const missing = ch.artifacts
-              .filter((a) => !a.present)
-              .map((a) => a.label)
-              .join(", ");
+          {ordered.map((gap) => {
+            const change = by.get(gap.change);
             return (
-              <VStack key={ch.id} gap={1}>
+              <VStack key={gap.change} gap={1}>
                 <HStack gap={2} align="center" wrap="wrap">
-                  <Link href={href("change", ch.id)}>{ch.id}</Link>
-                  {ch.artifacts.map((a) => (
+                  <Link href={href("change", gap.change)}>{gap.change}</Link>
+                  {ready(gap.change) && (
+                    <Badge variant="success" label="ready to archive" />
+                  )}
+                  {gap.artifacts.map((label) => (
                     <Badge
-                      key={a.name}
-                      variant={a.present ? "info" : "warning"}
-                      label={a.present ? a.label : `${a.label} missing`}
+                      key={label}
+                      variant="warning"
+                      label={`no ${label}`}
                     />
                   ))}
                 </HStack>
                 <Text size="sm" color="secondary">
-                  {ch.done > 0
-                    ? `Being built already (${ch.done}/${ch.total} tasks) with no ${missing}.`
-                    : `No ${missing} yet.`}
+                  {ready(gap.change)
+                    ? `All ${change?.total} tasks checked off. Archiving folds this into the baseline as it stands.`
+                    : `Being built already — ${change?.done}/${change?.total} tasks.`}
                 </Text>
               </VStack>
             );
           })}
         </VStack>
+        {quiet > 0 && (
+          <Text size="sm" color="secondary">
+            {quiet} more {quiet === 1 ? "change has" : "changes have"} a gap
+            with nothing built on it yet, which the next artifact written
+            closes.
+          </Text>
+        )}
       </VStack>
     </Card>
   );
@@ -505,6 +541,16 @@ function Unclaimed({ unclaimed, isOpen, cli }) {
   );
 }
 
+/**
+ * What a selected tile narrowed the board to, where the tile's own label does not read as
+ * a sentence. "Showing only ready." names nothing; the other three are already the plural
+ * of what they count.
+ */
+const NARROWED = {
+  ready: "changes ready to archive",
+  gaps: "changes built on a gap",
+};
+
 export default function Board({ board, plainNames }) {
   const [filter, setFilter] = useState(initialFilter);
   const [simple, setSimple] = useState(loadSimple);
@@ -575,9 +621,6 @@ export default function Board({ board, plainNames }) {
   // request for one queue, so selecting it narrows the panels to that queue as well as
   // the board below.
   const only = (name) => !filter || filter === name;
-  const uncovered = board.changes.filter((ch) =>
-    ch.artifacts.some((a) => !a.present),
-  );
 
   const rendered = [
     only("conflicts") && summary.conflicts.length > 0 && (
@@ -594,10 +637,13 @@ export default function Board({ board, plainNames }) {
         cli={board.store.cli}
       />
     ),
-    // No tile counts this one, so no filter selects it — it appears when some change is
-    // missing an artifact its schema asked for, and goes away when none is.
-    !filter && uncovered.length > 0 && (
-      <Coverage key="coverage" changes={uncovered} />
+    only("gaps") && summary.gaps.length > 0 && (
+      <Gaps
+        key="gaps"
+        gaps={summary.gaps}
+        changes={board.changes}
+        summary={summary}
+      />
     ),
   ].filter(Boolean);
 
@@ -610,8 +656,7 @@ export default function Board({ board, plainNames }) {
       {filter && (
         <HStack gap={3} align="center" wrap="wrap">
           <Text size="sm" color="secondary">
-            Showing only{" "}
-            {filter === "ready" ? "changes ready to archive" : filter}.
+            Showing only {NARROWED[filter] ?? filter}.
           </Text>
           <Button
             variant="ghost"

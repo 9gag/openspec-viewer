@@ -13,7 +13,7 @@
 import { level } from "./time.js";
 
 /** The queues a tile can narrow the board to. Order is the strip's reading order. */
-export const FILTERS = ["conflicts", "idle", "ready", "unclaimed"];
+export const FILTERS = ["conflicts", "gaps", "idle", "ready", "unclaimed"];
 
 /**
  * `?filter=idle` so a link can point at the work, not just the page — the same reason the
@@ -61,10 +61,35 @@ function storeState(store) {
   };
 }
 
+/**
+ * The artifacts a change's schema asked for that nobody wrote, and that a later one has
+ * already overtaken.
+ *
+ * Order is the whole reading. A schema declares its artifacts in the order they are
+ * written, each built on the one before — so a change carrying only a proposal is not
+ * missing anything, it is being written, and the last artifact absent is the next one due.
+ * A gap is different: something later exists, so the artifact was passed over rather than
+ * not reached yet, and everything after it was written without it.
+ *
+ * Only what the schema declared. A store with no schema this machine can resolve has an
+ * artifact list this tool made up, and a gap in a list nobody declared is an expectation
+ * invented twice over; files the schema never asked for are not in the sequence at all, so
+ * a README filed with a change cannot overtake anything.
+ */
+export function gapsIn(change) {
+  const declared = (change.artifacts ?? []).filter((a) => a.declared);
+
+  return declared.filter(
+    (a, i) =>
+      !a.present && declared.slice(i + 1).some((later) => later.present),
+  );
+}
+
 export function summarize(board) {
   const idle = [];
   const unclaimed = [];
   const ready = [];
+  const gaps = [];
 
   for (const ch of board.changes) {
     for (const group of ch.groups) {
@@ -79,12 +104,22 @@ export function summarize(board) {
     // ticked, but only to whoever ticked it — this is the standing version of that, and
     // archiving is the one thing on this board that is PM's alone.
     if (!ch.planning && ch.total > 0 && ch.done === ch.total) ready.push(ch.id);
+
+    // A gap on its own is not a queue: on a store mid-planning most changes have one, and
+    // a tile counting twenty-two of twenty-nine changes is a tile nobody reads. What makes
+    // it work somebody has to do is a checkmark on top of it — the plan skipped a step and
+    // the building started anyway, so the missing artifact is now being written after the
+    // code it was supposed to govern, or not at all.
+    const missing = gapsIn(ch);
+    if (missing.length > 0 && ch.done > 0)
+      gaps.push({ change: ch.id, artifacts: missing.map((a) => a.label) });
   }
 
   return {
     idle,
     unclaimed,
     ready,
+    gaps,
     conflicts: board.conflicts ?? [],
     store: storeState(board.store),
   };
@@ -183,7 +218,7 @@ export function changeQueues(summary) {
  *
  * Group-level filters (idle, unclaimed) drop the groups that do not match rather than
  * only the changes, so clicking "2 idle claims" shows two rows, not two tables you still
- * have to read. Change-level filters (ready, conflicts) keep whole changes, because
+ * have to read. Change-level filters (ready, conflicts, gaps) keep whole changes, because
  * "ready to archive" is a fact about the change and not about any one group.
  */
 export function applyFilter(changes, filter, summary) {
@@ -194,6 +229,11 @@ export function applyFilter(changes, filter, summary) {
 
   if (filter === "conflicts") {
     const ids = conflictingChanges(summary.conflicts);
+    return changes.filter((ch) => ids.has(ch.id));
+  }
+
+  if (filter === "gaps") {
+    const ids = new Set(summary.gaps.map((g) => g.change));
     return changes.filter((ch) => ids.has(ch.id));
   }
 
