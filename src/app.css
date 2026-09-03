@@ -149,6 +149,27 @@ body {
   opacity: 1;
 }
 
+/*
+ * The same button on a heading — the address of the section under it.
+ *
+ * Held to the same rule as the scenario one: shown while the pointer is on the heading it
+ * belongs to, or while it has keyboard focus, because a page whose every heading flies a
+ * copy icon reads as a row of controls rather than a document. It keeps its space either
+ * way, so a heading does not reflow under the cursor.
+ */
+.heading-copy {
+  display: inline-block;
+  margin-inline-start: 6px;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+:where(h1, h2, h3, h4, h5, h6):hover > .heading-copy,
+.heading-copy:focus-within {
+  opacity: 1;
+}
+
 /* The id in front of the title, in the same monospace the store writes it in. */
 .scenario-id {
   font-family: var(

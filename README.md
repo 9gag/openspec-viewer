@@ -225,6 +225,14 @@ namespaced per document, because the specs view stacks several capabilities and 
 has a "Purpose". The slug scheme is Astryx's own, and a test executes their function to
 prove the two still agree.
 
+**Every heading is an address.** The anchor the rail needs is one the reader cannot see, so
+hovering a heading reveals a copy button beside it — the same one a scenario carries — and
+it puts the whole URL on the clipboard: origin, `?to=<anchor>`, and the route the reader is
+on. The anchor travels in the query rather than the fragment because the fragment is
+already the route; pasted back, `?to=` opens the document, picks the tab holding the
+heading and scrolls to it. It is shown on hover and on focus only: fifty headings each
+flying a copy icon read as a toolbar per line rather than as a document.
+
 **An index, not a wall.** `#/specs` lists capabilities — name, size, when it last changed,
 and whether a change is rewriting it — one line each. The text lives one click away at
 `#/spec/<capability>`. Rendering all four specs end to end made the one you wanted the

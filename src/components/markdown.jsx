@@ -5,10 +5,11 @@ import { Text } from "@astryxdesign/core/Text";
 import { Children, cloneElement, isValidElement } from "react";
 
 import { emphasize } from "../bdd.js";
+import CopyLink from "./CopyLink.jsx";
 import Diagram from "./Diagram.jsx";
 import ScenarioRef from "./ScenarioRef.jsx";
 import { resolveLink } from "../links.js";
-import { anchor } from "../toc.js";
+import { anchor, headingLink, nodeText } from "../toc.js";
 
 /**
  * Markdown renderer overrides, shared by every artifact on the dashboard.
@@ -27,6 +28,37 @@ import { anchor } from "../toc.js";
  * the document being rendered, and it is what makes that resolution possible — without
  * it a relative link cannot be resolved at all, so links are left alone.
  */
+
+/**
+ * A heading that can be pointed at.
+ *
+ * Every heading on a page already carries an anchor, for the outline rail — so each one is
+ * an address the reader cannot see. The button is that address, handed over: a section of
+ * a proposal or a requirement in a spec is what one person sends another, and without it
+ * the only link they can send is the document, plus a sentence saying where to scroll to.
+ *
+ * It lives inside the heading rather than beside it so nothing about the heading's own
+ * layout changes — Astryx sizes and spaces headings, and a wrapper around one would be
+ * this file inventing a block element the rest of the document does not have. Icon-only,
+ * so the outline rail — which reads heading text out of the DOM — still reads the heading.
+ *
+ * A heading with no sluggable text gets no anchor and so no button: there would be
+ * nowhere for the link to land.
+ */
+export function HeadingWithLink({ level, id, children }) {
+  return (
+    <Heading level={level} id={id}>
+      {children}
+      {id && (
+        <CopyLink
+          className="heading-copy"
+          search={headingLink(id)}
+          label={`Copy link to ${nodeText(children)}`}
+        />
+      )}
+    </Heading>
+  );
+}
 
 /** Colour the obligation words inside any string child, recursing through inline markup. */
 function highlightObligations(children) {
@@ -132,12 +164,12 @@ export function mdComponents({
         </div>
       ),
     heading: ({ level, children }) => (
-      <Heading
+      <HeadingWithLink
         level={Math.min(Math.max(level, 1), 6)}
         id={anchor(prefix, children)}
       >
         {children}
-      </Heading>
+      </HeadingWithLink>
     ),
   };
 

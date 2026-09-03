@@ -16,7 +16,7 @@ import {
 } from "../spec.js";
 import { anchor } from "../toc.js";
 import CopyLink from "./CopyLink.jsx";
-import { mdComponents } from "./markdown.jsx";
+import { HeadingWithLink, mdComponents } from "./markdown.jsx";
 
 /**
  * A spec, rendered so the load-bearing words are visible and the bulk is optional.
@@ -196,9 +196,9 @@ function Requirement({
 
   return (
     <section className="requirement">
-      <Heading level={3} id={id}>
+      <HeadingWithLink level={3} id={id}>
         {node.title}
-      </Heading>
+      </HeadingWithLink>
       <Blocks text={node.text} components={components} scenarios={scenarios} />
 
       {count > 0 && (
