@@ -184,7 +184,7 @@ describe("changeArtifacts", () => {
     capabilityDoc(dir, "checkout", "user-journeys.md");
 
     assert.deepEqual(changeArtifacts(store, dir), [
-      { name: "specs", label: "Requirements", kind: "specs", present: true },
+      { name: "specs", label: "Specs", kind: "specs", present: true },
       {
         name: "user-journeys",
         label: "User Journeys",
@@ -226,20 +226,18 @@ describe("changeArtifacts", () => {
 });
 
 describe("label", () => {
-  // The ids name files; these name what is in them, and which of the three a reader opens
-  // depends on which of them they are.
-  it("gives each OpenSpec artifact the name this dashboard calls it", () => {
-    assert.equal(label("proposal"), "Product");
-    assert.equal(label("specs"), "Requirements");
-    assert.equal(label("design"), "Tech Design");
-    assert.equal(label("ui"), "UI");
+  // A schema names its own artifacts, and the tab shows that name. There is no table of
+  // preferred names in front of it: renaming five ids read well for the schemas whose
+  // ids those were and left every other store's tab bar speaking two vocabularies.
+  it("gives back the name the schema uses, made readable", () => {
+    assert.equal(label("proposal"), "Proposal");
+    assert.equal(label("specs"), "Specs");
     assert.equal(label("tasks"), "Tasks");
   });
 
-  // A schema can name an artifact anything, and a store that adds one should get a
-  // readable label rather than the raw id or nothing at all.
-  it("title-cases an id the table does not name", () => {
+  it("title-cases an id of any shape", () => {
     assert.equal(label("design-notes"), "Design Notes");
+    assert.equal(label("user-journeys"), "User Journeys");
     assert.equal(label("rollout"), "Rollout");
   });
 
