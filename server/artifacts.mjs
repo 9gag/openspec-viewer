@@ -99,13 +99,41 @@ export function readDocs(storePath, docs) {
 }
 
 /**
+ * The file a `specs/` glob asks for inside each capability directory, or null when the
+ * artifact is the deltas themselves.
+ *
+ * A schema does not only generate the specs. A store that writes user journeys or test
+ * cases per capability declares each of them the same way, as a glob over the same
+ * directories — they are separate artifacts of the change, written by different hands and
+ * read on their own, not part of the delta. The filename at the end of the glob is what
+ * tells the two apart: `spec.md`, or a wildcard standing in for it, is the delta; anything
+ * else is a document filed beside it, one per capability.
+ */
+function capabilityFile(generates) {
+  if (!generates.startsWith("specs/")) return null;
+  const file = generates.split("/").pop();
+  return file === "spec.md" || file.includes("*") ? null : file;
+}
+
+/**
+ * Which of a change's capabilities actually carry one of those documents, as paths
+ * relative to the change directory.
+ */
+const capabilityPaths = (base, caps, file) =>
+  caps
+    .map((cap) => `specs/${cap}/${file}`)
+    .filter((rel) => existsSync(join(base, rel)));
+
+/**
  * How to render an artifact, from what the schema says it generates.
  *
- * `specs/**` is a directory of capability deltas rather than one document, and tasks.md
- * is a checklist with owners — both are read structurally elsewhere. Everything else is
+ * A glob over the spec directories is either the capability deltas — a directory of specs
+ * rather than one document — or a document filed beside each of them; tasks.md is a
+ * checklist with owners. All three are read structurally elsewhere. Everything else is
  * prose, whatever it happens to be called.
  */
 const kindOf = (generates) => {
+  if (capabilityFile(generates)) return "capability-doc";
   if (generates.startsWith("specs/")) return "specs";
   if (generates === "tasks.md") return "tasks";
   return "doc";
@@ -204,7 +232,7 @@ export function schemaArtifacts(storePath, name) {
 export function changeArtifacts(storePath, dir) {
   const base = join(storePath, dir);
   const unclaimed = new Set(files(base));
-  const hasSpecs = specDirs(join(base, "specs")).length > 0;
+  const caps = specDirs(join(base, "specs"));
 
   const declared = schemaArtifacts(storePath, schemaFor(storePath, base));
   const order = declared.length
@@ -218,7 +246,20 @@ export function changeArtifacts(storePath, dir) {
   for (const { id, generates } of order) {
     const kind = kindOf(generates);
     if (kind === "specs") {
-      out.push({ name: id, label: label(id), kind, present: hasSpecs });
+      out.push({ name: id, label: label(id), kind, present: caps.length > 0 });
+      continue;
+    }
+    // One file per capability rather than one on the change, so `file` is the bare
+    // filename to look for in each spec directory — the reader gathers the copies.
+    if (kind === "capability-doc") {
+      const file = capabilityFile(generates);
+      out.push({
+        name: id,
+        label: label(id),
+        kind,
+        file,
+        present: capabilityPaths(base, caps, file).length > 0,
+      });
       continue;
     }
     // `delete` reports whether it was there, and removes it from the leftovers in one go.
@@ -260,10 +301,13 @@ export function completeness(storePath, dir) {
   if (!declared.length) return null;
 
   const here = files(base);
+  const caps = specDirs(join(base, "specs"));
   return declared.map(({ id, generates }) => {
-    const paths =
-      kindOf(generates) === "specs"
-        ? specDirs(join(base, "specs")).map((cap) => `specs/${cap}/spec.md`)
+    const file = capabilityFile(generates);
+    const paths = file
+      ? capabilityPaths(base, caps, file)
+      : kindOf(generates) === "specs"
+        ? caps.map((cap) => `specs/${cap}/spec.md`)
         : here.includes(generates)
           ? [generates]
           : [];

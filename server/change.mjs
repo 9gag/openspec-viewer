@@ -106,6 +106,11 @@ export function change(changeId) {
       .map(({ name, label, kind, file }) => {
         const entry = { name, label, kind };
         if (!file) return entry;
+        entry.file = file;
+        // A capability document is one file per delta rather than one on the change, so
+        // there is no single path to give it: its copies ride on `capabilities` below,
+        // with their text and history, and the tab gathers them by this filename.
+        if (kind === "capability-doc") return entry;
         entry.path = `${dir}/${file}`;
         entry.commit = lastCommit(root.path, join(dir, file));
         // Only prose is shipped as text: specs and tasks are already on the payload,

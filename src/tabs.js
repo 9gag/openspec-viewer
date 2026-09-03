@@ -12,37 +12,56 @@ export function resolveTab(artifacts, current) {
 }
 
 /**
- * Tabs for the markdown that sits beside the change's spec deltas.
+ * The tab bar for a change: the artifacts its schema declares, in the schema's order,
+ * then whatever else its spec directories hold.
  *
- * A capability directory is not only its spec — a store that writes test cases per
- * capability keeps them next to the requirements they test — and until now the only file
- * in it the page ever opened was spec.md. The rest of the directory was on disk, served
- * by the document route, and reachable only by following a link that happened to cite it.
+ * An artifact the schema generates per capability — user journeys, test cases, anything a
+ * store files beside the requirements they belong to — is one tab over every capability's
+ * copy of that file, and the schema is what decides it is an artifact at all. Matched by
+ * filename rather than by id, because a schema names the two independently: the tab is
+ * called whatever the schema calls the artifact, and it collects the file that artifact
+ * generates.
  *
- * One tab per filename rather than per file. A change deltaing three capabilities carries
- * three test-cases.md, and three tabs all labelled "Test Cases" is a tab bar that names
- * nothing; under one tab they are what the Requirements tab already is, a document per
- * capability. A name the change's own directory already uses is left to that artifact,
- * since the top-level file is the one the tab bar has always meant.
+ * What the schema does not declare is still given a tab. A spec directory can hold
+ * anything for the same reason it holds its test cases — the file is about that
+ * capability — and those come last, since nothing says where they belong. One tab per
+ * filename rather than per file: a change deltaing three capabilities carries three
+ * test-cases.md, and three tabs all labelled "Test Cases" is a tab bar that names nothing.
+ * A file already claimed by a declared artifact, or a name the change's own directory
+ * uses, is left to that artifact.
  */
-export function capabilityDocTabs(capabilities, artifacts) {
-  const taken = new Set(artifacts.map((a) => a.name));
-  const tabs = new Map();
+export function changeTabs(artifacts, capabilities) {
+  const copiesOf = (file) =>
+    capabilities.flatMap((cap) =>
+      (cap.docs ?? [])
+        .filter((doc) => doc.file === file)
+        .map((doc) => ({ ...doc, capability: cap.capability })),
+    );
 
+  const declared = artifacts.map((a) =>
+    a.kind === "capability-doc" ? { ...a, docs: copiesOf(a.file) } : a,
+  );
+
+  const claimed = new Set(
+    declared.filter((a) => a.kind === "capability-doc").map((a) => a.file),
+  );
+  const named = new Set(declared.map((a) => a.name));
+
+  const rest = new Map();
   for (const cap of capabilities) {
     for (const doc of cap.docs ?? []) {
-      if (taken.has(doc.name)) continue;
-      if (!tabs.has(doc.name)) {
-        tabs.set(doc.name, {
+      if (claimed.has(doc.file) || named.has(doc.name)) continue;
+      if (!rest.has(doc.name)) {
+        rest.set(doc.name, {
           name: doc.name,
           label: doc.label,
           kind: "capability-doc",
           docs: [],
         });
       }
-      tabs.get(doc.name).docs.push({ ...doc, capability: cap.capability });
+      rest.get(doc.name).docs.push({ ...doc, capability: cap.capability });
     }
   }
 
-  return [...tabs.values()];
+  return [...declared, ...rest.values()];
 }

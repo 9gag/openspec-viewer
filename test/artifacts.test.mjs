@@ -71,6 +71,11 @@ function change(id, schemaName, files, capabilities = []) {
   return join("openspec", "changes", id);
 }
 
+/** A document filed beside a capability's spec, where a per-capability artifact writes it. */
+function capabilityDoc(dir, cap, file) {
+  writeFileSync(join(store, dir, "specs", cap, file), `# ${file}\n`);
+}
+
 beforeEach(() => {
   store = mkdtempSync(join(tmpdir(), "openspec-viewer-artifacts-"));
 });
@@ -165,6 +170,47 @@ describe("changeArtifacts", () => {
 
     assert.equal(changeArtifacts(store, empty)[0].present, false);
     assert.equal(changeArtifacts(store, delta)[0].present, true);
+  });
+
+  it("reads a per-capability artifact as its own document, not the deltas", () => {
+    // A schema that writes user journeys per capability declares them over the same
+    // directories as the specs. Reading that glob as the deltas gave the artifact a tab
+    // onto the requirements, and left the file it actually asked for with no page at all.
+    schema("with-journeys", [
+      ["specs", "specs/**/spec.md"],
+      ["user-journeys", "specs/**/user-journeys.md"],
+    ]);
+    const dir = change("add-guest-checkout", "with-journeys", [], ["checkout"]);
+    capabilityDoc(dir, "checkout", "user-journeys.md");
+
+    assert.deepEqual(changeArtifacts(store, dir), [
+      { name: "specs", label: "Requirements", kind: "specs", present: true },
+      {
+        name: "user-journeys",
+        label: "User Journeys",
+        kind: "capability-doc",
+        file: "user-journeys.md",
+        present: true,
+      },
+    ]);
+  });
+
+  it("reports a per-capability artifact no capability has written", () => {
+    // The delta is there and its journeys are not, which is exactly the state the tab
+    // bar must not paper over: a tab is a file to read, and this one has nothing in it.
+    schema("journeys-only", [
+      ["specs", "specs/**/spec.md"],
+      ["user-journeys", "specs/**/user-journeys.md"],
+    ]);
+    const dir = change("add-cart-limits", "journeys-only", [], ["cart"]);
+
+    assert.deepEqual(
+      changeArtifacts(store, dir).map((a) => [a.name, a.present]),
+      [
+        ["specs", true],
+        ["user-journeys", false],
+      ],
+    );
   });
 
   it("falls back to a conventional order when no schema is named", () => {
@@ -300,6 +346,46 @@ describe("completeness", () => {
         .map((a) => a.name),
       ["proposal"],
     );
+  });
+
+  it("holds a per-capability artifact to its own filename", () => {
+    // Every one of these globs runs over the same directories, so reading them as the
+    // deltas reported all three present, with spec.md as the evidence, the moment one
+    // capability directory existed — a card that says the change is complete when two
+    // of its three artifacts have not been written.
+    schema("journeys-and-cases", [
+      ["specs", "specs/**/spec.md"],
+      ["user-journeys", "specs/**/user-journeys.md"],
+      ["test-cases", "specs/**/test-cases.md"],
+    ]);
+    const dir = change(
+      "add-guest-checkout",
+      "journeys-and-cases",
+      [],
+      ["checkout"],
+    );
+    capabilityDoc(dir, "checkout", "user-journeys.md");
+
+    assert.deepEqual(completeness(store, dir), [
+      {
+        name: "specs",
+        expected: "specs/**/spec.md",
+        present: true,
+        paths: ["specs/checkout/spec.md"],
+      },
+      {
+        name: "user-journeys",
+        expected: "specs/**/user-journeys.md",
+        present: true,
+        paths: ["specs/checkout/user-journeys.md"],
+      },
+      {
+        name: "test-cases",
+        expected: "specs/**/test-cases.md",
+        present: false,
+        paths: [],
+      },
+    ]);
   });
 
   it("counts every spec file a delta wrote, not just the first", () => {

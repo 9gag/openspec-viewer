@@ -18,7 +18,7 @@ import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { loadLens, saveLens } from "../spec.js";
-import { capabilityDocTabs, resolveTab } from "../tabs.js";
+import { changeTabs, resolveTab } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id }) {
@@ -378,10 +378,7 @@ export default function ChangeDetail({ id }) {
   // and which the page would otherwise never open — after the artifacts, because the
   // change is read through the files it was written as.
   const artifacts = data.artifacts;
-  const tabs = [
-    ...artifacts,
-    ...capabilityDocTabs(data.capabilities, artifacts),
-  ];
+  const tabs = changeTabs(artifacts, data.capabilities);
   const active = resolveTab(tabs, tab);
   const current = tabs.find((a) => a.name === active);
 
