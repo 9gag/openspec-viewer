@@ -73,30 +73,61 @@ export function useApi(path, { poll = true } = {}) {
 }
 
 /**
+ * The view and argument a hash names, or null when the hash is not a route at all.
+ *
+ * A URL has one fragment and this app spends it on the route, so `#/change/<id>` and
+ * `#a-heading-on-this-page` arrive through the same door. Read by position alone an anchor
+ * becomes a view: `#tech-design--3-one-temporary-impact-contract` was read as a view named
+ * `tech-design--3-one-temporary-impact-contract`, which nothing renders — a blank page
+ * under a nav that still worked, reachable by clicking an entry in the page's own outline
+ * rail and then reloading.
+ *
+ * The leading slash separates them. Every route this app writes has one; an anchor never
+ * does, because an anchor is a slug of a heading.
+ *
+ * Exported apart from the hook because this is the part that can be wrong, and a hook
+ * needs a browser to test.
+ */
+export function routeFrom(hash) {
+  const path = String(hash ?? "").replace(/^#/, "");
+  if (path === "" || path === "/") return { view: "board", arg: null };
+  if (!path.startsWith("/")) return null;
+
+  // filter(Boolean) rather than destructuring with defaults: '/'.split('/') is ['', ''],
+  // and '' is not undefined, so a default would never apply and the root would route to
+  // no view at all.
+  const parts = path.split("/").filter(Boolean);
+  return {
+    view: parts[0] || "board",
+    arg: parts[1] ? decodeURIComponent(parts[1]) : null,
+  };
+}
+
+/**
  * Hash routing, hand-rolled.
  *
  * Four views and no nested state, so a router dependency would be more code to install
  * than to replace. Hash rather than history so the built bundle works when served from
  * anywhere without server-side rewrites.
+ *
+ * A hash that is not a route leaves the view alone: the browser scrolls to the anchor, the
+ * page under it carries on rendering, and the reader keeps the document they were reading.
  */
 export function useRoute() {
-  const [hash, setHash] = useState(() => window.location.hash.slice(1) || "/");
+  const [route, setRoute] = useState(
+    () => routeFrom(window.location.hash) ?? { view: "board", arg: null },
+  );
 
   useEffect(() => {
-    const onHash = () => setHash(window.location.hash.slice(1) || "/");
+    const onHash = () => {
+      const next = routeFrom(window.location.hash);
+      if (next) setRoute(next);
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  // filter(Boolean) rather than destructuring with defaults: '/'.split('/') is ['', ''],
-  // and '' is not undefined, so a default would never apply and the root would route to
-  // no view at all.
-  const parts = hash.split("/").filter(Boolean);
-  return {
-    view: parts[0] || "board",
-    arg: parts[1] ? decodeURIComponent(parts[1]) : null,
-    hash,
-  };
+  return route;
 }
 
 export const href = (view, arg) =>

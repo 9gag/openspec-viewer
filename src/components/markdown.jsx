@@ -69,6 +69,27 @@ function linkRenderer(base, inheritTextSize) {
   return function MarkdownLink({ href, children }) {
     const target = resolveLink(href, base);
 
+    // An anchor is scrolled to rather than navigated to. The route lives in the hash, so
+    // letting the browser follow `#a-heading` writes the anchor over it — the page still
+    // renders, since the router now ignores a hash that is not a route, but the address
+    // bar no longer says which document is open and a reload lands on the board.
+    if (target.kind === "anchor") {
+      return (
+        <Link
+          href={target.href}
+          type={inheritTextSize ? "inherit" : undefined}
+          onClick={(event) => {
+            const at = document.getElementById(target.href.slice(1));
+            if (!at) return; // nothing to scroll to; leave the browser to it
+            event.preventDefault();
+            at.scrollIntoView({ block: "center" });
+          }}
+        >
+          {children}
+        </Link>
+      );
+    }
+
     if (target.kind === "dead") {
       return (
         <span
