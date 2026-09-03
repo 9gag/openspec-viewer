@@ -69,3 +69,14 @@ export const headingLink = (id, route = "") =>
 /** The heading a link asked for, from a query string. */
 export const linkedHeading = (search = "") =>
   new URLSearchParams(search).get(HEADING_KEY);
+
+/**
+ * A link on this page, said in full — what a reader pastes into a message.
+ *
+ * `search` is the query naming the position inside the page (`?to=` for a heading, `?at=`
+ * for a scenario) and the route comes from the address bar, so the two halves of the
+ * arrangement above are put back together in the order a URL wants them: the query first,
+ * the routing fragment last.
+ */
+export const absoluteLink = (search, at = window.location) =>
+  `${at.origin}${at.pathname}${search}${at.hash}`;

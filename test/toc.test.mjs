@@ -10,6 +10,7 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  absoluteLink,
   anchor,
   headingLink,
   linkedHeading,
@@ -144,5 +145,45 @@ describe("headingLink", () => {
   it("is null when nothing was asked for", () => {
     assert.equal(linkedHeading(""), null);
     assert.equal(linkedHeading("?filter=idle"), null);
+  });
+});
+
+/**
+ * What the copy button puts on the clipboard: the whole address, so the link works in a
+ * message to someone who is not looking at this page.
+ */
+describe("absoluteLink", () => {
+  const at = {
+    origin: "http://localhost:5175",
+    pathname: "/",
+    hash: "#/doc/docs/prds/checkout.md",
+  };
+
+  it("puts the query before the route, which is where a URL wants it", () => {
+    assert.equal(
+      absoluteLink(headingLink("non-goals"), at),
+      "http://localhost:5175/?to=non-goals#/doc/docs/prds/checkout.md",
+    );
+  });
+
+  it("carries a scenario link the same way", () => {
+    assert.equal(
+      absoluteLink("?at=store-cart-SC-01", at),
+      "http://localhost:5175/?at=store-cart-SC-01#/doc/docs/prds/checkout.md",
+    );
+  });
+
+  it("keeps the mount point the page was served from", () => {
+    assert.equal(
+      absoluteLink("?to=purpose", { ...at, pathname: "/plan/" }),
+      "http://localhost:5175/plan/?to=purpose#/doc/docs/prds/checkout.md",
+    );
+  });
+
+  it("is the page itself when the reader is on the board, which has no route", () => {
+    assert.equal(
+      absoluteLink("?to=purpose", { ...at, hash: "" }),
+      "http://localhost:5175/?to=purpose",
+    );
   });
 });

@@ -1,7 +1,5 @@
 import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Heading } from "@astryxdesign/core/Heading";
-import { Icon } from "@astryxdesign/core/Icon";
-import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Markdown } from "@astryxdesign/core/Markdown";
 import { Text } from "@astryxdesign/core/Text";
@@ -17,6 +15,7 @@ import {
   scenarioIndex,
 } from "../spec.js";
 import { anchor } from "../toc.js";
+import CopyLink from "./CopyLink.jsx";
 import { mdComponents } from "./markdown.jsx";
 
 /**
@@ -166,20 +165,6 @@ function Blocks({ text, components, scenarios }) {
  * copies a link that lands on it.
  */
 function Scenario({ scenario, id, components }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    const { origin, pathname, hash } = window.location;
-    navigator.clipboard
-      ?.writeText(`${origin}${pathname}?at=${scenario.id ?? id}${hash}`)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      })
-      // A blocked clipboard is not worth an error state: the id is on screen either way.
-      .catch(() => {});
-  };
-
   return (
     <section className="scenario" id={id}>
       <HStack gap={2} align="baseline" className="scenario-head">
@@ -187,16 +172,9 @@ function Scenario({ scenario, id, components }) {
           {scenario.id && <span className="scenario-id">{scenario.id}</span>}
           {scenario.title}
         </Heading>
-        <IconButton
-          icon={<Icon icon={copied ? "check" : "copy"} size="sm" />}
-          size="sm"
-          variant="ghost"
-          label={
-            copied
-              ? "Link copied"
-              : `Copy link to ${scenario.id ?? scenario.title}`
-          }
-          onClick={copy}
+        <CopyLink
+          search={`?at=${scenario.id ?? id}`}
+          label={`Copy link to ${scenario.id ?? scenario.title}`}
         />
       </HStack>
       <Blocks text={scenario.text} components={components} />
