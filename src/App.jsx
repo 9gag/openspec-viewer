@@ -17,12 +17,12 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { Switch } from "@astryxdesign/core/Switch";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
+import { Typeahead, TypeaheadItem } from "@astryxdesign/core/Typeahead";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { TreeList } from "@astryxdesign/core/TreeList";
 import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
 import {
   capabilityFlag,
@@ -33,6 +33,7 @@ import {
 } from "./capabilities.js";
 import { loadMode, MODES, saveMode } from "./mode.js";
 import { displayName, loadPlainNames, savePlainNames } from "./names.js";
+import { suggestions } from "./suggest.js";
 import { changeState } from "./summary.js";
 import { iso } from "./time.js";
 import Board from "./views/Board.jsx";
@@ -197,36 +198,69 @@ function specTreeItem(node, open, plain) {
   };
 }
 
+/** What each kind of suggestion is, said once under the name it completes. */
+const SUGGESTION = {
+  search: "search every document",
+  capability: "capability",
+  change: "change in development",
+};
+
 /**
  * The box at the top of the nav.
  *
- * On Enter rather than on every keystroke: a query reads every markdown file in the store,
- * which is 35ms of work — nothing for a question somebody asked, and eight questions a
- * second for one they are still typing. It is also a route, so a search is a page with an
- * address: it survives a reload, it can be linked, and Back leaves it.
+ * A search is a route, so it is a page with an address: it survives a reload, it can be
+ * linked, and Back leaves it. Nothing runs while you type — a query reads every markdown
+ * file in the store, which is nothing for a question somebody asked and eight questions a
+ * second for one they are still typing.
  *
- * Seeded from the route so the box says what the page below it is showing — arriving here
- * from a link, or going Back to an earlier search, would otherwise leave the two
- * disagreeing about what was asked.
+ * The menu underneath is the other half. Two questions arrive at this box: "where does it
+ * say webhook", which only the text can answer, and "take me to the checkout spec", which
+ * is a name the reader half-remembers and a page the tree already holds. The completions
+ * answer the second — the store's capabilities and its changes in development, both
+ * already in the browser for the tree itself, so there is no request and nothing to keep in
+ * sync. The search is always the first entry and the one Enter takes, so the box does what
+ * it did before and the completions are what the arrows reach.
  */
-function SearchBox({ query }) {
-  const [value, setValue] = useState(query ?? "");
-  useEffect(() => setValue(query ?? ""), [query]);
+function SearchBox({ specs, changes }) {
+  const source = useMemo(() => {
+    const lists = {
+      capabilities: specs.map((cap) => cap.capability),
+      changes: changes.map((change) => change.id),
+    };
+    return {
+      search: (query) => suggestions(query, lists),
+      // Nothing before a query. An empty box has nothing to complete, and offering the
+      // first eight capabilities alphabetically would be a menu that answers no question.
+      bootstrap: () => [],
+    };
+  }, [specs, changes]);
 
   return (
-    <TextInput
+    <Typeahead
       label="Search the store"
       isLabelHidden
       size="sm"
-      value={value}
-      onChange={setValue}
-      onEnter={() => {
-        const q = value.trim();
-        if (q) window.location.hash = href("search", q);
+      // Never holds a selection: picking a suggestion is a navigation, not a value, so
+      // the box is empty again on the page it just opened.
+      value={null}
+      onChange={(item) => {
+        if (!item) return;
+        const { view, arg } = item.auxiliaryData;
+        window.location.hash = href(view, arg);
       }}
+      searchSource={source}
+      // Local work over two lists already in memory, so there is nothing to debounce
+      // and no round trip to wait out.
+      debounceMs={0}
+      maxMenuItems={9}
+      renderItem={(item) => (
+        <TypeaheadItem
+          item={item}
+          description={SUGGESTION[item.auxiliaryData.kind]}
+        />
+      )}
       startIcon={<Icon icon="search" size="sm" />}
       placeholder="Find a line in the store"
-      hasClear
     />
   );
 }
@@ -319,7 +353,7 @@ function Nav({
           </HStack>
           {/* Above the tree, because it answers the question the tree cannot: the tree
               says what is in the store, and this says where it says something. */}
-          <SearchBox query={view === "search" ? arg : ""} />
+          <SearchBox specs={specs} changes={changes} />
         </VStack>
       }
     >

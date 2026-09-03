@@ -236,3 +236,9 @@ Which of the store's three places a hit is in: production, in development, or sh
 The words are the nav's own, because a result is a thing to click and it is filed under
 the row the reader would otherwise have clicked to reach it.
 _Avoid_: source, section, area, kind
+
+**Completion**:
+A name the search box offers while you type — a capability or a change in development,
+opening its page. The store's own names, never a phrase out of its text: what completes is
+exactly what can be navigated to.
+_Avoid_: autocomplete, suggestion, typeahead, hint

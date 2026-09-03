@@ -201,6 +201,16 @@ the store's text and all of it frozen. A query that is nothing but an id the sto
 document that defines it beside everything citing it, and each result opens the scenario
 itself through the `?at=` link a scenario's copy button already builds.
 
+**The box completes names as you type them.** Two questions arrive at one box: "where does
+it say webhook", which only the text can answer, and "take me to the checkout spec", which
+is a name half-remembered and a page the tree holds. The menu answers the second — the
+store's capabilities and its changes in development, ranked so the capability *named*
+after the query comes before one that merely contains the letters, and a word of a kebab id
+before letters buried mid-word. Both lists are already in the browser for the nav's own
+tree, so completion costs no request, no index and nothing to keep in sync: what completes
+is exactly what can be navigated to. The search itself is always the first entry and the
+one Enter takes, so the box still does what it did before the menu existed.
+
 **Grouped by namespace**, because the store already writes one into every capability path —
 `shared-ui/cart`, `checkout/guest-checkout` — and a flat alphabetical run throws
 it away. On a store of fifty-odd capabilities that is nine or ten groups instead of one
@@ -342,6 +352,7 @@ openspec-viewer/
 │   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Search, Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
 │   ├── links.js             # resolving a document's relative links into routes
+│   ├── suggest.js           # what the search box completes, and how it ranks it
 │   ├── tabs.js              # which artifact a change page opens on
 │   └── time.js              # idle thresholds and relative formatting
 └── test/                    # the inferences, and the readings they are built on
