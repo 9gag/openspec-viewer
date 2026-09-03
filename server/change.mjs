@@ -17,6 +17,7 @@ import {
   readDocs,
 } from "./artifacts.mjs";
 import { readGroups } from "./board.mjs";
+import { modifiedDrift } from "./deltas.mjs";
 import {
   changeIds,
   dirs,
@@ -55,6 +56,15 @@ export function capabilities(storePath, changeId, archived = false) {
       requirements: (text.match(/^###\s+Requirement:/gim) ?? []).length,
       scenarios: (text.match(/^####\s+Scenario:/gim) ?? []).length,
       path: `${rel}/${cap}/spec.md`,
+      // Read against the baseline the fold will actually match on, which is the shipped
+      // spec as it stands today — not as it stood when the delta was written, and not as
+      // another in-development change is about to leave it. That second case is the
+      // conflict the board already counts, and this is the same hazard caught later:
+      // by the time the first change archives, this one's headings may no longer match.
+      drift: modifiedDrift(
+        text,
+        read(join(storePath, "openspec", "specs", cap, "spec.md")),
+      ),
       // Listed, not read: this runs for every change on every board poll, and only the
       // change page renders them. `change()` reads the bodies it is about to send.
       docs: capabilityDocs(join(base, cap), `${rel}/${cap}`),

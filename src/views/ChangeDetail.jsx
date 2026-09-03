@@ -189,16 +189,32 @@ function DeltaHeading({ cap }) {
   );
 }
 
-/** One capability's delta: the warning it may need, and the spec itself. */
+/**
+ * One capability's delta: the warning it has earned, and the spec itself.
+ *
+ * The banner used to be on every MODIFIED delta, saying that a block whose headers do not
+ * match the baseline drops the rest of the requirement at archive time. True, and unread by
+ * the second one — a warning that appears whether or not anything is wrong is decoration.
+ * The same sentence is now the answer to a check, so it appears only when the fold really
+ * would land wrong, and names the requirement it would land wrong on.
+ */
 function Delta({ cap, lens }) {
   return (
     <VStack gap={3}>
-      {cap.kinds.includes("MODIFIED") && (
+      {cap.drift?.reason === "drift" && (
         <Banner
-          status="info"
+          status="error"
           container="section"
-          title="Rewrites shipped behavior"
-          description="A MODIFIED block must contain the entire updated requirement, with headers matching the baseline exactly. A partial block silently drops the rest at archive time."
+          title={`${cap.drift.requirements.length} MODIFIED requirement${cap.drift.requirements.length === 1 ? "" : "s"} no longer match the baseline`}
+          description={`Archiving matches a MODIFIED block to the baseline by its "### Requirement:" line, word for word. ${cap.drift.requirements.map((r) => `"${r}"`).join(", ")} ${cap.drift.requirements.length === 1 ? "is not" : "are not"} in the shipped spec, so the fold will leave the requirement as it stands and drop this rewrite silently.`}
+        />
+      )}
+      {cap.drift?.reason === "no-baseline" && (
+        <Banner
+          status="warning"
+          container="section"
+          title="Rewrites a capability that has never shipped"
+          description="There is no baseline spec for this capability, so a MODIFIED block has nothing to fold into. Either these requirements are new and belong under ADDED, or the capability path is not the one that holds them."
         />
       )}
       <Artifact
