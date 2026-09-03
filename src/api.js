@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { withoutPosition } from "./toc.js";
+
 // The store changes when someone runs git, not while the page is open, so polling is
 // enough and there is no socket to keep alive.
 //
@@ -125,10 +127,39 @@ export function useRoute() {
     () => routeFrom(window.location.hash) ?? BOARD,
   );
 
+  /*
+   * The query the page on screen was opened with.
+   *
+   * `?to=` and `?at=` name a position inside one page, and only the fragment moves when a
+   * link in the nav is followed — so the query rides along to a page that has never heard
+   * of the heading or the scenario it names. The address then says the reader is somewhere
+   * they are not, and it is the address they copy.
+   *
+   * A link may equally carry a position of its own: a citation is `?at=<id>#/change/<id>`,
+   * both halves written together. The two cases are told apart by whether the query moved
+   * with the fragment — inherited, it is the query this page was opened with, and stale.
+   */
+  const opened = useRef(window.location.search);
+
   useEffect(() => {
     const onHash = () => {
       const next = routeFrom(window.location.hash);
-      if (next) setRoute(next);
+      if (!next) return;
+
+      if (window.location.search === opened.current) {
+        const kept = withoutPosition(window.location.search);
+        // replaceState rather than assignment: writing the query would reload the page,
+        // and this must leave no history entry of its own — the reader pressed one link
+        // and going back should undo one navigation.
+        if (kept !== window.location.search)
+          window.history.replaceState(
+            null,
+            "",
+            `${window.location.pathname}${kept}${window.location.hash}`,
+          );
+      }
+      opened.current = window.location.search;
+      setRoute(next);
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);

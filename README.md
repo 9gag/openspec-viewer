@@ -132,6 +132,15 @@ already listens for the hash, so back and forward step through the documents a r
 opened. A route naming a tab the change has not got falls back to its first artifact, the
 same way it always has.
 
+**A position leaves with the page it named.** `?to=` and `?at=` describe somewhere inside
+one document, and following a link in the nav writes only the fragment — so the query rode
+along to a page that had never heard of that heading or that scenario, and the address the
+reader copied said they were somewhere they were not. The router drops both whenever the
+route moves without them: a link that carries its own position writes the query and the
+fragment together, which is how the two cases are told apart. Everything else in the query
+survives, because it is not about a position — `?mode=dark` is the reading the link was
+written for.
+
 Everyone sees the same board in the same order, and every panel is absent when it has
 nothing to say — including artifact coverage, which lists only the changes missing
 something.

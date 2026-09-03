@@ -11,6 +11,8 @@
  * markdown path as before — but the parts can be shown and hidden independently.
  */
 
+import { SCENARIO_KEY } from "./toc.js";
+
 const REQUIREMENT = /^###\s+Requirement:\s*(.+?)\s*$/;
 const SCENARIO = /^####\s+Scenario:\s*(.+?)\s*$/;
 /** A heading at or above a requirement's own level ends it. */
@@ -203,7 +205,7 @@ export function saveLens(value) {
  * page reads it on the way in.
  */
 export function linkedScenario(search = window.location?.search ?? "") {
-  return new URLSearchParams(search).get("at");
+  return new URLSearchParams(search).get(SCENARIO_KEY);
 }
 
 /**

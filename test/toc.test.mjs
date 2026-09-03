@@ -16,6 +16,7 @@ import {
   linkedHeading,
   nodeText,
   slugify,
+  withoutPosition,
 } from "../src/toc.js";
 
 describe("slugify", () => {
@@ -185,5 +186,32 @@ describe("absoluteLink", () => {
       absoluteLink("?to=purpose", { ...at, hash: "" }),
       "http://localhost:5175/?to=purpose",
     );
+  });
+});
+
+/**
+ * A position in the query outlives the page it named, because following a link in the nav
+ * writes the fragment and leaves the query where it was. What survives that is the rest.
+ */
+describe("withoutPosition", () => {
+  it("drops the heading and the scenario a page was opened on", () => {
+    assert.equal(withoutPosition("?to=non-goals"), "");
+    assert.equal(withoutPosition("?at=cart-SC-01"), "");
+    assert.equal(withoutPosition("?to=non-goals&at=cart-SC-01"), "");
+  });
+
+  it("keeps what is not about a position", () => {
+    // The reading a link was written for lasts the visit; where the reader was on one
+    // page does not.
+    assert.equal(withoutPosition("?mode=dark&to=purpose"), "?mode=dark");
+    assert.equal(
+      withoutPosition("?board=full&filter=idle"),
+      "?board=full&filter=idle",
+    );
+  });
+
+  it("is empty for a URL that carried no query at all", () => {
+    assert.equal(withoutPosition(""), "");
+    assert.equal(withoutPosition("?"), "");
   });
 });

@@ -71,6 +71,33 @@ export const linkedHeading = (search = "") =>
   new URLSearchParams(search).get(HEADING_KEY);
 
 /**
+ * The key a link to a scenario travels in, spelled here beside the heading's because the
+ * two are dropped together — see `withoutPosition`.
+ */
+export const SCENARIO_KEY = "at";
+
+/**
+ * The query a URL should carry once the page it described is gone.
+ *
+ * `?to=` and `?at=` name a position inside one page: a heading in the document that was
+ * open, a scenario in the spec that was. Follow a link out of that page — a change in the
+ * nav, another tab, anything that writes the route without writing a position of its own —
+ * and the browser keeps the query, because only the fragment changed. The address then
+ * says the reader is somewhere they are not, and reloading it hunts for an anchor the new
+ * page has never heard of.
+ *
+ * Everything else in the query survives, because it is not about a position: `?mode=dark`
+ * is the reading the link was written for and lasts the visit.
+ */
+export function withoutPosition(search = "") {
+  const params = new URLSearchParams(search);
+  params.delete(HEADING_KEY);
+  params.delete(SCENARIO_KEY);
+  const rest = params.toString();
+  return rest ? `?${rest}` : "";
+}
+
+/**
  * A link on this page, said in full — what a reader pastes into a message.
  *
  * `search` is the query naming the position inside the page (`?to=` for a heading, `?at=`
