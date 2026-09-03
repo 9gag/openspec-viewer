@@ -9,7 +9,13 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { anchor, nodeText, slugify } from "../src/toc.js";
+import {
+  anchor,
+  headingLink,
+  linkedHeading,
+  nodeText,
+  slugify,
+} from "../src/toc.js";
 
 describe("slugify", () => {
   it("lowercases, strips punctuation and collapses separators", () => {
@@ -104,5 +110,39 @@ describe("anchor", () => {
     // worse than none, since it would appear in the rail and scroll nowhere useful.
     assert.equal(anchor("cart", "—"), undefined);
     assert.equal(anchor("cart", ["", null]), undefined);
+  });
+});
+
+/**
+ * A link to a heading, which cannot live in the fragment.
+ *
+ * The fragment is the route, and a URL has one. Astryx's outline pushes `#<heading>` over
+ * it on every rail click — silently, since pushState fires no hashchange — so the page
+ * carries on rendering and only the copied or reloaded URL has lost the document it named.
+ * The heading rides in the query instead, beside the route rather than over it.
+ */
+describe("headingLink", () => {
+  it("keeps the route the reader is on", () => {
+    assert.equal(
+      headingLink("design--the-shape", "#/change/guest-checkout"),
+      "?to=design--the-shape#/change/guest-checkout",
+    );
+  });
+
+  it("survives a heading whose slug needs encoding", () => {
+    assert.equal(headingLink("a b", "#/x"), "?to=a%20b#/x");
+  });
+
+  it("round-trips through the reader", () => {
+    const link = headingLink("design--the-shape", "#/change/guest-checkout");
+    assert.equal(
+      linkedHeading(link.slice(0, link.indexOf("#"))),
+      "design--the-shape",
+    );
+  });
+
+  it("is null when nothing was asked for", () => {
+    assert.equal(linkedHeading(""), null);
+    assert.equal(linkedHeading("?filter=idle"), null);
   });
 });

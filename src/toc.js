@@ -47,3 +47,25 @@ export const anchor = (prefix, children) => {
   if (!slug) return undefined;
   return prefix ? `${prefix}--${slug}` : slug;
 };
+
+/**
+ * The query key a link to a heading travels in, and the address of one.
+ *
+ * The fragment is already the route — `#/change/<id>` — and a URL has only one, so an
+ * anchor cannot go there without taking the route's place. Astryx's outline does exactly
+ * that: every rail click pushes `#<heading>` over the route. It fires no `hashchange`, so
+ * the page carries on rendering and nothing looks wrong until the URL is copied or
+ * reloaded, at which point the document it named is gone from it.
+ *
+ * So a heading rides in the query, beside the route rather than over it. That is the same
+ * arrangement a scenario link already uses, for the same reason.
+ */
+export const HEADING_KEY = "to";
+
+/** A link to one heading on the page currently routed to. */
+export const headingLink = (id, route = "") =>
+  `?${HEADING_KEY}=${encodeURIComponent(id)}${route}`;
+
+/** The heading a link asked for, from a query string. */
+export const linkedHeading = (search = "") =>
+  new URLSearchParams(search).get(HEADING_KEY);
