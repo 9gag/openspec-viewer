@@ -6,6 +6,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { useEffect, useMemo, useState } from "react";
 
 import { splitSpec } from "../bdd.js";
+import { markSection } from "../highlight.js";
 import {
   DEFAULT_LENS,
   lensRules,
@@ -269,7 +270,12 @@ export default function SpecText({
     if (!asked) return;
     // After the requirement holding it has opened, not before.
     const at = document.getElementById(asked.toLowerCase());
-    at?.scrollIntoView({ block: "center" });
+    if (!at) return;
+    at.scrollIntoView({ block: "center" });
+    // A scenario sits inside a disclosure among its siblings, and the reader who followed
+    // an id here is looking for one of them — so it is marked exactly as a heading a
+    // `?to=` link named is.
+    markSection(at);
   }, [asked]);
 
   return (
