@@ -193,6 +193,24 @@ meant. The other half is duplicates, counted within one document only, since one
 appears in the change that introduced it, the baseline it folded into, and every change
 rewriting it.
 
+**A cited id opens what it names.** A scenario id is written down once and cited from
+everywhere else, and on the page those citations were bare monospace strings: a task row
+carrying six of them said that six scenarios govern the work and nothing about which. Every
+one the store defines is now a link, with the scenario itself — its title and its
+GIVEN/WHEN/THEN, parsed by the same reader the spec page uses — under the pointer, and
+`?at=` on the other end so following it opens the requirement holding that scenario and
+scrolls to it. On a change, it opens the tab holding the delta rather than the change's
+first artifact.
+
+Which copy it opens is the part worth deciding carefully: the same id appears in the change
+that introduced it, in the baseline it folded into, and in every change rewriting it. The
+baseline wins, because that is what the store is held to today; a scenario that has not
+shipped opens the change bringing it in, and the archive is last. Only the ids a page
+actually cites travel to the browser — the store defines fourteen hundred of them, and a
+change page needs the thirty-odd it is about to render. Nothing is underlined until the
+pointer is on it, since six citations in link blue would make the cross-references the
+loudest thing on a task row.
+
 ## Getting around
 
 Two pieces of navigation, both borrowed from [spek](https://github.com/spekhq/spek):
@@ -387,7 +405,7 @@ openspec-viewer/
 │   ├── catalog.mjs          # baseline specs, archive, capability conflicts
 │   ├── search.mjs           # reading every document for a phrase, and filing the hits
 │   ├── deltas.mjs           # whether a MODIFIED block still matches the baseline
-│   ├── references.mjs       # the ids the store defines, and the ones it cites
+│   ├── references.mjs       # the ids the store defines, cites, and resolves to
 │   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
 ├── src/

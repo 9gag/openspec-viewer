@@ -34,6 +34,7 @@ import {
   TimelineHead,
 } from "../components/Timeline.jsx";
 import References from "../components/References.jsx";
+import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
 
@@ -546,51 +547,53 @@ export function SpecDetail({ id }) {
   const doc = docs.find((d) => d.name === active);
 
   return (
-    <VStack gap={4} className="doc-page">
-      <VStack gap={2}>
-        <Link href={href("specs")}>← Namespace</Link>
-        <HStack gap={3} align="center" wrap="wrap">
-          <Heading level={1}>{data.capability}</Heading>
-          <Badge
-            variant={data.shipped ? "success" : "info"}
-            label={data.shipped ? "shipped" : "in development"}
-          />
-          {data.shipped && (
-            <Text size="sm" color="secondary">
-              {data.requirements} requirement
-              {data.requirements === 1 ? "" : "s"} · {data.scenarios} scenario
-              {data.scenarios === 1 ? "" : "s"}
-            </Text>
-          )}
-        </HStack>
-      </VStack>
+    <ResolvedIds value={data.references?.resolved}>
+      <VStack gap={4} className="doc-page">
+        <VStack gap={2}>
+          <Link href={href("specs")}>← Namespace</Link>
+          <HStack gap={3} align="center" wrap="wrap">
+            <Heading level={1}>{data.capability}</Heading>
+            <Badge
+              variant={data.shipped ? "success" : "info"}
+              label={data.shipped ? "shipped" : "in development"}
+            />
+            {data.shipped && (
+              <Text size="sm" color="secondary">
+                {data.requirements} requirement
+                {data.requirements === 1 ? "" : "s"} · {data.scenarios} scenario
+                {data.scenarios === 1 ? "" : "s"}
+              </Text>
+            )}
+          </HStack>
+        </VStack>
 
-      <Card padding={4}>
-        <ChangedBy history={data.history} capability={data.capability} />
-      </Card>
+        <Card padding={4}>
+          <ChangedBy history={data.history} capability={data.capability} />
+        </Card>
 
-      {/* The shipped spec and everything filed with it, checked against the ids the store
+        {/* The shipped spec and everything filed with it, checked against the ids the store
           defines. A journey beside a baseline is the finished article — nothing is going
           to come along later and define the scenario it names. */}
-      <References references={data.references} />
+        <References references={data.references} />
 
-      {/* Only when there is something to switch to: a lone tab reading "Requirements"
+        {/* Only when there is something to switch to: a lone tab reading "Requirements"
           over the requirements is a control that decides nothing. */}
-      {docs.length > 0 && (
-        <TabList value={active} onChange={setTab} hasDivider>
-          <Tab value={SPEC_TAB} label="Requirements" />
-          {docs.map((d) => (
-            <Tab key={d.name} value={d.name} label={d.label} />
-          ))}
-        </TabList>
-      )}
+        {docs.length > 0 && (
+          <TabList value={active} onChange={setTab} hasDivider>
+            <Tab value={SPEC_TAB} label="Requirements" />
+            {docs.map((d) => (
+              <Tab key={d.name} value={d.name} label={d.label} />
+            ))}
+          </TabList>
+        )}
 
-      <WithOutline>
-        <Card padding={4}>
-          <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
-        </Card>
-      </WithOutline>
-    </VStack>
+        <WithOutline>
+          <Card padding={4}>
+            <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
+          </Card>
+        </WithOutline>
+      </VStack>
+    </ResolvedIds>
   );
 }
 

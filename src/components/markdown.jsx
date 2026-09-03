@@ -1,4 +1,3 @@
-import { Code } from "@astryxdesign/core/Code";
 import { CodeBlock } from "@astryxdesign/core/CodeBlock";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Link } from "@astryxdesign/core/Link";
@@ -7,6 +6,7 @@ import { Children, cloneElement, isValidElement } from "react";
 
 import { emphasize } from "../bdd.js";
 import Diagram from "./Diagram.jsx";
+import ScenarioRef from "./ScenarioRef.jsx";
 import { resolveLink } from "../links.js";
 import { anchor } from "../toc.js";
 
@@ -120,15 +120,21 @@ export function mdComponents({
     ),
   };
 
-  // Astryx sizes inline code off `--text-code-size`, which is body size — right inside
-  // a document, wrong anywhere the surrounding text is not body size. A task row is
-  // small text, and code that keeps its own size renders a third larger than the words
-  // around it, on its own line-height. Size only: code keeps its own colour, which is
-  // what marks it as code once it no longer stands out by being bigger.
-  if (inheritTextSize)
-    components.inlineCode = ({ children }) => (
-      <Code size="inherit">{children}</Code>
-    );
+  // Inline code, which is sometimes a scenario id — and an id is a cross-reference the
+  // page can resolve rather than a string to go and look up. ScenarioRef decides which of
+  // the two a span is, from the ids the page resolved; everything it does not recognise
+  // renders as code, which is what it is.
+  //
+  // Always installed, so a citation is live wherever the store writes one. The size rule
+  // is unchanged and still belongs to the caller: Astryx sizes inline code off
+  // `--text-code-size`, which is body size — right inside a document, wrong anywhere the
+  // surrounding text is not. A task row is small text, and code that keeps its own size
+  // renders a third larger than the words around it, on its own line-height.
+  components.inlineCode = ({ children }) => (
+    <ScenarioRef size={inheritTextSize ? "inherit" : undefined}>
+      {children}
+    </ScenarioRef>
+  );
 
   // Only when the document's own path is known: resolving `../x.md` against nothing
   // would invent a destination, and a confidently wrong link is worse than the dead one

@@ -18,7 +18,7 @@ import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import References, { ReferenceBadge } from "../components/References.jsx";
 import WithOutline from "../components/WithOutline.jsx";
-import { loadLens, saveLens } from "../spec.js";
+import { linkedScenario, loadLens, saveLens } from "../spec.js";
 import { changeTabs, resolveTab } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
@@ -367,6 +367,27 @@ function Namespaces({ capabilities }) {
   );
 }
 
+/**
+ * The tab a `?at=` link should open on, or null when nothing was asked for.
+ *
+ * Only the deltas define scenarios, and only one tab renders them, so this is that tab
+ * whenever one of this change's capabilities carries the id. A link naming a scenario the
+ * change does not define opens nothing in particular, which is the same answer as a reader
+ * arriving with no link at all.
+ */
+function tabHolding(data, tabs) {
+  const asked = linkedScenario();
+  if (!asked) return null;
+
+  const holds = data.capabilities.some((cap) =>
+    new RegExp(String.raw`^####\s+Scenario:\s*${asked}\b`, "im").test(
+      cap.text ?? "",
+    ),
+  );
+
+  return holds ? (tabs.find((t) => t.kind === "specs")?.name ?? null) : null;
+}
+
 export default function ChangeDetail({ id }) {
   // No polling: a proposal does not change while you read it, and re-fetching the full
   // text every 5s would re-render a document under the reader's cursor.
@@ -400,68 +421,78 @@ export default function ChangeDetail({ id }) {
   // change is read through the files it was written as.
   const artifacts = data.artifacts;
   const tabs = changeTabs(artifacts, data.capabilities);
-  const active = resolveTab(tabs, tab);
+  // A link that names a scenario opens the tab holding it. Without this, following a
+  // citation from a task list landed on the change's first artifact — its proposal — with
+  // the scenario asked for on a tab the reader still had to find, which is most of the
+  // work the link was supposed to save.
+  const active = resolveTab(tabs, tab ?? tabHolding(data, tabs));
   const current = tabs.find((a) => a.name === active);
 
   return (
-    <VStack gap={4} className="doc-page">
-      <VStack gap={2}>
-        <Namespaces capabilities={data.capabilities} />
-        <HStack gap={3} align="center" wrap="wrap">
-          <Heading level={1}>{data.id}</Heading>
-          {data.archived && <Badge variant="neutral" label="archived" />}
-        </HStack>
-        <FileMeta path={data.dir} />
-      </VStack>
+    <ResolvedIds value={data.references?.resolved}>
+      <VStack gap={4} className="doc-page">
+        <VStack gap={2}>
+          <Namespaces capabilities={data.capabilities} />
+          <HStack gap={3} align="center" wrap="wrap">
+            <Heading level={1}>{data.id}</Heading>
+            {data.archived && <Badge variant="neutral" label="archived" />}
+          </HStack>
+          <FileMeta path={data.dir} />
+        </VStack>
 
-      <Completeness
-        completeness={data.completeness}
-        id={data.id}
-        references={data.references}
-      />
+        <Completeness
+          completeness={data.completeness}
+          id={data.id}
+          references={data.references}
+        />
 
-      {/* Above the tabs: an id that names nothing is a fact about the change rather than
+        {/* Above the tabs: an id that names nothing is a fact about the change rather than
           about the artifact you happen to have open, and the file it is in is named on
           the row. */}
-      <References references={data.references} />
+        <References references={data.references} />
 
-      {artifacts.length === 0 && (
-        <EmptyState
-          title="Nothing written yet"
-          description={`No markdown in ${data.dir}. A change starts as an empty directory and its schema says what goes in it.`}
-          isCompact
-        />
-      )}
+        {artifacts.length === 0 && (
+          <EmptyState
+            title="Nothing written yet"
+            description={`No markdown in ${data.dir}. A change starts as an empty directory and its schema says what goes in it.`}
+            isCompact
+          />
+        )}
 
-      <TabList value={active} onChange={setTab} hasDivider>
-        {tabs.map((a) => (
-          <Tab key={a.name} value={a.name} label={a.label} />
-        ))}
-      </TabList>
+        <TabList value={active} onChange={setTab} hasDivider>
+          {tabs.map((a) => (
+            <Tab key={a.name} value={a.name} label={a.label} />
+          ))}
+        </TabList>
 
-      {/* One rail per tab body: the outline is read from the DOM, so switching tabs
+        {/* One rail per tab body: the outline is read from the DOM, so switching tabs
           re-reads it without any wiring. Tasks has its own structure and no prose. */}
-      <WithOutline>
-        {current?.kind === "specs" && (
-          <Capabilities capabilities={data.capabilities} />
-        )}
-        {current?.kind === "tasks" && (
-          <Tasks groups={data.groups} archived={data.archived} dir={data.dir} />
-        )}
-        {current?.kind === "capability-doc" && (
-          <CapabilityDocs docs={current.docs} />
-        )}
-        {current?.kind === "doc" && (
-          <Card padding={4}>
-            <Artifact
-              text={current.text}
-              commit={current.commit}
-              path={current.path}
-              prefix={current.name}
+        <WithOutline>
+          {current?.kind === "specs" && (
+            <Capabilities capabilities={data.capabilities} />
+          )}
+          {current?.kind === "tasks" && (
+            <Tasks
+              groups={data.groups}
+              archived={data.archived}
+              dir={data.dir}
             />
-          </Card>
-        )}
-      </WithOutline>
-    </VStack>
+          )}
+          {current?.kind === "capability-doc" && (
+            <CapabilityDocs docs={current.docs} />
+          )}
+          {current?.kind === "doc" && (
+            <Card padding={4}>
+              <Artifact
+                text={current.text}
+                commit={current.commit}
+                path={current.path}
+                prefix={current.name}
+              />
+            </Card>
+          )}
+        </WithOutline>
+      </VStack>
+    </ResolvedIds>
   );
 }

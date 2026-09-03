@@ -266,3 +266,9 @@ A name the search box offers while you type — a capability or a change in deve
 opening its page. The store's own names, never a phrase out of its text: what completes is
 exactly what can be navigated to.
 _Avoid_: autocomplete, suggestion, typeahead, hint
+
+**Citation**:
+An id written inside backticks in one document, naming a scenario or story defined in
+another. Rendered as a link to the copy the store is held to, with the scenario itself
+under the pointer.
+_Avoid_: reference, mention, link, pointer

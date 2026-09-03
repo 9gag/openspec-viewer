@@ -957,3 +957,25 @@ body {
   border-radius: 2px;
   padding-inline: 1px;
 }
+
+/*
+ * A citation that resolves. Underlined on hover rather than coloured: a task row can carry
+ * six of these, and six ids in link blue would put the loudest thing on the row on the
+ * cross-references rather than on the work.
+ */
+.ref-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ref-link:hover,
+.ref-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The scenario under the cursor. Wide enough for a WHEN line to read as one, capped so a
+   preview stays a preview. */
+.ref-preview {
+  max-width: 34rem;
+}

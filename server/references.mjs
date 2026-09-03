@@ -24,6 +24,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { REFERENCE_ID } from "../src/spec.js";
+import { classify } from "./search.mjs";
 import { read } from "./store.mjs";
 
 /**
@@ -109,14 +110,61 @@ export function storeIds(storePath) {
   for (const path of markdownFiles(storePath)) {
     const text = read(join(storePath, path));
     if (!text) continue;
+    const lines = text.split("\n");
     for (const { id, line } of definitions(text)) {
       const key = id.toLowerCase();
       if (!defined.has(key)) defined.set(key, []);
-      defined.get(key).push({ path, line, id });
+      defined.get(key).push({ path, line, id, ...body(lines, line) });
     }
   }
 
   return defined;
+}
+
+/** What a preview shows: how the heading names it, and the steps under it. */
+const PREVIEW_LINES = 10;
+
+/**
+ * The scenario itself, read from the lines under its heading.
+ *
+ * Stops at the next heading of any level, which is where the scenario ends — and takes a
+ * bounded number of lines, because this is a preview under a cursor rather than the
+ * document, and the document is one click away.
+ */
+function body(lines, line) {
+  const heading = lines[line - 1] ?? "";
+  const title = heading
+    .replace(/^#+\s*(?:Scenario:)?\s*/i, "")
+    .replace(new RegExp(String.raw`^(?:${REFERENCE_ID})\s*[-–—:]?\s*`, "i"), "")
+    .trim();
+
+  const steps = [];
+  for (let at = line; at < lines.length && steps.length < PREVIEW_LINES; at++) {
+    if (/^#{1,6}\s/.test(lines[at])) break;
+    const text = lines[at].trim();
+    if (text) steps.push(text);
+  }
+
+  return { title, steps };
+}
+
+/**
+ * Which definition a reference opens, when an id is written down in more than one place.
+ *
+ * The same scenario appears in the change that introduced it, in the baseline it folded
+ * into, and in any change rewriting it. The baseline is the one to open: it is what the
+ * store is held to today. A scenario a change has yet to ship has no baseline, and then
+ * the change carrying it is the only place to read it; the archive is last, because a
+ * scenario is only there and nowhere else if the capability has since dropped it.
+ */
+const NEAREST = { baseline: 0, development: 1, archive: 2 };
+
+function preferred(places) {
+  return [...places].sort(
+    (a, b) =>
+      NEAREST[classify(a.path).scope] - NEAREST[classify(b.path).scope] ||
+      a.path.localeCompare(b.path),
+  )[0];
 }
 
 /**
@@ -130,13 +178,31 @@ export function checkReferences(storePath, documents) {
   const defined = storeIds(storePath);
   const unresolved = [];
   const duplicates = [];
+  const resolved = {};
 
   for (const { path, text } of documents) {
     if (!text) continue;
 
     for (const { id, line } of citations(text)) {
-      if (defined.has(id.toLowerCase())) continue;
-      unresolved.push({ path, id, line, meant: nearest(defined, id) });
+      const key = id.toLowerCase();
+      if (!defined.has(key)) {
+        unresolved.push({ path, id, line, meant: nearest(defined, id) });
+        continue;
+      }
+      // Only the ids these documents actually cite, and each one once. The store defines
+      // fourteen hundred of them; what the page needs is the handful it is about to put
+      // on screen, with enough of the scenario to answer "what is that" without leaving.
+      if (!resolved[key]) {
+        const at = preferred(defined.get(key));
+        resolved[key] = {
+          id: at.id,
+          title: at.title,
+          steps: at.steps,
+          path: at.path,
+          line: at.line,
+          ...classify(at.path),
+        };
+      }
     }
 
     const here = new Map();
@@ -150,7 +216,7 @@ export function checkReferences(storePath, documents) {
     }
   }
 
-  return { unresolved, duplicates };
+  return { unresolved, duplicates, resolved };
 }
 
 /**
