@@ -126,14 +126,21 @@ export const scenarioCount = (nodes) =>
  *
  * Not a density control: the parts are for different people. `contract` is the reader
  * asking what this capability is held to — the requirements and the prose that qualifies
- * them, with the checking hidden. `full` is the document as written. `test` is whoever is
- * working through the scenarios, so the narrative that introduces them comes off and the
- * checkable material is all that is left.
+ * them, with the checking hidden. `scenarios` is whoever is working through the checks, so
+ * the narrative that introduces them comes off and the checkable material is all that is
+ * left. `full` is the document as written.
+ *
+ * Ordered by how much of the document each one leaves, so the control reads as a scale
+ * from the shortest reading to the whole file rather than as three unrelated choices, and
+ * `full` sits at the end where "everything" belongs. They are named for what is on the
+ * page, not for who came for it: `scenarios` is the part of the spec it shows, where "test
+ * plan" was a job title for a reader — and the wrong one for the engineer reading the
+ * same scenarios to build from, or the author checking the ids a journey accepts.
  */
 export const LENSES = [
   { value: "contract", label: "Contract", scenarios: false, prose: true },
+  { value: "scenarios", label: "Scenarios", scenarios: true, prose: false },
   { value: "full", label: "Full", scenarios: true, prose: true },
-  { value: "test", label: "Test plan", scenarios: true, prose: false },
 ];
 
 export const DEFAULT_LENS = "contract";

@@ -193,8 +193,8 @@ describe("lenses", () => {
       LENSES.map((l) => [l.value, l.prose, l.scenarios]),
       [
         ["contract", true, false],
+        ["scenarios", false, true],
         ["full", true, true],
-        ["test", false, true],
       ],
     );
   });
