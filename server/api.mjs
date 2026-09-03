@@ -18,6 +18,7 @@ import {
 } from "./catalog.mjs";
 import { change, validate } from "./change.mjs";
 import { doc } from "./doc.mjs";
+import { search } from "./search.mjs";
 import { changeIds, resolveRoot } from "./store.mjs";
 
 const ROUTES = {
@@ -47,6 +48,14 @@ const ROUTES = {
     return capability(id) ?? { error: `no capability named '${id}'` };
   },
   "/api/archive": () => ({ archive: archive() }),
+  // The archive is opt-in rather than a filter over one answer: it is most of the store's
+  // text and all of it frozen, so reading it on every query would be work the reader
+  // usually did not ask for and results they would have to scroll past.
+  "/api/search": (url) => {
+    const q = url.searchParams.get("q");
+    if (q === null) return { error: "missing ?q" };
+    return search(q, { archive: url.searchParams.get("archive") === "1" });
+  },
   // Addressed by path rather than by id, because a document outside `openspec/` has no
   // id — what a spec's link gives us is where the file is, and that is the whole key.
   "/api/doc": (url) => {

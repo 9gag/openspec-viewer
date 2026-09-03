@@ -184,6 +184,23 @@ product is a place in the tree exactly as much as an area inside it. The page ho
 everything below the namespace, not only what is filed at it, and needs no endpoint: both
 lists are filters over what the board and the index already return.
 
+**A search box**, above the tree, because a tree answers "what is there" and not "where
+does it say that". `#/search/<query>` reads every markdown file under `openspec/` — 35ms
+for the three megabytes in a store this size, which is cheaper than the process a `git
+grep` would spawn, and it sees a change nobody has committed yet. Matching is a
+case-insensitive substring rather than a regex: the reader is retyping a phrase out of a
+spec, and `specs/**` or `(BREAKING)` is a regex that either throws or quietly means
+something else.
+
+What makes it worth having over a grep is not the matching. Every path in the store says
+what the file is, so a hit is filed under the same three places the nav uses — production,
+in development, shipped — with the capability or the change named rather than the path,
+and the line itself on the row. The archive is a switch and off by default: it is most of
+the store's text and all of it frozen. A query that is nothing but an id the store issues
+— `checkout-SC-07`, `checkout-US-01` — is a lookup rather than a search, showing the one
+document that defines it beside everything citing it, and each result opens the scenario
+itself through the `?at=` link a scenario's copy button already builds.
+
 **Grouped by namespace**, because the store already writes one into every capability path —
 `shared-ui/cart`, `checkout/guest-checkout` — and a flat alphabetical run throws
 it away. On a store of fifty-odd capabilities that is nine or ten groups instead of one
@@ -317,11 +334,12 @@ openspec-viewer/
 │   ├── change.mjs           # one change: artifact bodies, capabilities, completeness, validate
 │   ├── artifacts.mjs        # which files a change has, ordered by its workflow schema
 │   ├── catalog.mjs          # baseline specs, archive, capability conflicts
+│   ├── search.mjs           # reading every document for a phrase, and filing the hits
 │   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
 ├── src/
 │   ├── App.jsx              # AppShell, nav, appearance, store warnings
-│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Doc
+│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Search, Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
 │   ├── links.js             # resolving a document's relative links into routes
 │   ├── tabs.js              # which artifact a change page opens on
@@ -330,7 +348,7 @@ openspec-viewer/
 ```
 
 `GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`,
-`/api/doc?path=`.
+`/api/search?q=`, `/api/doc?path=`.
 
 The store path is never hardcoded and never derived from this package's location:
 `store.mjs` asks `openspec list --json` in the directory the viewer was started from. If

@@ -219,3 +219,20 @@ _Avoid_: TOC, sidebar, index
 A markdown file in the store outside its OpenSpec directory — a PRD or ADR a spec links
 to — served so those links resolve to a page instead of a dead end.
 _Avoid_: page, external doc, attachment
+
+**Search**:
+Reading every markdown file under the store's OpenSpec directory for a phrase. Not an
+index and not a ranking: the store is three megabytes, it is read on each query, and what
+the results are ordered by is where each hit lives rather than how well it scored.
+_Avoid_: find, query, lookup, full-text search
+
+**Hit**:
+One line of one document holding the phrase, at the line number it sits on. A document
+with twelve of them is one result carrying twelve hits, not twelve results.
+_Avoid_: match, occurrence, result
+
+**Scope**:
+Which of the store's three places a hit is in: production, in development, or shipped.
+The words are the nav's own, because a result is a thing to click and it is filed under
+the row the reader would otherwise have clicked to reach it.
+_Avoid_: source, section, area, kind

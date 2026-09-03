@@ -24,7 +24,20 @@ const ENCLOSING = /^#{1,3}\s/;
  * reference that names one sits inside backticks in a list item. Sharing the shape is what
  * stops a reference resolving against nothing for a reason nobody can see.
  */
-export const SCENARIO_ID = String.raw`[a-z0-9][\w-]*-SC-\d+`;
+const ISSUED = String.raw`[a-z0-9][\w-]*`;
+
+export const SCENARIO_ID = String.raw`${ISSUED}-SC-\d+`;
+
+/**
+ * The shape of any id the store issues, scenario or user story: `loyalty-SC-07`,
+ * `admin-listing-US-01`.
+ *
+ * Both are permanent, both are cited as bare ids by tasks, reviews and test cases, and a
+ * reader who has one in hand wants the same thing either way — the place it is defined.
+ * Only scenarios resolve *inside* a document, which is why the narrower shape above is the
+ * one the reference renderer uses; this is for whoever is holding an id and looking for it.
+ */
+export const REFERENCE_ID = String.raw`${ISSUED}-(?:SC|US)-\d+`;
 
 /**
  * A scenario's id and title, from the heading the store writes them in:

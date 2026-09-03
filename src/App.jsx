@@ -2,6 +2,7 @@ import { AppShell } from "@astryxdesign/core/AppShell";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Heading } from "@astryxdesign/core/Heading";
+import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import {
   SegmentedControl,
@@ -16,11 +17,12 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { Switch } from "@astryxdesign/core/Switch";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { TreeList } from "@astryxdesign/core/TreeList";
 import { Theme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { href, POLL_MS, useApi, useRoute } from "./api.js";
 import {
   capabilityFlag,
@@ -38,6 +40,7 @@ import { Archive, SpecDetail, Specs } from "./views/Catalog.jsx";
 import ChangeDetail from "./views/ChangeDetail.jsx";
 import NamespaceDetail from "./views/NamespaceDetail.jsx";
 import DocDetail from "./views/Doc.jsx";
+import Search from "./views/Search.jsx";
 
 /** Sync state of the store clone, which everything else on the page is read from. */
 function StoreStatus({ store }) {
@@ -195,6 +198,40 @@ function specTreeItem(node, open, plain) {
 }
 
 /**
+ * The box at the top of the nav.
+ *
+ * On Enter rather than on every keystroke: a query reads every markdown file in the store,
+ * which is 35ms of work — nothing for a question somebody asked, and eight questions a
+ * second for one they are still typing. It is also a route, so a search is a page with an
+ * address: it survives a reload, it can be linked, and Back leaves it.
+ *
+ * Seeded from the route so the box says what the page below it is showing — arriving here
+ * from a link, or going Back to an earlier search, would otherwise leave the two
+ * disagreeing about what was asked.
+ */
+function SearchBox({ query }) {
+  const [value, setValue] = useState(query ?? "");
+  useEffect(() => setValue(query ?? ""), [query]);
+
+  return (
+    <TextInput
+      label="Search the store"
+      isLabelHidden
+      size="sm"
+      value={value}
+      onChange={setValue}
+      onEnter={() => {
+        const q = value.trim();
+        if (q) window.location.hash = href("search", q);
+      }}
+      startIcon={<Icon icon="search" size="sm" />}
+      placeholder="Find a line in the store"
+      hasClear
+    />
+  );
+}
+
+/**
  * One capability: its name without the namespace the rows above already say, and a dot
  * only when there is something to say about it.
  *
@@ -275,9 +312,14 @@ function Nav({
         </VStack>
       }
       header={
-        <VStack gap={1} padding={3}>
-          <Heading level={1}>Plan board</Heading>
-          <Badge variant="neutral" label="read-only" />
+        <VStack gap={2} padding={3}>
+          <HStack gap={2} align="center" wrap="wrap">
+            <Heading level={1}>Plan board</Heading>
+            <Badge variant="neutral" label="read-only" />
+          </HStack>
+          {/* Above the tree, because it answers the question the tree cannot: the tree
+              says what is in the store, and this says where it says something. */}
+          <SearchBox query={view === "search" ? arg : ""} />
         </VStack>
       }
     >
@@ -444,6 +486,7 @@ export default function App() {
           {view === "specs" && <Specs plainNames={plainNames} />}
           {view === "spec" && <SpecDetail id={arg} />}
           {view === "archive" && <Archive />}
+          {view === "search" && <Search query={arg} />}
           {/* No nav entry: a store document is reached by following a link out of an
               artifact, never from a list. */}
           {view === "doc" && <DocDetail id={arg} />}

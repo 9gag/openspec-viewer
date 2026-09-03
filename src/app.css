@@ -931,3 +931,29 @@ body {
 .ns-cap-size {
   text-align: right;
 }
+
+/*
+ * A matching line in a search result: the line number, then the line.
+ *
+ * Same shape as a task row and for the same reason — the number is a fixed column and the
+ * text takes what is left and wraps inside it. A spec line is routinely a table row or a
+ * path with nowhere to break, so it breaks anywhere rather than pushing the card wide.
+ */
+.hit-line {
+  flex: none;
+}
+
+.hit-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The query inside the line it matched. Yellow rather than the accent: the accent is what
+   a link is, and every one of these sits next to one. */
+.hit-text mark {
+  background: var(--color-background-yellow);
+  color: inherit;
+  border-radius: 2px;
+  padding-inline: 1px;
+}
