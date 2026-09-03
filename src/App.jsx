@@ -421,7 +421,7 @@ function Nav({
 }
 
 export default function App() {
-  const { view, arg } = useRoute();
+  const { view, arg, tab } = useRoute();
   const [mode, setMode] = useState(loadMode);
   const [plainNames, setPlainNames] = useState(loadPlainNames);
   // Polled only while the board is the view being read. The nav needs this data
@@ -513,12 +513,12 @@ export default function App() {
           </VStack>
 
           {view === "board" && <Board board={data} plainNames={plainNames} />}
-          {view === "change" && <ChangeDetail id={arg} />}
+          {view === "change" && <ChangeDetail id={arg} tab={tab} />}
           {view === "namespace" && (
             <NamespaceDetail id={arg} plainNames={plainNames} />
           )}
           {view === "specs" && <Specs plainNames={plainNames} />}
-          {view === "spec" && <SpecDetail id={arg} />}
+          {view === "spec" && <SpecDetail id={arg} tab={tab} />}
           {view === "archive" && <Archive />}
           {view === "search" && <Search query={arg} />}
           {/* No nav entry: a store document is reached by following a link out of an

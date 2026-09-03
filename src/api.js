@@ -72,8 +72,11 @@ export function useApi(path, { poll = true } = {}) {
   return { ...state, reload: load };
 }
 
+/** Where an empty hash lands, and the shape every route has. */
+const BOARD = { view: "board", arg: null, tab: null };
+
 /**
- * The view and argument a hash names, or null when the hash is not a route at all.
+ * The view, argument and tab a hash names, or null when the hash is not a route at all.
  *
  * A URL has one fragment and this app spends it on the route, so `#/change/<id>` and
  * `#a-heading-on-this-page` arrive through the same door. Read by position alone an anchor
@@ -90,7 +93,7 @@ export function useApi(path, { poll = true } = {}) {
  */
 export function routeFrom(hash) {
   const path = String(hash ?? "").replace(/^#/, "");
-  if (path === "" || path === "/") return { view: "board", arg: null };
+  if (path === "" || path === "/") return BOARD;
   if (!path.startsWith("/")) return null;
 
   // filter(Boolean) rather than destructuring with defaults: '/'.split('/') is ['', ''],
@@ -100,6 +103,10 @@ export function routeFrom(hash) {
   return {
     view: parts[0] || "board",
     arg: parts[1] ? decodeURIComponent(parts[1]) : null,
+    // A third segment is which of the page's tabs is open. Only the pages that have tabs
+    // read it, and an argument is encoded whole — a capability is `storefront/checkout`,
+    // one segment with its slash escaped — so the tab cannot be mistaken for part of it.
+    tab: parts[2] ? decodeURIComponent(parts[2]) : null,
   };
 }
 
@@ -115,7 +122,7 @@ export function routeFrom(hash) {
  */
 export function useRoute() {
   const [route, setRoute] = useState(
-    () => routeFrom(window.location.hash) ?? { view: "board", arg: null },
+    () => routeFrom(window.location.hash) ?? BOARD,
   );
 
   useEffect(() => {
@@ -130,5 +137,7 @@ export function useRoute() {
   return route;
 }
 
-export const href = (view, arg) =>
-  `#/${view}${arg ? `/${encodeURIComponent(arg)}` : ""}`;
+export const href = (view, arg, tab) =>
+  `#/${view}${arg ? `/${encodeURIComponent(arg)}` : ""}${
+    arg && tab ? `/${encodeURIComponent(tab)}` : ""
+  }`;

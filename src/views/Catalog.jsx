@@ -508,7 +508,7 @@ function SpecBody({ cap, doc, lens, onLens }) {
  * Its own route so a spec can be linked to, read at length, and navigated with the
  * outline rail — none of which works when four of them share a page.
  */
-export function SpecDetail({ id }) {
+export function SpecDetail({ id, tab }) {
   const { data, error, loading } = useApi(
     `/api/spec?id=${encodeURIComponent(id)}`,
     { poll: false },
@@ -521,14 +521,6 @@ export function SpecDetail({ id }) {
     setLens(next);
     saveLens(next);
   };
-
-  // Which document is open. Back to the spec whenever the capability changes: what a
-  // directory holds beside its spec is that capability's own business, and the next one
-  // may keep nothing at all.
-  // Null until the reader picks one, so a link naming a heading can decide instead.
-  const [tab, setTab] = useState(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `id` is the whole dependency — the tab it resets is deliberately not one
-  useEffect(() => setTab(null), [id]);
 
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
@@ -547,7 +539,9 @@ export function SpecDetail({ id }) {
   // directory, so it has none of these.
   const docs = data.docs ?? [];
   // A link naming a heading opens the document holding it — the spec itself is prefixed
-  // with the capability, and everything filed beside it with its own name.
+  // with the capability, and everything filed beside it with its own name. It decides only
+  // when the route names no tab of its own, which is the same order the change page reads
+  // the two in: the address first, then what a link was pointing at.
   const asked =
     tabForAnchor(linkedHeading(window.location.search), [
       { name: SPEC_TAB, prefixes: [data.capability] },
@@ -590,7 +584,13 @@ export function SpecDetail({ id }) {
         {/* Only when there is something to switch to: a lone tab reading "Requirements"
           over the requirements is a control that decides nothing. */}
         {docs.length > 0 && (
-          <TabList value={active} onChange={setTab} hasDivider>
+          <TabList
+            value={active}
+            onChange={(name) => {
+              window.location.hash = href("spec", id, name);
+            }}
+            hasDivider
+          >
             <Tab value={SPEC_TAB} label="Requirements" />
             {docs.map((d) => (
               <Tab key={d.name} value={d.name} label={d.label} />

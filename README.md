@@ -122,6 +122,16 @@ gives the order, the directory gives which of them exist, and a file the schema 
 declared (a `README.md` beside the proposal) is still shown, last. What is _missing_ is
 the Artifacts card at the top of the page, not a tab onto a file nobody has written.
 
+**The tab is in the address**, as a third route segment — `#/change/<id>/tasks`,
+`#/spec/<capability>/test-cases`. Which document is open is the whole of what the page is
+showing, so a URL that leaves it out is a link to a different page than the one the sender
+was reading, and a reload put them back on the proposal. In the route rather than the
+query because a query survives a navigation: the tab left on one change would decide which
+tab the next change opened on, and the two need not carry the same artifacts. The router
+already listens for the hash, so back and forward step through the documents a reader
+opened. A route naming a tab the change has not got falls back to its first artifact, the
+same way it always has.
+
 Everyone sees the same board in the same order, and every panel is absent when it has
 nothing to say — including artifact coverage, which lists only the changes missing
 something.

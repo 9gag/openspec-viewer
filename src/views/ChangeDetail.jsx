@@ -10,8 +10,8 @@ import { Markdown } from "@astryxdesign/core/Markdown";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
-import { Fragment, useEffect, useState } from "react";
-import { useApi } from "../api.js";
+import { Fragment, useState } from "react";
+import { href, useApi } from "../api.js";
 import { namespaceOf } from "../capabilities.js";
 import { NamespacePaths } from "../components/NamespacePath.jsx";
 import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
@@ -413,19 +413,27 @@ function tabAsked(data, tabs) {
   return defines ? (tabs.find((t) => t.kind === "specs")?.name ?? null) : null;
 }
 
-export default function ChangeDetail({ id }) {
+/**
+ * Which document of a change is open, and where that fact lives.
+ *
+ * In the route — `#/change/<id>/<tab>` — rather than in this component, because the tab is
+ * which document is on screen and that is the whole of what the page is showing. Held
+ * here, it was invisible from outside: the URL of a change read on its tasks was the URL
+ * of that change read on its proposal, so the link a reader sent opened somewhere else,
+ * and their own reload put them back on the proposal.
+ *
+ * Writing it as a route rather than as a query is what keeps it from outliving the page it
+ * describes. A query survives a navigation — the tab you left on one change would decide
+ * which tab the next change opened on, and the two changes need not even have the same
+ * artifacts. The route is replaced whole, so the question cannot come up.
+ */
+export default function ChangeDetail({ id, tab }) {
   // No polling: a proposal does not change while you read it, and re-fetching the full
   // text every 5s would re-render a document under the reader's cursor.
   const { data, error, loading } = useApi(
     `/api/change?id=${encodeURIComponent(id)}`,
     { poll: false },
   );
-  const [tab, setTab] = useState(null);
-
-  // Every change opens on its own first artifact rather than on the tab you left, which
-  // may not be a tab this one has.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `id` is the whole dependency — the tab it resets is deliberately not one
-  useEffect(() => setTab(null), [id]);
 
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
@@ -484,7 +492,17 @@ export default function ChangeDetail({ id }) {
           />
         )}
 
-        <TabList value={active} onChange={setTab} hasDivider>
+        {/* The hash is assigned rather than pushed with `history`, so the router hears the
+          change through the `hashchange` it is already listening for — and back and
+          forward then step through the documents the reader opened, which is what those
+          buttons mean once the tab is in the address. */}
+        <TabList
+          value={active}
+          onChange={(name) => {
+            window.location.hash = href("change", id, name);
+          }}
+          hasDivider
+        >
           {tabs.map((a) => (
             <Tab key={a.name} value={a.name} label={a.label} />
           ))}
