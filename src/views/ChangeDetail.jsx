@@ -17,6 +17,7 @@ import { NamespacePaths } from "../components/NamespacePath.jsx";
 import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import References, { ReferenceBadge } from "../components/References.jsx";
+import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { linkedScenario, loadLens, saveLens } from "../spec.js";
 import { changeTabs, resolveTab } from "../tabs.js";
