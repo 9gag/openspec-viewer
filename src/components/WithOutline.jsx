@@ -1,7 +1,40 @@
 import { Outline, useOutlineFromDOM } from "@astryxdesign/core/Outline";
 import { useEffect, useRef } from "react";
 
+import { sectionSpan } from "../highlight.js";
 import { headingLink, linkedHeading } from "../toc.js";
+
+/**
+ * The section a link arrived at, said on the page.
+ *
+ * Scrolling to a heading puts it at the top of the window, which is also where a heading
+ * ends up when the reader scrolls there themselves — so the page gives no sign that it did
+ * anything, and a long document offers no way to tell the section that was asked for from
+ * the one above it. The mark answers the question the link raises: this, out of all of it.
+ *
+ * The whole section rather than the heading alone, because the heading is the address and
+ * the section is what the link was about. It fades on its own (see .linked-area in
+ * app.css); the class is taken off afterwards as housekeeping, and removing it from
+ * elements a navigation has already detached costs nothing.
+ */
+const LINKED = "linked-area";
+
+/** Long enough to outlast the fade the class starts. */
+const LINGER = 3000;
+
+function mark(head) {
+  const siblings = Array.from(head.parentElement?.children ?? []);
+  const from = siblings.indexOf(head);
+  const section = sectionSpan(
+    siblings.map((el) => el.tagName),
+    from,
+  ).map((at) => siblings[at]);
+
+  for (const el of section) el.classList.add(LINKED);
+  setTimeout(() => {
+    for (const el of section) el.classList.remove(LINKED);
+  }, LINGER);
+}
 
 /**
  * A document with an "On this page" rail beside it.
@@ -65,6 +98,7 @@ export default function WithOutline({ children, label = "On this page" }) {
     if (!at) return;
     scrolled.current = true;
     at.scrollIntoView({ block: "start" });
+    mark(at);
   }, [items]);
 
   return (

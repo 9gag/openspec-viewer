@@ -170,6 +170,34 @@ body {
   opacity: 1;
 }
 
+/*
+ * The section a `?to=` link landed on, held up for a moment.
+ *
+ * Yellow rather than the accent, because it is the same answer a search hit gives — this
+ * is the thing you asked for — and the accent is what a link is, of which a document is
+ * full. It fades out on its own rather than waiting to be dismissed: the mark is an
+ * arrival, and something the reader has to clear is a notice.
+ *
+ * The wash is applied per block, so the shadow spreads it over the margins between them
+ * and the area reads as one shape rather than a stack of bands.
+ */
+.linked-area {
+  border-radius: 4px;
+  animation: linked-area 2.4s var(--ease-standard) forwards;
+}
+
+@keyframes linked-area {
+  0%,
+  35% {
+    background-color: var(--color-background-yellow);
+    box-shadow: 0 0 0 5px var(--color-background-yellow);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
 /* The id in front of the title, in the same monospace the store writes it in. */
 .scenario-id {
   font-family: var(

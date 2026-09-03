@@ -233,6 +233,13 @@ already the route; pasted back, `?to=` opens the document, picks the tab holding
 heading and scrolls to it. It is shown on hover and on focus only: fifty headings each
 flying a copy icon read as a toolbar per line rather than as a document.
 
+Arriving on such a link marks the section it named — the heading and everything under it
+down to the next heading of the same level or above — in the yellow a search hit uses, for
+the same reason: this is the thing you asked for. Scrolling to a heading leaves it at the
+top of the window, which is exactly where it would be if the reader had scrolled there
+themselves, so without the mark the page gives no sign of having answered anything. It
+fades out on its own, because an arrival is not a notice to be dismissed.
+
 **An index, not a wall.** `#/specs` lists capabilities — name, size, when it last changed,
 and whether a change is rewriting it — one line each. The text lives one click away at
 `#/spec/<capability>`. Rendering all four specs end to end made the one you wanted the
