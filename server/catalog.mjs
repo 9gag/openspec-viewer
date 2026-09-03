@@ -6,6 +6,7 @@
 import { join } from "node:path";
 
 import { capabilityDocs, readDocs } from "./artifacts.mjs";
+import { checkReferences } from "./references.mjs";
 import { capabilities } from "./change.mjs";
 import {
   changeIds,
@@ -303,7 +304,23 @@ export function archive() {
     );
 }
 
-/** One capability, with its baseline text. Null when the store has never heard of it. */
+/**
+ * One capability, with its baseline text. Null when the store has never heard of it.
+ *
+ * The ids are checked here rather than in the catalog: this is the only reader that has
+ * the documents in hand, and the index draws sixty rows of names and counts that would
+ * otherwise each pay for a walk of the store.
+ */
 export function capability(name) {
-  return capabilityCatalog({ withText: true, only: name })[0] ?? null;
+  const found = capabilityCatalog({ withText: true, only: name })[0] ?? null;
+  if (!found) return null;
+
+  const root = resolveRoot();
+  return {
+    ...found,
+    references: checkReferences(root.path, [
+      ...(found.path ? [{ path: found.path, text: found.text }] : []),
+      ...(found.docs ?? []).map((doc) => ({ path: doc.path, text: doc.text })),
+    ]),
+  };
 }

@@ -18,9 +18,11 @@ import {
 } from "./artifacts.mjs";
 import { readGroups } from "./board.mjs";
 import { modifiedDrift } from "./deltas.mjs";
+import { checkReferences } from "./references.mjs";
 import {
   changeIds,
   dirs,
+  files,
   lastCommit,
   openspecText,
   read,
@@ -143,5 +145,34 @@ export function change(changeId) {
       owner: g.owner,
       tasks: g.tasks,
     })),
+    // Every document this change carries, checked against every id the store defines.
+    // Its own files only: an id cited somewhere else in the store is somebody else's
+    // page to answer for, and a change page that reported them would never be clean.
+    references: checkReferences(root.path, changeDocuments(root.path, dir)),
   };
+}
+
+/**
+ * Every markdown file a change holds — its own artifacts and everything under its spec
+ * deltas — as `[{ path, text }]`.
+ *
+ * Read here rather than reusing what the payload already carries, because the payload
+ * deliberately does not carry all of it: tasks.md and the specs are sent structurally
+ * rather than as text, and those two are exactly where a task names the scenario it makes
+ * pass and a journey names the scenarios that accept it.
+ */
+function changeDocuments(storePath, dir) {
+  const out = [];
+
+  const walk = (rel) => {
+    for (const file of files(join(storePath, rel)))
+      out.push({
+        path: `${rel}/${file}`,
+        text: read(join(storePath, rel, file)),
+      });
+    for (const sub of dirs(join(storePath, rel))) walk(`${rel}/${sub}`);
+  };
+
+  walk(dir);
+  return out;
 }

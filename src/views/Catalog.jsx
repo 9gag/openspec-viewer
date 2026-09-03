@@ -33,6 +33,7 @@ import {
   TimelineEntry,
   TimelineHead,
 } from "../components/Timeline.jsx";
+import References from "../components/References.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
 
@@ -567,6 +568,11 @@ export function SpecDetail({ id }) {
       <Card padding={4}>
         <ChangedBy history={data.history} capability={data.capability} />
       </Card>
+
+      {/* The shipped spec and everything filed with it, checked against the ids the store
+          defines. A journey beside a baseline is the finished article — nothing is going
+          to come along later and define the scenario it names. */}
+      <References references={data.references} />
 
       {/* Only when there is something to switch to: a lone tab reading "Requirements"
           over the requirements is a control that decides nothing. */}

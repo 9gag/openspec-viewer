@@ -16,12 +16,13 @@ import { namespaceOf } from "../capabilities.js";
 import { NamespacePaths } from "../components/NamespacePath.jsx";
 import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
+import References, { ReferenceBadge } from "../components/References.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { loadLens, saveLens } from "../spec.js";
 import { changeTabs, resolveTab } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
-function Completeness({ completeness, id }) {
+function Completeness({ completeness, id, references }) {
   // Hook before the early return, and a null path instead of a skipped call: an archived
   // change has no completeness to show, and navigating from one to an in-development change
   // reuses this instance — a conditional hook would change the hook count and crash.
@@ -59,6 +60,10 @@ function Completeness({ completeness, id }) {
               label={validation.ok ? "validates --strict" : "fails --strict"}
             />
           )}
+          {/* Beside the CLI's own verdict, because it is the same kind of answer and the
+              CLI does not give this one: `validate --strict` checks the shape of a
+              change, not whether the ids inside it name anything. */}
+          <ReferenceBadge references={references} />
         </HStack>
         {missing.length > 0 && (
           <Text size="sm" color="secondary">
@@ -409,7 +414,16 @@ export default function ChangeDetail({ id }) {
         <FileMeta path={data.dir} />
       </VStack>
 
-      <Completeness completeness={data.completeness} id={data.id} />
+      <Completeness
+        completeness={data.completeness}
+        id={data.id}
+        references={data.references}
+      />
+
+      {/* Above the tabs: an id that names nothing is a fact about the change rather than
+          about the artifact you happen to have open, and the file it is in is named on
+          the row. */}
+      <References references={data.references} />
 
       {artifacts.length === 0 && (
         <EmptyState

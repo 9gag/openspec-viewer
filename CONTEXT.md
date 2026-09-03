@@ -147,8 +147,19 @@ _Avoid_: free, available, backlog
 
 ### What the viewer infers
 
-Three facts nothing in the store states outright, and the reason the viewer exists beside
+Five facts nothing in the store states outright, and the reason the viewer exists beside
 the CLI.
+
+**Drift**:
+A requirement a delta rewrites under MODIFIED whose heading no longer matches the baseline,
+so archiving pairs them with nothing and keeps the requirement as it was.
+_Avoid_: mismatch, stale delta, conflict, broken spec
+
+**Unresolved id**:
+A scenario or story id cited by a journey, task or test case that nothing in the store
+defines. Resolved against the whole store, because a task names scenarios outside its own
+change and a delta's journeys name scenarios already in the baseline.
+_Avoid_: broken link, dangling reference, bad id, orphan
 
 **Gap**:
 An artifact a change's schema asked for that nobody wrote, with a later one written over

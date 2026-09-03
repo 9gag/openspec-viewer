@@ -134,9 +134,9 @@ so a link can carry the view it was written for. The three values are Astryx's o
 `dark` and treats anything else as "follow the system", so a typo would quietly behave
 like Auto rather than fail, and a test pins them to the published type.
 
-## The three things it infers
+## The five things it infers
 
-Everything else on the page is a file read. These three are derived, so all of them are
+Everything else on the page is a file read. These five are derived, so all of them are
 tested against fixtures rather than trusted.
 
 **Idle claims.** The CLI can tell you @dana owns group 5; it cannot tell you the
@@ -170,6 +170,28 @@ written without it. That alone is still not work anybody has to do: it is closed
 next artifact somebody writes. What makes it a queue is a checkmark on top of it, and the
 worst case is a change with every box ticked, because archiving folds its deltas into the
 baseline as they stand and takes the gap with them.
+
+**A fold that will land wrong.** `openspec archive` replaces a baseline requirement with
+the one under a change's `## MODIFIED Requirements`, pairing them by the requirement's own
+heading. A heading that has drifted does not fail: the rewrite lands nowhere, the baseline
+keeps what it had, and the change ships against a requirement nobody updated. The page used
+to warn about this on every MODIFIED delta whether or not anything was wrong with it, which
+is a warning nobody reads by the second one — it is now the answer to a check, and names
+the requirement. The comparison flattens whitespace deliberately: what the CLI matches on
+is its own business, and a banner raised over a double space would be exactly as ignorable
+as the unconditional one it replaced.
+
+**Ids that name nothing.** Every scenario and story carries a permanent id, and journeys,
+tasks, test cases and review comments all cite one as a bare string — a join table written
+in prose, with nothing checking either end. A citation resolves if anything in the store
+defines it: a task legitimately names a scenario in a capability its own change does not
+touch, and a delta's journeys legitimately name scenarios already in the baseline. Narrower
+scopes were tried against a real store and each one reported citations as broken that were
+simply defined elsewhere. Where an unresolved id is the tail of one that exists — a long
+capability prefix written from memory and cut short — the page says which one was probably
+meant. The other half is duplicates, counted within one document only, since one scenario
+appears in the change that introduced it, the baseline it folded into, and every change
+rewriting it.
 
 ## Getting around
 
@@ -364,6 +386,8 @@ openspec-viewer/
 │   ├── artifacts.mjs        # which files a change has, ordered by its workflow schema
 │   ├── catalog.mjs          # baseline specs, archive, capability conflicts
 │   ├── search.mjs           # reading every document for a phrase, and filing the hits
+│   ├── deltas.mjs           # whether a MODIFIED block still matches the baseline
+│   ├── references.mjs       # the ids the store defines, and the ones it cites
 │   └── doc.mjs              # store markdown outside openspec/, and the path confinement
 ├── vite.config.js           # the React plugin, and the API mounted for dev + preview
 ├── src/

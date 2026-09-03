@@ -26,7 +26,18 @@ const ENCLOSING = /^#{1,3}\s/;
  */
 const ISSUED = String.raw`[a-z0-9][\w-]*`;
 
-export const SCENARIO_ID = String.raw`${ISSUED}-SC-\d+`;
+/**
+ * The number, and the letter a store is forced into by its own rules.
+ *
+ * Ids are permanent and never renumbered, so a scenario that belongs between 07 and 08 is
+ * issued as `07a` — there is nowhere else for it to go. Reading the number alone stops at
+ * the digits, which does not match the heading it came from, so those scenarios lost their
+ * id: rendered with it still inside the title, anchored on a slug of the whole line, and
+ * invisible to anything resolving a reference to them.
+ */
+const NUMBER = String.raw`\d+[a-z]?`;
+
+export const SCENARIO_ID = String.raw`${ISSUED}-SC-${NUMBER}`;
 
 /**
  * The shape of any id the store issues, scenario or user story: `loyalty-SC-07`,
@@ -37,7 +48,7 @@ export const SCENARIO_ID = String.raw`${ISSUED}-SC-\d+`;
  * Only scenarios resolve *inside* a document, which is why the narrower shape above is the
  * one the reference renderer uses; this is for whoever is holding an id and looking for it.
  */
-export const REFERENCE_ID = String.raw`${ISSUED}-(?:SC|US)-\d+`;
+export const REFERENCE_ID = String.raw`${ISSUED}-(?:SC|US)-${NUMBER}`;
 
 /**
  * A scenario's id and title, from the heading the store writes them in:
