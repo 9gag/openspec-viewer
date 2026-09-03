@@ -35,6 +35,8 @@ import {
 } from "../components/Timeline.jsx";
 import References from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
+import { tabForAnchor } from "../tabs.js";
+import { linkedHeading } from "../toc.js";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
 
@@ -523,9 +525,10 @@ export function SpecDetail({ id }) {
   // Which document is open. Back to the spec whenever the capability changes: what a
   // directory holds beside its spec is that capability's own business, and the next one
   // may keep nothing at all.
-  const [tab, setTab] = useState(SPEC_TAB);
+  // Null until the reader picks one, so a link naming a heading can decide instead.
+  const [tab, setTab] = useState(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `id` is the whole dependency — the tab it resets is deliberately not one
-  useEffect(() => setTab(SPEC_TAB), [id]);
+  useEffect(() => setTab(null), [id]);
 
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
@@ -543,7 +546,15 @@ export function SpecDetail({ id }) {
   // the store files with the requirements it belongs to. An unshipped capability has no
   // directory, so it has none of these.
   const docs = data.docs ?? [];
-  const active = docs.some((d) => d.name === tab) ? tab : SPEC_TAB;
+  // A link naming a heading opens the document holding it — the spec itself is prefixed
+  // with the capability, and everything filed beside it with its own name.
+  const asked =
+    tabForAnchor(linkedHeading(window.location.search), [
+      { name: SPEC_TAB, prefixes: [data.capability] },
+      ...docs.map((d) => ({ name: d.name })),
+    ]) ?? SPEC_TAB;
+  const wanted = tab ?? asked;
+  const active = docs.some((d) => d.name === wanted) ? wanted : SPEC_TAB;
   const doc = docs.find((d) => d.name === active);
 
   return (

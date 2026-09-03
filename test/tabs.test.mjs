@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { changeTabs, resolveTab } from "../src/tabs.js";
+import { changeTabs, resolveTab, tabForAnchor } from "../src/tabs.js";
 
 describe("resolveTab", () => {
   const artifacts = [
@@ -161,5 +161,52 @@ describe("changeTabs", () => {
   it("adds nothing for a change whose deltas are only specs", () => {
     assert.deepEqual(changeTabs([], [cap("storefront/checkout")]), []);
     assert.deepEqual(changeTabs([], []), []);
+  });
+});
+
+/**
+ * Where a link to a heading lands.
+ *
+ * A change is a tab bar over several documents and only one is on screen, so a link that
+ * names a heading has to say which — otherwise it opens the change's first artifact with
+ * the heading two tabs away, on a page that has already given up looking for it. The
+ * anchor already carries the answer: it is prefixed with the document it was rendered in.
+ */
+describe("tabForAnchor", () => {
+  const tabs = [
+    { name: "proposal" },
+    { name: "specs", prefixes: ["storefront/checkout", "shared/ui/cart"] },
+    { name: "tech-design" },
+    { name: "test-cases", prefixes: ["storefront/checkout"] },
+  ];
+
+  it("opens the artifact whose name the anchor carries", () => {
+    assert.equal(
+      tabForAnchor("tech-design--7-source-expansion-happens-first", tabs),
+      "tech-design",
+    );
+  });
+
+  it("opens the deltas for a heading inside a spec", () => {
+    // A spec is prefixed with its capability rather than the tab, because one tab stacks
+    // several capabilities and every spec has a "Purpose".
+    assert.equal(tabForAnchor("storefront/checkout--purpose", tabs), "specs");
+  });
+
+  it("splits at the first double dash, whatever the prefix holds", () => {
+    // Slugs are runs of non-alphanumerics collapsed to one dash, so they never contain a
+    // double one — the boundary is unambiguous even for a path with dashes in it.
+    assert.equal(
+      tabForAnchor("shared/ui/cart--a-heading-with-many-dashes", tabs),
+      "specs",
+    );
+  });
+
+  it("is null for an anchor no tab claims", () => {
+    // A link from another change, or one whose document is no longer there. Opening some
+    // tab anyway would be a guess dressed as an answer.
+    assert.equal(tabForAnchor("ui-design--the-shape", tabs), null);
+    assert.equal(tabForAnchor("", tabs), null);
+    assert.equal(tabForAnchor(null, tabs), null);
   });
 });

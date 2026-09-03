@@ -65,3 +65,27 @@ export function changeTabs(artifacts, capabilities) {
 
   return [...declared, ...rest.values()];
 }
+
+/**
+ * The tab an anchor lives on, or null when nothing claims it.
+ *
+ * A heading's id is `<prefix>--<slug>`, and the prefix says which document it was rendered
+ * in: an artifact's own tab prefixes with the tab's name, and a spec prefixes with the
+ * capability, since one tab can stack several capabilities' copies of the same document
+ * and every spec has a "Purpose".
+ *
+ * Slugs never contain `--` — they are runs of non-alphanumerics collapsed to one dash — so
+ * the first `--` is the boundary, whatever the prefix holds.
+ *
+ * `prefixes` is what a tab renders under a name that is not its own; the caller knows
+ * that, because it is the caller that passes the prefix to the renderer.
+ */
+export function tabForAnchor(anchor, tabs) {
+  const prefix = String(anchor ?? "").split("--")[0];
+  if (!prefix) return null;
+
+  const found = tabs.find(
+    (tab) => tab.name === prefix || tab.prefixes?.includes(prefix),
+  );
+  return found?.name ?? null;
+}
