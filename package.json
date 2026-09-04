@@ -30,6 +30,10 @@
       "types": "./lib/spec.d.mts",
       "default": "./lib/spec.mjs"
     },
+    "./lib/mount": {
+      "types": "./lib/mount.d.mts",
+      "default": "./lib/mount.mjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [

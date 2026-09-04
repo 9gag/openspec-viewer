@@ -12,7 +12,6 @@
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
-  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -159,6 +158,3 @@ export function writeSnapshot(
 
   return { at, out, ...counts };
 }
-
-/** True when the built page exists to be copied — the one thing this cannot make. */
-export const hasPage = () => existsSync(join(DIST, "index.html"));

@@ -27,6 +27,7 @@ import { dirname, join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import * as mount from "@seankcw/openspec-viewer/lib/mount";
 import * as spec from "@seankcw/openspec-viewer/lib/spec";
 import * as store from "@seankcw/openspec-viewer/lib/store";
 
@@ -317,6 +318,33 @@ describe("lib/store", () => {
   });
 });
 
+describe("lib/mount", () => {
+  it("hands back a boolean for whether there is a page to mount", () => {
+    assert.equal(typeof mount.hasPage(), "boolean");
+  });
+
+  // The handler a host installs, exercised through the entry a host imports rather than
+  // through `server/mount.mjs` — that path is internal, and this is the one promised.
+  it("hands back the handler, in the shape connect calls it with", () => {
+    const handler = mount.mounted();
+    assert.equal(typeof handler, "function");
+    assert.equal(handler.length, 3);
+
+    const res = {
+      statusCode: 200,
+      headers: {},
+      setHeader(name, value) {
+        this.headers[name] = value;
+      },
+      end() {},
+    };
+    handler({ url: "/", originalUrl: "/viewer" }, res, () => {});
+
+    assert.equal(res.statusCode, 302);
+    assert.equal(res.headers.location, "/viewer/");
+  });
+});
+
 /**
  * The half of the contract that only breaks after a publish.
  *
@@ -335,7 +363,7 @@ describe("the published entries", () => {
     const entries = Object.entries(manifest.exports).filter(([name]) =>
       name.startsWith("./lib/"),
     );
-    assert.equal(entries.length, 2);
+    assert.equal(entries.length, 3);
 
     for (const [, condition] of entries) {
       for (const target of Object.values(condition)) {
@@ -348,7 +376,7 @@ describe("the published entries", () => {
   });
 
   it("ships every file the façades re-export from", () => {
-    for (const entry of ["lib/store.mjs", "lib/spec.mjs"]) {
+    for (const entry of ["lib/store.mjs", "lib/spec.mjs", "lib/mount.mjs"]) {
       assert.ok(shipped(entry), `${entry} is not in package.json files`);
 
       const text = readFileSync(join(ROOT, entry), "utf8");
