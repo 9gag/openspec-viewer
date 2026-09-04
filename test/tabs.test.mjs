@@ -277,4 +277,10 @@ describe("tabAsked", () => {
       "design",
     );
   });
+
+  it("does not mistake a scenario id for a regular expression", () => {
+    // The id goes into a RegExp to find its `#### Scenario:` heading, and ids come off the
+    // wire — a store is free to name one with a character that means something there.
+    assert.equal(tabAsked(data, tabs, asking(null, "store.cart.SC.01")), null);
+  });
 });

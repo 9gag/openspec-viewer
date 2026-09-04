@@ -1,6 +1,16 @@
 import { HEADING_KEY, SCENARIO_KEY } from "./toc.js";
 
 /**
+ * A string as itself inside a regular expression.
+ *
+ * A scenario id comes off the wire, and the store chooses it: `cart-SC-[01` is a name a
+ * spec is free to write and an unescaped one throws while the page is rendering, which is
+ * a blank change rather than a link that missed. The tamer version is a dot, which matches
+ * anything and opens the deltas for a scenario the change does not define.
+ */
+const literal = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
  * Which tab a change page opens on.
  *
  * The tabs are the change's own files, and which files a change has is decided by the
@@ -133,7 +143,7 @@ export function tabAsked(data, tabs, position) {
 
   const defines = data.capabilities.some((cap) =>
     new RegExp(
-      String.raw`^####\s+Scenario:\s*${scenario}\b`,
+      String.raw`^####\s+Scenario:\s*${literal(scenario)}\b`,
       "im",
     ).test(cap.text ?? ""),
   );
