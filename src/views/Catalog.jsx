@@ -36,7 +36,7 @@ import {
 import References from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import { tabForAnchor } from "../tabs.js";
-import { linkedHeading } from "../toc.js";
+import { HEADING_KEY } from "../toc.js";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
 
@@ -508,7 +508,7 @@ function SpecBody({ cap, doc, lens, onLens }) {
  * Its own route so a spec can be linked to, read at length, and navigated with the
  * outline rail — none of which works when four of them share a page.
  */
-export function SpecDetail({ id, tab }) {
+export function SpecDetail({ id, tab, position }) {
   const { data, error, loading } = useApi(
     `/api/spec?id=${encodeURIComponent(id)}`,
     { poll: false },
@@ -541,9 +541,10 @@ export function SpecDetail({ id, tab }) {
   // A link naming a heading opens the document holding it — the spec itself is prefixed
   // with the capability, and everything filed beside it with its own name. It decides only
   // when the route names no tab of its own, which is the same order the change page reads
-  // the two in: the address first, then what a link was pointing at.
+  // the two in: the address first, then what a link was pointing at. Both halves come off
+  // the one route, which is what stops a heading outliving the page it was read on.
   const asked =
-    tabForAnchor(linkedHeading(window.location.search), [
+    tabForAnchor(position[HEADING_KEY], [
       { name: SPEC_TAB, prefixes: [data.capability] },
       ...docs.map((d) => ({ name: d.name })),
     ]) ?? SPEC_TAB;

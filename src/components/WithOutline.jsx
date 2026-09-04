@@ -33,7 +33,7 @@ export default function WithOutline({ children, label = "On this page" }) {
    *
    * Preventing the default in the capture phase is Astryx's own escape hatch — its
    * handler returns early on an already-prevented event — so this takes the scroll and the
-   * address bar together, and writes the heading beside the route instead of over it.
+   * address bar together, and writes the heading after the route instead of over it.
    */
   const onRailClick = (event) => {
     const link = event.target.closest?.("a[href^='#']");
@@ -47,6 +47,9 @@ export default function WithOutline({ children, label = "On this page" }) {
 
     event.preventDefault();
     at.scrollIntoView({ block: "start", behavior: "smooth" });
+    // A fragment-only relative URL, so everything before the `#` is kept — including the
+    // `?mode=` a reader may be reading under, which the old shape overwrote on every rail
+    // click because a `?…#…` reference replaces the query as well as the fragment.
     window.history.pushState(null, "", headingLink(id, window.location.hash));
   };
 
@@ -61,7 +64,7 @@ export default function WithOutline({ children, label = "On this page" }) {
   const scrolled = useRef(false);
   useEffect(() => {
     if (scrolled.current) return;
-    const asked = linkedHeading(window.location.search);
+    const asked = linkedHeading(window.location.hash);
     const at = asked && document.getElementById(asked);
     if (!at) return;
     scrolled.current = true;

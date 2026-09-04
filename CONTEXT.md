@@ -239,6 +239,19 @@ _Avoid_: feed, log, activity
 The "On this page" list of headings beside whatever artifact is on screen.
 _Avoid_: TOC, sidebar, index
 
+**Position**:
+Somewhere inside one document — a heading, or a scenario. It is addressed in the fragment
+after the route it belongs to (`#/spec/<capability>?to=<heading>`), so it arrives and
+leaves with the page it names. Distinct from the **anchor** it names, which is the id on
+the element itself and belongs to the document rather than to the address.
+_Avoid_: deep link, jump link, bookmark
+
+**Reading**:
+How the store is being looked at rather than what is being looked at — the appearance, the
+board's two readings, a filter. It travels in the query, and survives a navigation, which
+is the whole of what separates it from a position.
+_Avoid_: setting, preference, option, view mode
+
 **Doc**:
 A markdown file in the store outside its OpenSpec directory — a PRD or ADR a spec links
 to — served so those links resolve to a page instead of a dead end.

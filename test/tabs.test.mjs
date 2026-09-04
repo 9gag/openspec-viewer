@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { changeTabs, resolveTab, tabForAnchor } from "../src/tabs.js";
+import { changeTabs, resolveTab, tabAsked, tabForAnchor } from "../src/tabs.js";
 
 describe("resolveTab", () => {
   const artifacts = [
@@ -208,5 +208,73 @@ describe("tabForAnchor", () => {
     assert.equal(tabForAnchor("ui-design--the-shape", tabs), null);
     assert.equal(tabForAnchor("", tabs), null);
     assert.equal(tabForAnchor(null, tabs), null);
+  });
+});
+
+/**
+ * Which tab a link opens the change on, when the route names none of its own.
+ *
+ * A citation writes `#/change/<id>?at=<scenario>` and a copied heading writes
+ * `#/change/<id>/<tab>?to=<heading>` — so the position is the only thing some links carry,
+ * and without reading it the link lands on the change's first artifact with the thing it
+ * named two tabs away.
+ */
+describe("tabAsked", () => {
+  const tabs = [
+    { name: "proposal" },
+    { name: "specs", kind: "specs" },
+    { name: "design" },
+    {
+      name: "test-cases",
+      kind: "capability-doc",
+      docs: [{ capability: "cart" }],
+    },
+  ];
+  const data = {
+    capabilities: [
+      {
+        capability: "storefront/checkout",
+        text: "#### Scenario: store-cart-SC-01\n- **WHEN** x\n",
+      },
+      { capability: "cart", text: "" },
+    ],
+  };
+  const asking = (to = null, at = null) => ({ to, at });
+
+  it("opens the tab whose name the heading carries", () => {
+    assert.equal(tabAsked(data, tabs, asking("design--the-shape")), "design");
+  });
+
+  it("opens the deltas for a heading prefixed with a capability", () => {
+    // One tab stacks every capability the change deltas, so a spec's heading is prefixed
+    // with the capability rather than with the tab.
+    assert.equal(
+      tabAsked(data, tabs, asking("storefront/checkout--purpose")),
+      "specs",
+    );
+  });
+
+  it("opens the deltas for a scenario the change defines", () => {
+    assert.equal(
+      tabAsked(data, tabs, asking(null, "store-cart-SC-01")),
+      "specs",
+    );
+  });
+
+  it("is null for a scenario this change does not define", () => {
+    // A citation resolved to some other change. Opening the deltas anyway would show a
+    // page that does not contain the thing the reader clicked.
+    assert.equal(tabAsked(data, tabs, asking(null, "loyalty-SC-09")), null);
+  });
+
+  it("is null when the link named no position at all", () => {
+    assert.equal(tabAsked(data, tabs, asking()), null);
+  });
+
+  it("prefers the heading when a link somehow carries both", () => {
+    assert.equal(
+      tabAsked(data, tabs, asking("design--the-shape", "store-cart-SC-01")),
+      "design",
+    );
   });
 });

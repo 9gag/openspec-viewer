@@ -1,3 +1,5 @@
+import { HEADING_KEY, SCENARIO_KEY } from "./toc.js";
+
 /**
  * Which tab a change page opens on.
  *
@@ -88,4 +90,53 @@ export function tabForAnchor(anchor, tabs) {
     (tab) => tab.name === prefix || tab.prefixes?.includes(prefix),
   );
   return found?.name ?? null;
+}
+
+/**
+ * The tab a link asked for, or null when it asked for nothing on this change.
+ *
+ * The position comes from the route rather than from the address bar: it arrived in the
+ * same string as the change id, so the two are read together or the tab is decided against
+ * a heading belonging to a page the reader has already left.
+ *
+ * Two kinds of link land here. `?at=` names a scenario, and only the deltas define
+ * scenarios, so it is the specs tab whenever one of this change's capabilities carries
+ * that id. `?to=` names a heading, and a heading's anchor is prefixed with the document it
+ * was rendered in — which is the tab's own name for an artifact, and the capability for a
+ * spec, because one tab stacks several capabilities and every spec has a "Purpose".
+ *
+ * Without this the link opened the change on its first artifact, with the thing asked for
+ * on a tab the reader still had to find and a page that had already given up scrolling —
+ * most of the work the link was there to save.
+ */
+export function tabAsked(data, tabs, position) {
+  const heading = position[HEADING_KEY];
+  if (heading) {
+    // What each tab renders under a name that is not its own. The specs tab prefixes
+    // with the capability it is deltaing; a document filed beside a spec does the same,
+    // since the tab holds one copy per capability.
+    const holding = tabForAnchor(
+      heading,
+      tabs.map((tab) => ({
+        name: tab.name,
+        prefixes:
+          tab.kind === "specs"
+            ? data.capabilities.map((cap) => cap.capability)
+            : (tab.docs?.map((doc) => doc.capability) ?? []),
+      })),
+    );
+    if (holding) return holding;
+  }
+
+  const scenario = position[SCENARIO_KEY];
+  if (!scenario) return null;
+
+  const defines = data.capabilities.some((cap) =>
+    new RegExp(
+      String.raw`^####\s+Scenario:\s*${scenario}\b`,
+      "im",
+    ).test(cap.text ?? ""),
+  );
+
+  return defines ? (tabs.find((t) => t.kind === "specs")?.name ?? null) : null;
 }

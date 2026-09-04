@@ -2,7 +2,12 @@ import { Icon } from "@astryxdesign/core/Icon";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { useState } from "react";
 
-import { absoluteLink } from "../toc.js";
+import {
+  absoluteLink,
+  HEADING_KEY,
+  SCENARIO_KEY,
+  withPosition,
+} from "../toc.js";
 
 /**
  * The button beside something addressable, which puts its address on the clipboard.
@@ -12,18 +17,25 @@ import { absoluteLink } from "../toc.js";
  * whole here, origin and route included, and the pasted link opens the page on the thing
  * the button sat next to.
  *
- * `search` is the query the link travels in — `?at=<scenario>` or `?to=<heading>`. It is
- * a query rather than a fragment because the fragment is already the route: this app is
- * hash-routed, so a position inside the page cannot go there without taking the address of
- * the page with it. The route is read at click time and appended, so the link is the one
- * the reader is looking at now, whatever they navigated through to get here.
+ * The position is given as the one it is — `to` for a heading, `at` for a scenario — and
+ * assembled against the route at click time, so the link is the one the reader is looking
+ * at now, whatever they navigated through to get here.
+ *
+ * It goes inside the fragment, after the route, because the fragment is where the route is:
+ * this app is hash-routed, and a position put in the query instead would stay in the
+ * address after the reader had left the page it points into. What the query still carries
+ * is the reading — `?mode=dark` — and the copied link keeps it, so a page sent to someone
+ * arrives looking the way it looked to whoever sent it.
  */
-export default function CopyLink({ search, label, className }) {
+export default function CopyLink({ to, at, label, className }) {
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
+    const key = to ? HEADING_KEY : SCENARIO_KEY;
     navigator.clipboard
-      ?.writeText(absoluteLink(search))
+      ?.writeText(
+        absoluteLink(withPosition(window.location.hash, key, to ?? at)),
+      )
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);

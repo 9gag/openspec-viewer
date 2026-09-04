@@ -9,7 +9,7 @@ import CopyLink from "./CopyLink.jsx";
 import Diagram from "./Diagram.jsx";
 import ScenarioRef from "./ScenarioRef.jsx";
 import { resolveLink } from "../links.js";
-import { anchor, headingLink, nodeText } from "../toc.js";
+import { anchor, nodeText } from "../toc.js";
 
 /**
  * Markdown renderer overrides, shared by every artifact on the dashboard.
@@ -52,7 +52,7 @@ export function HeadingWithLink({ level, id, children }) {
       {id && (
         <CopyLink
           className="heading-copy"
-          search={headingLink(id)}
+          to={id}
           label={`Copy link to ${nodeText(children)}`}
         />
       )}

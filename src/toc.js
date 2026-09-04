@@ -49,61 +49,99 @@ export const anchor = (prefix, children) => {
 };
 
 /**
- * The query key a link to a heading travels in, and the address of one.
+ * The keys a position inside a page travels in: `to` for a heading, `at` for a scenario.
  *
- * The fragment is already the route — `#/change/<id>` — and a URL has only one, so an
- * anchor cannot go there without taking the route's place. Astryx's outline does exactly
- * that: every rail click pushes `#<heading>` over the route. It fires no `hashchange`, so
- * the page carries on rendering and nothing looks wrong until the URL is copied or
- * reloaded, at which point the document it named is gone from it.
+ * Both ride in the fragment, after the route — `#/change/<id>?to=<heading>`. Query syntax,
+ * but not the query: a URL has one fragment and this app spends it on the route, so the
+ * position has to share it rather than take it. Astryx's outline pushes `#<heading>` over
+ * the route if left alone, which fires no `hashchange` and so looks like nothing until the
+ * URL is copied or reloaded, by which time the document it named is gone from it.
  *
- * So a heading rides in the query, beside the route rather than over it. That is the same
- * arrangement a scenario link already uses, for the same reason.
+ * Beside the route rather than in the query, because the query is the half that does not
+ * move when the fragment does. A position parked there outlives the page it names: follow
+ * anything in the nav and the address still says the reader is somewhere they are not.
+ * Written into the fragment, a position is overwritten by the next route in the same
+ * string, which is why nothing here sweeps up after it.
  */
 export const HEADING_KEY = "to";
-
-/** A link to one heading on the page currently routed to. */
-export const headingLink = (id, route = "") =>
-  `?${HEADING_KEY}=${encodeURIComponent(id)}${route}`;
-
-/** The heading a link asked for, from a query string. */
-export const linkedHeading = (search = "") =>
-  new URLSearchParams(search).get(HEADING_KEY);
-
-/**
- * The key a link to a scenario travels in, spelled here beside the heading's because the
- * two are dropped together — see `withoutPosition`.
- */
 export const SCENARIO_KEY = "at";
 
 /**
- * The query a URL should carry once the page it described is gone.
+ * A route with a position inside the page it names.
  *
- * `?to=` and `?at=` name a position inside one page: a heading in the document that was
- * open, a scenario in the spec that was. Follow a link out of that page — a change in the
- * nav, another tab, anything that writes the route without writing a position of its own —
- * and the browser keeps the query, because only the fragment changed. The address then
- * says the reader is somewhere they are not, and reloading it hunts for an anchor the new
- * page has never heard of.
- *
- * Everything else in the query survives, because it is not about a position: `?mode=dark`
- * is the reading the link was written for and lasts the visit.
+ * An empty id gives the route back unchanged — a heading with no sluggable text has no
+ * anchor, and `?to=` naming nothing is an address that says less than the route alone.
+ * A route of `""` still comes back as a fragment, so what is returned is always something
+ * that can be assigned to `location.hash` or pushed as a relative URL.
  */
-export function withoutPosition(search = "") {
-  const params = new URLSearchParams(search);
-  params.delete(HEADING_KEY);
-  params.delete(SCENARIO_KEY);
-  const rest = params.toString();
-  return rest ? `?${rest}` : "";
+export function withPosition(route = "", key, id) {
+  // Any position already on the route comes off first. A position is one place, so this
+  // replaces rather than appends — the outline rail hands back the address it is standing
+  // on, and a second click that added `&to=` beside the first would leave the reader on an
+  // address naming the heading before the one they asked for.
+  const cut = route.indexOf("?");
+  const bare = cut === -1 ? route : route.slice(0, cut);
+  if (!id) return bare;
+  const fragment = bare.startsWith("#") ? bare : `#${bare}`;
+  return `${fragment}?${key}=${encodeURIComponent(id)}`;
 }
+
+/**
+ * The position a fragment names, or nulls.
+ *
+ * Split on the first `?`, which cannot be part of the route: every segment is written with
+ * `encodeURIComponent`, so a capability or change whose name contained one carries it as
+ * `%3F`. An empty value is no position rather than an empty one — `?to=` is what a link
+ * to a heading with no anchor would have been, and it should land the reader at the top
+ * rather than send them hunting for an element with no id.
+ */
+export function positionIn(hash = "") {
+  const cut = String(hash ?? "").indexOf("?");
+  const params = new URLSearchParams(cut === -1 ? "" : String(hash).slice(cut));
+  return {
+    [HEADING_KEY]: params.get(HEADING_KEY) || null,
+    [SCENARIO_KEY]: params.get(SCENARIO_KEY) || null,
+  };
+}
+
+/**
+ * An address written before the position moved into the fragment, said the new way — or
+ * null when it was already right, so an address with nothing to correct is left exactly as
+ * it was rather than rewritten into an equivalent of itself.
+ *
+ * The fragment wins if both halves carry a position: the fragment is the shape this app
+ * writes, so the half it recognises as its own is the one meant.
+ */
+export function movedPosition({ search = "", hash = "" } = {}) {
+  const params = new URLSearchParams(search);
+  const stale = [HEADING_KEY, SCENARIO_KEY].filter((key) => params.has(key));
+  if (stale.length === 0) return null;
+
+  const asked = positionIn(hash);
+  const key = stale.find((k) => params.get(k));
+  const moved =
+    asked[HEADING_KEY] || asked[SCENARIO_KEY] || !key
+      ? hash
+      : withPosition(hash, key, params.get(key));
+
+  for (const k of stale) params.delete(k);
+  const rest = params.toString();
+  return { search: rest ? `?${rest}` : "", hash: moved };
+}
+
+/** A link to one heading on the page currently routed to. */
+export const headingLink = (id, route = "") =>
+  withPosition(route, HEADING_KEY, id);
+
+/** The heading a link asked for, from a fragment. */
+export const linkedHeading = (hash = "") => positionIn(hash)[HEADING_KEY];
 
 /**
  * A link on this page, said in full — what a reader pastes into a message.
  *
- * `search` is the query naming the position inside the page (`?to=` for a heading, `?at=`
- * for a scenario) and the route comes from the address bar, so the two halves of the
- * arrangement above are put back together in the order a URL wants them: the query first,
- * the routing fragment last.
+ * `hash` is the route and the position together, already assembled; the query comes from
+ * the address bar untouched, so a link copied while reading in dark mode carries the
+ * `?mode=dark` it was being read under.
  */
-export const absoluteLink = (search, at = window.location) =>
-  `${at.origin}${at.pathname}${search}${at.hash}`;
+export const absoluteLink = (hash, at = window.location) =>
+  `${at.origin}${at.pathname}${at.search ?? ""}${hash}`;

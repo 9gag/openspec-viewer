@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { withoutPosition } from "./toc.js";
+import { HEADING_KEY, positionIn, SCENARIO_KEY } from "./toc.js";
 
 // The store changes when someone runs git, not while the page is open, so polling is
 // enough and there is no socket to keep alive.
@@ -75,10 +75,12 @@ export function useApi(path, { poll = true } = {}) {
 }
 
 /** Where an empty hash lands, and the shape every route has. */
-const BOARD = { view: "board", arg: null, tab: null };
+const NOWHERE = { [HEADING_KEY]: null, [SCENARIO_KEY]: null };
+const BOARD = { view: "board", arg: null, tab: null, position: NOWHERE };
 
 /**
- * The view, argument and tab a hash names, or null when the hash is not a route at all.
+ * The view, argument, tab and position a hash names, or null when the hash is not a route
+ * at all.
  *
  * A URL has one fragment and this app spends it on the route, so `#/change/<id>` and
  * `#a-heading-on-this-page` arrive through the same door. Read by position alone an anchor
@@ -87,16 +89,22 @@ const BOARD = { view: "board", arg: null, tab: null };
  * under a nav that still worked, reachable by clicking an entry in the page's own outline
  * rail and then reloading.
  *
- * The leading slash separates them. Every route this app writes has one; an anchor never
- * does, because an anchor is a slug of a heading.
+ * The leading slash separates them, and it is checked before the position is split off so
+ * it keeps separating them: `#?to=purpose` is a position with no page under it, which is
+ * an address for nowhere and leaves the reader on what they are reading.
  *
  * Exported apart from the hook because this is the part that can be wrong, and a hook
  * needs a browser to test.
  */
 export function routeFrom(hash) {
-  const path = String(hash ?? "").replace(/^#/, "");
-  if (path === "" || path === "/") return BOARD;
-  if (!path.startsWith("/")) return null;
+  const fragment = String(hash ?? "").replace(/^#/, "");
+  if (fragment === "" || fragment === "/") return BOARD;
+  if (!fragment.startsWith("/")) return null;
+
+  // The position travels in the same string as the route it belongs to, so that the two
+  // move together — see `withPosition`. Everything below reads the route half alone.
+  const cut = fragment.indexOf("?");
+  const path = cut === -1 ? fragment : fragment.slice(0, cut);
 
   // filter(Boolean) rather than destructuring with defaults: '/'.split('/') is ['', ''],
   // and '' is not undefined, so a default would never apply and the root would route to
@@ -109,6 +117,7 @@ export function routeFrom(hash) {
     // read it, and an argument is encoded whole — a capability is `storefront/checkout`,
     // one segment with its slash escaped — so the tab cannot be mistaken for part of it.
     tab: parts[2] ? decodeURIComponent(parts[2]) : null,
+    position: positionIn(fragment),
   };
 }
 
@@ -121,44 +130,28 @@ export function routeFrom(hash) {
  *
  * A hash that is not a route leaves the view alone: the browser scrolls to the anchor, the
  * page under it carries on rendering, and the reader keeps the document they were reading.
+ *
+ * Nothing here sweeps up a stale position. The route and the position inside it are one
+ * string, so following a link in the nav overwrites the second along with the first — the
+ * address cannot go on naming a heading on a page the reader has left. What is left in the
+ * query is the reading the link was written for: `?mode=dark`, `?board=`, `?filter=`,
+ * which are about the visit rather than about a page, and are supposed to survive.
  */
 export function useRoute() {
   const [route, setRoute] = useState(
     () => routeFrom(window.location.hash) ?? BOARD,
   );
 
-  /*
-   * The query the page on screen was opened with.
-   *
-   * `?to=` and `?at=` name a position inside one page, and only the fragment moves when a
-   * link in the nav is followed — so the query rides along to a page that has never heard
-   * of the heading or the scenario it names. The address then says the reader is somewhere
-   * they are not, and it is the address they copy.
-   *
-   * A link may equally carry a position of its own: a citation is `?at=<id>#/change/<id>`,
-   * both halves written together. The two cases are told apart by whether the query moved
-   * with the fragment — inherited, it is the query this page was opened with, and stale.
-   */
-  const opened = useRef(window.location.search);
-
   useEffect(() => {
     const onHash = () => {
       const next = routeFrom(window.location.hash);
       if (!next) return;
-
-      if (window.location.search === opened.current) {
-        const kept = withoutPosition(window.location.search);
-        // replaceState rather than assignment: writing the query would reload the page,
-        // and this must leave no history entry of its own — the reader pressed one link
-        // and going back should undo one navigation.
-        if (kept !== window.location.search)
-          window.history.replaceState(
-            null,
-            "",
-            `${window.location.pathname}${kept}${window.location.hash}`,
-          );
-      }
-      opened.current = window.location.search;
+      // The route whole, position included. An address that moves the position without
+      // moving the page — a citation to a scenario in the change already open, which names
+      // no tab of its own — differs from the one on screen only there, and a route that
+      // kept the old position would leave the reader on the tab they were already on
+      // rather than the one the link named. A new object re-renders the view; it does not
+      // remount it, so the document under it, and the scroll down it, both stay.
       setRoute(next);
     };
     window.addEventListener("hashchange", onHash);

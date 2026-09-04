@@ -8,6 +8,7 @@ import { createContext, useContext } from "react";
 
 import { href } from "../api.js";
 import { docHref } from "../links.js";
+import { SCENARIO_KEY, withPosition } from "../toc.js";
 import { splitSpec } from "../bdd.js";
 
 /**
@@ -38,9 +39,10 @@ function target(at) {
         ? href("change", at.change)
         : docHref(at.path);
 
-  // `?at=` travels in the query because the fragment is already the route. It opens the
-  // requirement holding the scenario whatever the reading, and scrolls to it.
-  return `?at=${encodeURIComponent(at.id)}${page}`;
+  // `?at=` rides inside the fragment, after the page it is a position in, so that the two
+  // arrive and leave together. It opens the requirement holding the scenario whatever the
+  // reading, and scrolls to it.
+  return withPosition(page, SCENARIO_KEY, at.id);
 }
 
 /** Where it lives, said in the words the rest of the dashboard uses for the same places. */

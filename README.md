@@ -132,14 +132,18 @@ already listens for the hash, so back and forward step through the documents a r
 opened. A route naming a tab the change has not got falls back to its first artifact, the
 same way it always has.
 
-**A position leaves with the page it named.** `?to=` and `?at=` describe somewhere inside
-one document, and following a link in the nav writes only the fragment — so the query rode
-along to a page that had never heard of that heading or that scenario, and the address the
-reader copied said they were somewhere they were not. The router drops both whenever the
-route moves without them: a link that carries its own position writes the query and the
-fragment together, which is how the two cases are told apart. Everything else in the query
-survives, because it is not about a position — `?mode=dark` is the reading the link was
-written for.
+**A position leaves with the page it named**, because it travels in the same string.
+`?to=` and `?at=` describe somewhere inside one document, and they ride in the fragment
+after the route — `#/change/<id>/specs?at=<scenario>`. Following a link in the nav writes
+that fragment whole, so the position goes with the page it belonged to; there is no rule
+enforcing it and nothing to sweep up afterwards. In the query, which is the half that does
+not move when the fragment does, the position outlived its page: the address the reader
+copied said they were somewhere they were not, and a reload sent the page hunting for an
+anchor it had never heard of. What is left in the query is the reading — `?mode=dark`,
+`?board=`, `?filter=` — which is about the visit rather than about a page, and is meant to
+survive. A link written the old way still lands: the query is read once on the way in and
+the address corrected, so what was pasted into a task last month still opens on the thing
+it named.
 
 Everyone sees the same board in the same order, and every panel is absent when it has
 nothing to say — including artifact coverage, which lists only the changes missing
@@ -246,11 +250,12 @@ prove the two still agree.
 
 **Every heading is an address.** The anchor the rail needs is one the reader cannot see, so
 hovering a heading reveals a copy button beside it — the same one a scenario carries — and
-it puts the whole URL on the clipboard: origin, `?to=<anchor>`, and the route the reader is
-on. The anchor travels in the query rather than the fragment because the fragment is
-already the route; pasted back, `?to=` opens the document, picks the tab holding the
-heading and scrolls to it. It is shown on hover and on focus only: fifty headings each
-flying a copy icon read as a toolbar per line rather than as a document.
+it puts the whole URL on the clipboard: origin, the route the reader is on, and
+`?to=<anchor>` after it. Query syntax inside the fragment, not the query itself: a URL has
+one fragment and this app spends it on the route, so a position shares it rather than takes
+it. Pasted back, `?to=` opens the document, picks the tab holding the heading and scrolls to
+it. It is shown on hover and on focus only: fifty headings each flying a copy icon read as
+a toolbar per line rather than as a document.
 
 Arriving on a link that names a place marks it — `?to=` a heading, and with it everything
 under that heading down to the next one of the same level or above; `?at=` the scenario it
@@ -447,6 +452,8 @@ openspec-viewer/
 │   ├── App.jsx              # AppShell, nav, appearance, store warnings
 │   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Search, Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
+│   ├── toc.js               # anchors, and the address of a position inside a page
+│   ├── spec.js              # reading requirements and scenarios out of a spec
 │   ├── links.js             # resolving a document's relative links into routes
 │   ├── suggest.js           # what the search box completes, and how it ranks it
 │   ├── tabs.js              # which artifact a change page opens on

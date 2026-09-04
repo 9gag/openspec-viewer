@@ -19,9 +19,8 @@ import { mdComponents } from "../components/markdown.jsx";
 import References, { ReferenceBadge } from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import WithOutline from "../components/WithOutline.jsx";
-import { linkedScenario, loadLens, saveLens } from "../spec.js";
-import { linkedHeading } from "../toc.js";
-import { changeTabs, resolveTab, tabForAnchor } from "../tabs.js";
+import { loadLens, saveLens } from "../spec.js";
+import { changeTabs, resolveTab, tabAsked } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id, references }) {
@@ -370,50 +369,6 @@ function Namespaces({ capabilities }) {
 }
 
 /**
- * The tab a link asked for, or null when it asked for nothing on this change.
- *
- * Two kinds of link land here. `?at=` names a scenario, and only the deltas define
- * scenarios, so it is the specs tab whenever one of this change's capabilities carries
- * that id. `?to=` names a heading, and a heading's anchor is prefixed with the document it
- * was rendered in — which is the tab's own name for an artifact, and the capability for a
- * spec, because one tab stacks several capabilities and every spec has a "Purpose".
- *
- * Without this the link opened the change on its first artifact, with the thing asked for
- * on a tab the reader still had to find and a page that had already given up scrolling —
- * most of the work the link was there to save.
- */
-function tabAsked(data, tabs) {
-  const heading = linkedHeading(window.location.search);
-  if (heading) {
-    // What each tab renders under a name that is not its own. The specs tab prefixes
-    // with the capability it is deltaing; a document filed beside a spec does the same,
-    // since the tab holds one copy per capability.
-    const holding = tabForAnchor(
-      heading,
-      tabs.map((tab) => ({
-        name: tab.name,
-        prefixes:
-          tab.kind === "specs"
-            ? data.capabilities.map((cap) => cap.capability)
-            : (tab.docs?.map((doc) => doc.capability) ?? []),
-      })),
-    );
-    if (holding) return holding;
-  }
-
-  const scenario = linkedScenario();
-  if (!scenario) return null;
-
-  const defines = data.capabilities.some((cap) =>
-    new RegExp(String.raw`^####\s+Scenario:\s*${scenario}\b`, "im").test(
-      cap.text ?? "",
-    ),
-  );
-
-  return defines ? (tabs.find((t) => t.kind === "specs")?.name ?? null) : null;
-}
-
-/**
  * Which document of a change is open, and where that fact lives.
  *
  * In the route — `#/change/<id>/<tab>` — rather than in this component, because the tab is
@@ -427,7 +382,7 @@ function tabAsked(data, tabs) {
  * which tab the next change opened on, and the two changes need not even have the same
  * artifacts. The route is replaced whole, so the question cannot come up.
  */
-export default function ChangeDetail({ id, tab }) {
+export default function ChangeDetail({ id, tab, position }) {
   // No polling: a proposal does not change while you read it, and re-fetching the full
   // text every 5s would re-render a document under the reader's cursor.
   const { data, error, loading } = useApi(
@@ -458,7 +413,7 @@ export default function ChangeDetail({ id, tab }) {
   // citation from a task list landed on the change's first artifact — its proposal — with
   // the scenario asked for on a tab the reader still had to find, which is most of the
   // work the link was supposed to save.
-  const active = resolveTab(tabs, tab ?? tabAsked(data, tabs));
+  const active = resolveTab(tabs, tab ?? tabAsked(data, tabs, position));
   const current = tabs.find((a) => a.name === active);
 
   return (

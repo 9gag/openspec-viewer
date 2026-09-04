@@ -174,7 +174,7 @@ function Scenario({ scenario, id, components }) {
           {scenario.title}
         </Heading>
         <CopyLink
-          search={`?at=${scenario.id ?? id}`}
+          at={scenario.id ?? id}
           label={`Copy link to ${scenario.id ?? scenario.title}`}
         />
       </HStack>

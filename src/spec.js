@@ -11,7 +11,7 @@
  * markdown path as before — but the parts can be shown and hidden independently.
  */
 
-import { SCENARIO_KEY } from "./toc.js";
+import { positionIn, SCENARIO_KEY } from "./toc.js";
 
 const REQUIREMENT = /^###\s+Requirement:\s*(.+?)\s*$/;
 const SCENARIO = /^####\s+Scenario:\s*(.+?)\s*$/;
@@ -199,13 +199,13 @@ export function saveLens(value) {
 /**
  * The scenario a link asked for, if any.
  *
- * `?at=loyalty-SC-07` rather than a fragment, because the fragment is already the route —
- * this app is hash-routed, so `#/spec/<capability>` is the address of the page and there
- * is no second `#` to spend on a position inside it. The query survives the hash, and the
- * page reads it on the way in.
+ * `#/spec/<capability>?at=loyalty-SC-07` — the position rides inside the fragment, after
+ * the route, so that the two move together and a scenario id cannot outlive the spec it
+ * belongs to. Read on the way in, and only then: which scenario a reader was pointed at is
+ * a fact about how they arrived, not a thing the page goes on tracking.
  */
-export function linkedScenario(search = window.location?.search ?? "") {
-  return new URLSearchParams(search).get(SCENARIO_KEY);
+export function linkedScenario(hash = window.location?.hash ?? "") {
+  return positionIn(hash)[SCENARIO_KEY];
 }
 
 /**

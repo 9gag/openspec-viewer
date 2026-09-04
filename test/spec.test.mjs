@@ -206,15 +206,23 @@ describe("lenses", () => {
 });
 
 describe("linkedScenario", () => {
-  // The fragment is already the route — this app is hash-routed — so a link to a position
-  // inside a page has to travel in the query.
+  // The fragment is the route and the position together, in that order, so that a scenario
+  // id cannot outlive the spec it belongs to.
   it("reads the scenario a link asked for", () => {
-    assert.equal(linkedScenario("?at=loyalty-SC-07"), "loyalty-SC-07");
-    assert.equal(linkedScenario("?mode=dark&at=thing-SC-01"), "thing-SC-01");
+    assert.equal(
+      linkedScenario("#/spec/storefront%2Fcart?at=loyalty-SC-07"),
+      "loyalty-SC-07",
+    );
+    assert.equal(
+      linkedScenario("#/change/add-guest-checkout/specs?at=thing-SC-01"),
+      "thing-SC-01",
+    );
   });
 
   it("is null when the link did not ask for one", () => {
     assert.equal(linkedScenario(""), null);
-    assert.equal(linkedScenario("?filter=idle"), null);
+    assert.equal(linkedScenario("#/spec/storefront%2Fcart"), null);
+    // A heading is a position too, and it is not this one.
+    assert.equal(linkedScenario("#/spec/storefront%2Fcart?to=purpose"), null);
   });
 });

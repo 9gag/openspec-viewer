@@ -14,9 +14,11 @@ import {
   anchor,
   headingLink,
   linkedHeading,
+  movedPosition,
   nodeText,
+  positionIn,
   slugify,
-  withoutPosition,
+  withPosition,
 } from "../src/toc.js";
 
 describe("slugify", () => {
@@ -116,36 +118,107 @@ describe("anchor", () => {
 });
 
 /**
- * A link to a heading, which cannot live in the fragment.
+ * A link to a heading, which cannot take the fragment over.
  *
  * The fragment is the route, and a URL has one. Astryx's outline pushes `#<heading>` over
  * it on every rail click — silently, since pushState fires no hashchange — so the page
  * carries on rendering and only the copied or reloaded URL has lost the document it named.
- * The heading rides in the query instead, beside the route rather than over it.
+ * The heading rides inside the fragment instead, after the route rather than over it.
  */
 describe("headingLink", () => {
   it("keeps the route the reader is on", () => {
     assert.equal(
       headingLink("design--the-shape", "#/change/guest-checkout"),
-      "?to=design--the-shape#/change/guest-checkout",
+      "#/change/guest-checkout?to=design--the-shape",
     );
   });
 
   it("survives a heading whose slug needs encoding", () => {
-    assert.equal(headingLink("a b", "#/x"), "?to=a%20b#/x");
+    assert.equal(headingLink("a b", "#/x"), "#/x?to=a%20b");
   });
 
   it("round-trips through the reader", () => {
-    const link = headingLink("design--the-shape", "#/change/guest-checkout");
     assert.equal(
-      linkedHeading(link.slice(0, link.indexOf("#"))),
+      linkedHeading(
+        headingLink("design--the-shape", "#/change/guest-checkout"),
+      ),
       "design--the-shape",
     );
   });
 
   it("is null when nothing was asked for", () => {
     assert.equal(linkedHeading(""), null);
-    assert.equal(linkedHeading("?filter=idle"), null);
+    assert.equal(linkedHeading("#/change/guest-checkout"), null);
+  });
+
+  it("is a fragment even with no route to hang off", () => {
+    // Otherwise it is a bare query, which is the old shape — and the old shape is read on
+    // the way in and rewritten, so writing one would send the app round that loop against
+    // itself.
+    assert.equal(headingLink("purpose"), "#?to=purpose");
+  });
+
+  it("gives the route back when there is no heading to name", () => {
+    // A heading with no sluggable text has no anchor, and `?to=` naming nothing says less
+    // than the route on its own.
+    assert.equal(
+      headingLink("", "#/change/guest-checkout"),
+      "#/change/guest-checkout",
+    );
+    assert.equal(withPosition("#/x", "at", null), "#/x");
+  });
+});
+
+/**
+ * `withPosition` writes an address and `positionIn` reads one. Each is the other's inverse,
+ * and nothing else in the app runs them against each other.
+ */
+describe("withPosition and positionIn", () => {
+  it("round-trips every shape of id", () => {
+    for (const id of [
+      "purpose",
+      "storefront%2Fcheckout--purpose",
+      "a heading with spaces",
+      "why?",
+      "one/two",
+      "100%",
+    ])
+      for (const key of ["to", "at"])
+        for (const route of ["#/board", "#/spec/storefront%2Fcheckout", ""]) {
+          const link = withPosition(route, key, id);
+          assert.equal(positionIn(link)[key], id, `${key} ${id} on ${route}`);
+        }
+  });
+
+  it("carries one key without inventing the other", () => {
+    assert.deepEqual(positionIn(withPosition("#/x", "to", "purpose")), {
+      to: "purpose",
+      at: null,
+    });
+    assert.deepEqual(positionIn(withPosition("#/x", "at", "cart-SC-01")), {
+      to: null,
+      at: "cart-SC-01",
+    });
+  });
+
+  it("replaces the position already on the route", () => {
+    // The rail hands back the address it is standing on, so every click after the first
+    // arrives with a `?to=` already there. Appending beside it would leave the reader on
+    // an address naming the heading before the one they clicked.
+    assert.equal(withPosition("#/x?to=first", "to", "second"), "#/x?to=second");
+    assert.equal(
+      withPosition("#/x?to=first", "at", "cart-SC-01"),
+      "#/x?at=cart-SC-01",
+    );
+    assert.equal(withPosition("#/x?to=first", "to", null), "#/x");
+  });
+
+  it("is nulls for an address that names no position", () => {
+    assert.deepEqual(positionIn(""), { to: null, at: null });
+    assert.deepEqual(positionIn("#/change/guest-checkout"), {
+      to: null,
+      at: null,
+    });
   });
 });
 
@@ -157,61 +230,116 @@ describe("absoluteLink", () => {
   const at = {
     origin: "http://localhost:5175",
     pathname: "/",
+    search: "",
     hash: "#/doc/docs/prds/checkout.md",
   };
 
-  it("puts the query before the route, which is where a URL wants it", () => {
+  it("puts the position inside the fragment, after the page it is inside", () => {
     assert.equal(
-      absoluteLink(headingLink("non-goals"), at),
-      "http://localhost:5175/?to=non-goals#/doc/docs/prds/checkout.md",
+      absoluteLink(headingLink("non-goals", at.hash), at),
+      "http://localhost:5175/#/doc/docs/prds/checkout.md?to=non-goals",
     );
   });
 
   it("carries a scenario link the same way", () => {
     assert.equal(
-      absoluteLink("?at=store-cart-SC-01", at),
-      "http://localhost:5175/?at=store-cart-SC-01#/doc/docs/prds/checkout.md",
+      absoluteLink(withPosition(at.hash, "at", "store-cart-SC-01"), at),
+      "http://localhost:5175/#/doc/docs/prds/checkout.md?at=store-cart-SC-01",
     );
   });
 
   it("keeps the mount point the page was served from", () => {
     assert.equal(
-      absoluteLink("?to=purpose", { ...at, pathname: "/plan/" }),
-      "http://localhost:5175/plan/?to=purpose#/doc/docs/prds/checkout.md",
+      absoluteLink(headingLink("purpose", at.hash), {
+        ...at,
+        pathname: "/plan/",
+      }),
+      "http://localhost:5175/plan/#/doc/docs/prds/checkout.md?to=purpose",
     );
   });
 
-  it("is the page itself when the reader is on the board, which has no route", () => {
+  it("keeps the reading the page was being read under", () => {
+    // The query is no longer where a position lives, which is what leaves it free to carry
+    // the appearance a link was written for all the way to whoever it is sent to.
     assert.equal(
-      absoluteLink("?to=purpose", { ...at, hash: "" }),
-      "http://localhost:5175/?to=purpose",
+      absoluteLink(headingLink("purpose", at.hash), {
+        ...at,
+        search: "?mode=dark",
+      }),
+      "http://localhost:5175/?mode=dark#/doc/docs/prds/checkout.md?to=purpose",
+    );
+  });
+
+  it("is the page itself when the reader is on a page with no route", () => {
+    assert.equal(
+      absoluteLink(headingLink("purpose", ""), { ...at, hash: "" }),
+      "http://localhost:5175/#?to=purpose",
     );
   });
 });
 
 /**
- * A position in the query outlives the page it named, because following a link in the nav
- * writes the fragment and leaves the query where it was. What survives that is the rest.
+ * `?to=` and `?at=` rode in the query before they rode in the fragment, and links in that
+ * shape are pasted into tasks and messages that outlive the change of shape.
  */
-describe("withoutPosition", () => {
-  it("drops the heading and the scenario a page was opened on", () => {
-    assert.equal(withoutPosition("?to=non-goals"), "");
-    assert.equal(withoutPosition("?at=cart-SC-01"), "");
-    assert.equal(withoutPosition("?to=non-goals&at=cart-SC-01"), "");
-  });
-
-  it("keeps what is not about a position", () => {
-    // The reading a link was written for lasts the visit; where the reader was on one
-    // page does not.
-    assert.equal(withoutPosition("?mode=dark&to=purpose"), "?mode=dark");
-    assert.equal(
-      withoutPosition("?board=full&filter=idle"),
-      "?board=full&filter=idle",
+describe("movedPosition", () => {
+  it("moves a heading into the fragment", () => {
+    assert.deepEqual(
+      movedPosition({ search: "?to=purpose", hash: "#/spec/x" }),
+      {
+        search: "",
+        hash: "#/spec/x?to=purpose",
+      },
     );
   });
 
-  it("is empty for a URL that carried no query at all", () => {
-    assert.equal(withoutPosition(""), "");
-    assert.equal(withoutPosition("?"), "");
+  it("moves a scenario and keeps the reading beside it", () => {
+    assert.deepEqual(
+      movedPosition({
+        search: "?mode=dark&at=cart-SC-01",
+        hash: "#/change/add-guest-checkout",
+      }),
+      {
+        search: "?mode=dark",
+        hash: "#/change/add-guest-checkout?at=cart-SC-01",
+      },
+    );
+  });
+
+  it("leaves the fragment's own position in place, and drops the query's", () => {
+    // An address carrying both was assembled by something that is not this app, so the
+    // half this app writes is the half that was meant.
+    assert.deepEqual(
+      movedPosition({ search: "?to=stale", hash: "#/spec/x?to=asked" }),
+      { search: "", hash: "#/spec/x?to=asked" },
+    );
+  });
+
+  it("is null for an address with no position to move", () => {
+    // Not an equivalent rewrite: an address with nothing wrong with it is left exactly as
+    // it arrived, so nothing lands in the reader's history for having opened a page.
+    assert.equal(movedPosition({ search: "", hash: "#/spec/x" }), null);
+    assert.equal(
+      movedPosition({ search: "?mode=dark", hash: "#/spec/x" }),
+      null,
+    );
+    assert.equal(movedPosition({}), null);
+  });
+
+  it("clears a key that names nothing", () => {
+    assert.deepEqual(movedPosition({ search: "?to=", hash: "#/spec/x" }), {
+      search: "",
+      hash: "#/spec/x",
+    });
+  });
+
+  it("round-trips into something the router reads", () => {
+    // The point of the whole exercise: the corrected address is a route again, carrying
+    // the position the old link was sent for.
+    const { hash } = movedPosition({
+      search: "?to=storefront%2Fcheckout--purpose",
+      hash: "#/spec/storefront%2Fcheckout",
+    });
+    assert.equal(positionIn(hash).to, "storefront/checkout--purpose");
   });
 });
