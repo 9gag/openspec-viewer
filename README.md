@@ -399,9 +399,10 @@ server runs over the disk. The same function, in `src/search.js`, so the two can
 query differently.
 
 **A missing file says so.** A static host answers a path it does not have with the page
-itself, which is what lets a deep link into a single-page site load at all, and so a
-document not in the snapshot arrives as HTML with a 200 on it. The page checks the content
-type before parsing and reports `Not in this snapshot` rather than a parser's confusion.
+itself, which is what lets a single-page site answer an address it holds no file for, and
+so a document not in the snapshot arrives as HTML with a 200 on it. The page checks the
+content type before parsing and reports `Not in this snapshot` rather than a parser's
+confusion.
 
 **Or mounted live, under a path.** A host that has the store but not the root — a
 manual's dev server, which owns `/` — can stand where the files would be: `mounted()` is
@@ -492,7 +493,8 @@ openspec-viewer/
 ├── bin/openspec-viewer.mjs  # the installed command: serves dist/ + the API over node:http
 ├── lib/                     # the published entries: the readings, and their types
 │   ├── store.mjs            # idle claims, conflicts, capability state — Node only
-│   └── spec.mjs             # parsing a spec's requirements, scenarios and steps
+│   ├── spec.mjs             # parsing a spec's requirements, scenarios and steps
+│   └── mount.mjs            # the handler a host mounts the page under a path with
 ├── server/                  # all disk + git access. Node only, never bundled.
 │   ├── store.mjs            # store resolution (cached), git helpers, sync status
 │   ├── api.mjs              # the read-only JSON routes, shared by the binary and Vite
@@ -503,8 +505,10 @@ openspec-viewer/
 │   ├── search.mjs           # reading every document for a phrase, and filing the hits
 │   ├── deltas.mjs           # whether a MODIFIED block still matches the baseline
 │   ├── references.mjs       # the ids the store defines, cites, and resolves to
-│   └── doc.mjs              # store markdown outside openspec/, and the path confinement
-├── vite.config.js           # the React plugin, and the API mounted for dev + preview
+│   ├── doc.mjs              # store markdown outside openspec/, and the path confinement
+│   ├── snapshot.mjs         # writing the page and every answer it would give as files
+│   └── mount.mjs            # the same paths answered from the store, under a mount point
+├── vite.config.js           # the React plugin, the API, and the mount, for dev + preview
 ├── src/
 │   ├── App.jsx              # AppShell, nav, appearance, store warnings
 │   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Search, Doc
@@ -512,6 +516,8 @@ openspec-viewer/
 │   ├── toc.js               # anchors, and the address of a position inside a page
 │   ├── spec.js              # reading requirements and scenarios out of a spec
 │   ├── links.js             # resolving a document's relative links into routes
+│   ├── search.js            # the matching, run by the server and by a page with no server
+│   ├── snapshot.js          # where each answer is filed, and where the page asks for it
 │   ├── suggest.js           # what the search box completes, and how it ranks it
 │   ├── tabs.js              # which artifact a change page opens on
 │   └── time.js              # idle thresholds and relative formatting
@@ -519,7 +525,7 @@ openspec-viewer/
 ```
 
 `GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`,
-`/api/search?q=`, `/api/doc?path=`.
+`/api/search?q=`, `/api/corpus`, `/api/doc?path=`.
 
 The store path is never hardcoded and never derived from this package's location:
 `store.mjs` asks `openspec list --json` in the directory the viewer was started from. If

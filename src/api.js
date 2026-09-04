@@ -36,10 +36,10 @@ const urlFor = (path) => (MOUNTED ? snapshotPath(path) : path);
 
 /**
  * A static host answers a path it does not have with the page itself — that is what
- * lets a deep link into a single-page site load — so a missing snapshot file arrives as
- * HTML with a 200 on it, and `res.json()` reports an unexpected `<`. Read the type
- * first, so the reader is told the document is not in this snapshot rather than shown a
- * parser's confusion.
+ * lets a single-page site answer an address it holds no file for — so a missing snapshot
+ * file arrives as HTML with a 200 on it, and `res.json()` reports an unexpected `<`.
+ * Read the type first, so the reader is told the document is not in this snapshot rather
+ * than shown a parser's confusion.
  */
 async function bodyOf(res, path) {
   const type = res.headers.get("content-type") ?? "";
