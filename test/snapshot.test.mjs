@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
 
-import { storeDocuments } from "../server/snapshot.mjs";
+import { snapshotRequests, storeDocuments } from "../server/snapshot.mjs";
 import { searchDocuments } from "../src/search.js";
 import {
   corpusPath,
@@ -177,5 +177,84 @@ describe("requestFor", () => {
     assert.equal(requestFor("api/board/extra.json"), null);
     assert.equal(requestFor("api/change.json"), null);
     assert.equal(requestFor("assets/index.js"), null);
+  });
+});
+
+describe("snapshotRequests", () => {
+  // The board, the catalogue and the archive as the routes answer them, cut to the
+  // fields the enumeration reads. A snapshot that asks for the wrong set is a page with
+  // a change missing from it and nothing to say which.
+  const store = {
+    board: { changes: [{ id: "guest-checkout" }, { id: "stock-alerts" }] },
+    catalog: { specs: [{ capability: "cart" }, { capability: "shared/ui" }] },
+    archive: { archive: [{ id: "2026-01-09-cart-totals" }] },
+    documents: ["openspec/specs/cart/spec.md", "docs/prds/a note.md"],
+  };
+
+  it("asks for every change, shipped as well as in development", () => {
+    assert.deepEqual(snapshotRequests(store).changes, [
+      "/api/change?id=guest-checkout",
+      "/api/change?id=stock-alerts",
+      "/api/change?id=2026-01-09-cart-totals",
+    ]);
+  });
+
+  it("validates the changes in development and no others", () => {
+    assert.deepEqual(snapshotRequests(store).validated, [
+      "/api/validate?id=guest-checkout",
+      "/api/validate?id=stock-alerts",
+    ]);
+  });
+
+  it("asks nothing of the CLI when validation is off", () => {
+    assert.deepEqual(
+      snapshotRequests(store, { validate: false }).validated,
+      [],
+    );
+  });
+
+  it("asks for every capability and every document the store tracks", () => {
+    const requests = snapshotRequests(store);
+    assert.deepEqual(requests.specs, [
+      "/api/spec?id=cart",
+      "/api/spec?id=shared%2Fui",
+    ]);
+    assert.deepEqual(requests.documents, [
+      "/api/doc?path=openspec%2Fspecs%2Fcart%2Fspec.md",
+      "/api/doc?path=docs%2Fprds%2Fa%20note.md",
+    ]);
+  });
+
+  it("asks for both halves of the corpus, since the page fetches the second itself", () => {
+    assert.deepEqual(snapshotRequests(store).corpus, [
+      "/api/corpus",
+      "/api/corpus?archive=1",
+    ]);
+  });
+
+  // The point of the whole file: the writer files each of these at `snapshotPath`, and
+  // the page — or a host standing in for the files — asks with `requestFor`. A request
+  // the round trip does not survive is a snapshot with an answer nothing can reach.
+  it("names only requests a snapshot can file and read back", () => {
+    const requests = Object.values(snapshotRequests(store)).flat();
+    assert.ok(requests.length > 0);
+    for (const request of requests)
+      assert.equal(requestFor(snapshotPath(request)), request);
+  });
+
+  it("is empty rather than wrong for a store with nothing in it", () => {
+    const empty = snapshotRequests({
+      board: { changes: [] },
+      catalog: { specs: [] },
+      archive: { archive: [] },
+      documents: [],
+    });
+    assert.deepEqual(empty.changes, []);
+    assert.deepEqual(empty.validated, []);
+    assert.deepEqual(empty.specs, []);
+    assert.deepEqual(empty.documents, []);
+    // Both halves are still written: the page fetches them before it knows they are
+    // empty, and a missing file is the one thing it reads as a broken snapshot.
+    assert.equal(empty.corpus.length, 2);
   });
 });

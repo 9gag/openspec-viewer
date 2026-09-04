@@ -71,6 +71,41 @@ function walk(root, rel = "") {
 }
 
 /**
+ * Every request a snapshot has to answer, grouped by what it is answering for.
+ *
+ * This is the decision the served page never has to make: a server waits to be asked,
+ * and a snapshot has to ask everything first. It is pure — the board, the catalogue, the
+ * archive and the store's documents in, request strings out — because it is the half of
+ * the writer worth being sure about, and being sure about it needs no store on disk.
+ *
+ * `validate` is per change in development only. A shipped change was validated against a
+ * baseline that has since moved on, so the answer would be about the store today rather
+ * than about the change, which is not what the page shows it as.
+ */
+export function snapshotRequests(
+  { board, catalog, archive, documents },
+  { validate = true } = {},
+) {
+  const arg = (route, param, value) =>
+    `/api/${route}?${param}=${encodeURIComponent(value)}`;
+
+  return {
+    // In development and archived alike: a shipped change has a page too, reached from
+    // the archive and from every capability's history.
+    changes: [
+      ...board.changes.map((c) => c.id),
+      ...archive.archive.map((a) => a.id),
+    ].map((id) => arg("change", "id", id)),
+    validated: validate
+      ? board.changes.map((c) => arg("validate", "id", c.id))
+      : [],
+    specs: catalog.specs.map((s) => arg("spec", "id", s.capability)),
+    documents: documents.map((path) => arg("doc", "path", path)),
+    corpus: [corpusRequest(false), corpusRequest(true)],
+  };
+}
+
+/**
  * Write the snapshot into `outDir`: the page, then the answers.
  *
  * The board is read first because it is the index the rest is enumerated from — the
@@ -111,37 +146,32 @@ export function writeSnapshot(
   const archive = answer("/api/archive");
   file("/api/archive", archive);
 
-  // In development and archived alike: a shipped change has a page too, reached from
-  // the archive and from every capability's history.
-  const changes = [
-    ...board.changes.map((c) => c.id),
-    ...archive.archive.map((a) => a.id),
-  ];
-  for (const id of changes) {
-    const request = `/api/change?id=${encodeURIComponent(id)}`;
+  const requests = snapshotRequests(
+    { board, catalog, archive, documents: storeDocuments(root.path) },
+    { validate },
+  );
+
+  for (const request of requests.changes) {
     file(request, answer(request));
     counts.changes++;
   }
   log(`  ${counts.changes} changes`);
 
   if (validate) {
-    for (const { id } of board.changes) {
-      const request = `/api/validate?id=${encodeURIComponent(id)}`;
+    for (const request of requests.validated) {
       file(request, answer(request));
       counts.validated++;
     }
     log(`  ${counts.validated} validated`);
   }
 
-  for (const { capability } of catalog.specs) {
-    const request = `/api/spec?id=${encodeURIComponent(capability)}`;
+  for (const request of requests.specs) {
     file(request, answer(request));
     counts.specs++;
   }
   log(`  ${counts.specs} capabilities`);
 
-  for (const path of storeDocuments(root.path)) {
-    const request = `/api/doc?path=${encodeURIComponent(path)}`;
+  for (const request of requests.documents) {
     const body = answer(request);
     // Not every tracked file passes the document route's own gate — one the git index
     // lists but the working copy no longer holds, say — and the route's word is final.
@@ -151,10 +181,7 @@ export function writeSnapshot(
   }
   log(`  ${counts.documents} documents`);
 
-  for (const archived of [false, true]) {
-    const request = corpusRequest(archived);
-    file(request, answer(request));
-  }
+  for (const request of requests.corpus) file(request, answer(request));
 
   return { at, out, ...counts };
 }

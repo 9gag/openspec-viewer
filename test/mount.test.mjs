@@ -1,9 +1,9 @@
 /**
  * The page mounted under a path, without a store: what the handler decides before it
- * reads anything. Answering from the store is `answer()`, tested through the routes; this
- * pins the address rules, which are the part that fails silently — a page served from
- * `/viewer` asks for `/api/board.json`, gets somebody else's page back, and shows a
- * store with nothing in it.
+ * reads anything. Answering from the store is `answer()`, whose own contract is pinned in
+ * api.test.mjs; this pins the address rules, which are the part that fails silently — a
+ * page served from `/viewer` asks for `/api/board.json`, gets somebody else's page back,
+ * and shows a store with nothing in it.
  */
 
 import assert from "node:assert/strict";
