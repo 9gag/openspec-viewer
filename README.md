@@ -369,6 +369,64 @@ Two things worth knowing about the implementation:
 - **It is opt-in.** Proposals and design docs render as ordinary prose; colouring a stray
   "must" in a proposal would imply a normative weight the document does not carry.
 
+## Hosting it as files
+
+```bash
+pnpm exec openspec-viewer snapshot out/viewer    # then serve out/ anywhere
+```
+
+The served page needs a Node process with the store on its disk, the `openspec` CLI on its
+PATH and git behind it, which rules out every host that serves files and runs nothing —
+and that is where a team's manual already lives. `snapshot` is the same page with every
+answer written down first: it copies the built page into the directory, then asks its own
+routes everything the page could ask — the board, the catalogue, the archive, every change,
+every capability, every markdown file in the store, `validate --strict` per change in
+development — and files each answer as JSON where the page will look for it.
+
+**One page, two ways of asking.** The page decides which it is from a `<meta>` tag the
+writer stamps into `index.html`, holding the moment the store was read. Nothing is rebuilt:
+the snapshot is the same `dist/` the binary serves, so a published copy of this package can
+write one without Vite. A snapshot page fetches `api/board.json` instead of `/api/board`,
+relative rather than absolute, so the directory can sit under any path — `/viewer/` on a
+manual site — without having been told about it. It never polls, since the files cannot
+change under it, and the foot of the page says when the snapshot was taken rather than when
+it was last read.
+
+**Search runs in the browser.** It is the one route with no fixed answer, so the writer
+ships the text instead — the plan in one file, the archive in a second fetched only when
+the reader asks for shipped changes — and the page runs the same matching over it that the
+server runs over the disk. The same function, in `src/search.js`, so the two cannot rank a
+query differently.
+
+**A missing file says so.** A static host answers a path it does not have with the page
+itself, which is what lets a single-page site answer an address it holds no file for, and
+so a document not in the snapshot arrives as HTML with a 200 on it. The page checks the
+content type before parsing and reports `Not in this snapshot` rather than a parser's
+confusion.
+
+**Or mounted live, under a path.** A host that has the store but not the root — a
+manual's dev server, which owns `/` — can stand where the files would be: `mounted()` is
+a connect handler that serves the page stamped `live` and answers each snapshot path from
+the store as the request arrives, `requestFor` reading the file's name back into the
+request it stands for. The page asks relatively, as a snapshot does, and keeps polling,
+as the served page does; only the address differs.
+
+```js
+import { hasPage, mounted } from "@seankcw/openspec-viewer/lib/mount";
+
+if (hasPage()) server.middlewares.use("/viewer", mounted()); // vite, express, connect
+```
+
+It is a published entry rather than a reach into `server/`, which is internal and moves.
+`hasPage()` is there because the handler serves `dist/` and cannot build it: the published
+package ships one, a clone has one only after `pnpm build`, and mounting without it would
+answer a 404 the host could not explain. `vite.config.js` in this repo mounts it the same
+way, so the handler runs in development rather than only in whatever host installs it.
+
+**What it costs.** A snapshot of a store here is about a thousand files and fourteen
+megabytes of JSON, most of it the archive and the documents, and forty seconds to write
+with validation on. `--no-validate` drops the CLI runs, which are most of that time.
+
 ## Read-only, deliberately
 
 No writes, and no write endpoint. Claims and checkmarks stay git commits made by the
@@ -435,7 +493,8 @@ openspec-viewer/
 ├── bin/openspec-viewer.mjs  # the installed command: serves dist/ + the API over node:http
 ├── lib/                     # the published entries: the readings, and their types
 │   ├── store.mjs            # idle claims, conflicts, capability state — Node only
-│   └── spec.mjs             # parsing a spec's requirements, scenarios and steps
+│   ├── spec.mjs             # parsing a spec's requirements, scenarios and steps
+│   └── mount.mjs            # the handler a host mounts the page under a path with
 ├── server/                  # all disk + git access. Node only, never bundled.
 │   ├── store.mjs            # store resolution (cached), git helpers, sync status
 │   ├── api.mjs              # the read-only JSON routes, shared by the binary and Vite
@@ -446,8 +505,10 @@ openspec-viewer/
 │   ├── search.mjs           # reading every document for a phrase, and filing the hits
 │   ├── deltas.mjs           # whether a MODIFIED block still matches the baseline
 │   ├── references.mjs       # the ids the store defines, cites, and resolves to
-│   └── doc.mjs              # store markdown outside openspec/, and the path confinement
-├── vite.config.js           # the React plugin, and the API mounted for dev + preview
+│   ├── doc.mjs              # store markdown outside openspec/, and the path confinement
+│   ├── snapshot.mjs         # writing the page and every answer it would give as files
+│   └── mount.mjs            # the same paths answered from the store, under a mount point
+├── vite.config.js           # the React plugin, the API, and the mount, for dev + preview
 ├── src/
 │   ├── App.jsx              # AppShell, nav, appearance, store warnings
 │   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Search, Doc
@@ -455,6 +516,8 @@ openspec-viewer/
 │   ├── toc.js               # anchors, and the address of a position inside a page
 │   ├── spec.js              # reading requirements and scenarios out of a spec
 │   ├── links.js             # resolving a document's relative links into routes
+│   ├── search.js            # the matching, run by the server and by a page with no server
+│   ├── snapshot.js          # where each answer is filed, and where the page asks for it
 │   ├── suggest.js           # what the search box completes, and how it ranks it
 │   ├── tabs.js              # which artifact a change page opens on
 │   └── time.js              # idle thresholds and relative formatting
@@ -462,7 +525,7 @@ openspec-viewer/
 ```
 
 `GET /api/board`, `/api/change?id=`, `/api/validate?id=`, `/api/specs`, `/api/archive`,
-`/api/search?q=`, `/api/doc?path=`.
+`/api/search?q=`, `/api/corpus`, `/api/doc?path=`.
 
 The store path is never hardcoded and never derived from this package's location:
 `store.mjs` asks `openspec list --json` in the directory the viewer was started from. If

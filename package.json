@@ -30,6 +30,10 @@
       "types": "./lib/spec.d.mts",
       "default": "./lib/spec.mjs"
     },
+    "./lib/mount": {
+      "types": "./lib/mount.d.mts",
+      "default": "./lib/mount.mjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -39,6 +43,8 @@
     "lib",
     "src/spec.js",
     "src/bdd.js",
+    "src/search.js",
+    "src/snapshot.js",
     "README.md",
     "LICENSE"
   ],

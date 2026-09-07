@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 import { apiHandler, warmUp } from "./server/api.mjs";
+import { hasPage, mounted } from "./server/mount.mjs";
 
 /**
  * The store is read from disk and from git, so it has to be served by Node rather than
@@ -10,6 +11,13 @@ import { apiHandler, warmUp } from "./server/api.mjs";
  *
  * Registered on the preview server too, so `pnpm build && pnpm preview` is a working app
  * rather than a page with no data behind it.
+ *
+ * `/viewer` is the other handler the package publishes, the one a host with the store but
+ * not the root mounts under a path. It is registered here for the same reason `/api` is:
+ * a handler that runs only in whatever installs it is a handler nobody here would notice
+ * breaking. It serves `dist/`, so unlike `/api` it is the last build rather than the
+ * source being edited — `hasPage()` is why a clone that has never built one gets Vite's
+ * own 404 instead of this one's.
  */
 function storeApi() {
   // Block bodies, not concise ones: `middlewares.use()` returns the connect app for
@@ -19,6 +27,7 @@ function storeApi() {
     name: "openspec-store-api",
     configureServer(server) {
       server.middlewares.use("/api", apiHandler);
+      if (hasPage()) server.middlewares.use("/viewer", mounted());
       // The same head start the binary gives itself, so `pnpm dev` does not pay for
       // resolving the store on the first request the page makes.
       server.httpServer?.once("listening", () =>
@@ -27,6 +36,7 @@ function storeApi() {
     },
     configurePreviewServer(server) {
       server.middlewares.use("/api", apiHandler);
+      if (hasPage()) server.middlewares.use("/viewer", mounted());
     },
   };
 }
