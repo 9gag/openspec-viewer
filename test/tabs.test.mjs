@@ -11,7 +11,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { changeTabs, resolveTab, tabAsked, tabForAnchor } from "../src/tabs.js";
+import {
+  capabilityAsked,
+  changeTabs,
+  resolveTab,
+  tabAsked,
+  tabForAnchor,
+} from "../src/tabs.js";
 
 describe("resolveTab", () => {
   const artifacts = [
@@ -282,5 +288,79 @@ describe("tabAsked", () => {
     // The id goes into a RegExp to find its `#### Scenario:` heading, and ids come off the
     // wire — a store is free to name one with a character that means something there.
     assert.equal(tabAsked(data, tabs, asking(null, "store.cart.SC.01")), null);
+  });
+});
+
+/**
+ * Which capability the specs tab opens on.
+ *
+ * The tab folds every capability the change deltas away and opens with all of them
+ * closed, so arriving on the right tab is only half of what a link asked for: the heading
+ * it named is inside a panel that renders nothing until it is opened, which leaves the
+ * reader on a list of capability names with the thing they clicked nowhere on the page.
+ */
+describe("capabilityAsked", () => {
+  const capabilities = [
+    {
+      capability: "storefront/checkout",
+      text: "#### Scenario: store-cart-SC-01\n- **WHEN** x\n",
+    },
+    { capability: "shared/ui/cart", text: "" },
+  ];
+  const asking = (to = null, at = null) => ({ to, at });
+
+  it("opens the capability a heading is prefixed with", () => {
+    assert.equal(
+      capabilityAsked(capabilities, asking("shared/ui/cart--purpose")),
+      "shared/ui/cart",
+    );
+  });
+
+  it("keeps the whole path, slashes and all", () => {
+    // The prefix is the capability path, and the boundary is the first `--` rather than
+    // the first slash — splitting it any earlier names a capability the change has not
+    // got and opens nothing.
+    assert.equal(
+      capabilityAsked(
+        capabilities,
+        asking("storefront/checkout--a-heading-with-many-dashes"),
+      ),
+      "storefront/checkout",
+    );
+  });
+
+  it("opens the delta defining the scenario a citation names", () => {
+    assert.equal(
+      capabilityAsked(capabilities, asking(null, "store-cart-SC-01")),
+      "storefront/checkout",
+    );
+  });
+
+  it("is null for a heading rendered somewhere other than a spec", () => {
+    // A link to a heading on the proposal, read while the specs tab happens to be the
+    // one open. Opening a capability on it would be a guess.
+    assert.equal(
+      capabilityAsked(capabilities, asking("design--the-shape")),
+      null,
+    );
+  });
+
+  it("is null for a scenario this change does not define", () => {
+    assert.equal(
+      capabilityAsked(capabilities, asking(null, "loyalty-SC-09")),
+      null,
+    );
+  });
+
+  it("is null when the link named no position at all", () => {
+    assert.equal(capabilityAsked(capabilities, asking()), null);
+    assert.equal(capabilityAsked(capabilities), null);
+  });
+
+  it("does not mistake a scenario id for a regular expression", () => {
+    assert.equal(
+      capabilityAsked(capabilities, asking(null, "store.cart.SC.01")),
+      null,
+    );
   });
 });
