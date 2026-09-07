@@ -20,7 +20,7 @@ import References, { ReferenceBadge } from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { loadLens, saveLens } from "../spec.js";
-import { changeTabs, resolveTab, tabAsked } from "../tabs.js";
+import { capabilityAsked, changeTabs, resolveTab, tabAsked } from "../tabs.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id, references }) {
@@ -79,7 +79,7 @@ function Completeness({ completeness, id, references }) {
   );
 }
 
-function Capabilities({ capabilities }) {
+function Capabilities({ capabilities, position }) {
   // One control over every capability the change deltas: "show me the requirements" is
   // not a question a reader asks per capability.
   const [lens, setLens] = useState(loadLens);
@@ -88,8 +88,12 @@ function Capabilities({ capabilities }) {
     saveLens(next);
   };
   // Which capability is open, held here rather than by the group, because the panel's
-  // contents depend on it — see below.
-  const [open, setOpen] = useState(null);
+  // contents depend on it — see below. A link that named something inside one of them
+  // opens on that one: read once, on the way in, because from then on the disclosure is
+  // the reader's and the address is only where they came from.
+  const [open, setOpen] = useState(() =>
+    capabilityAsked(capabilities, position),
+  );
 
   if (capabilities.length === 0) {
     return <Text color="secondary">This change has no spec deltas.</Text>;
@@ -132,6 +136,11 @@ function Capabilities({ capabilities }) {
    * change touches, which is a question in its own right and the one a reader arriving
    * here asks before "what does it say". Nothing is lost by it: every heading carries its
    * own summary, so which one to open is decided without opening any of them.
+   *
+   * Unless the address already named one, which is the one case where the reader has
+   * chosen before arriving. A link into a spec carries the capability in its anchor, and
+   * leaving every panel closed for it means the heading it named is not on the page at
+   * all — nothing to scroll to, and the reader is handed the list they were linked past.
    *
    * A closed panel renders nothing, rather than being handed its spec and hidden. Astryx
    * closes a Collapsible by animating its height to zero with the content still mounted,
@@ -467,7 +476,10 @@ export default function ChangeDetail({ id, tab, position }) {
           re-reads it without any wiring. Tasks has its own structure and no prose. */}
         <WithOutline>
           {current?.kind === "specs" && (
-            <Capabilities capabilities={data.capabilities} />
+            <Capabilities
+              capabilities={data.capabilities}
+              position={position}
+            />
           )}
           {current?.kind === "tasks" && (
             <Tasks

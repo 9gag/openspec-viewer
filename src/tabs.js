@@ -79,6 +79,20 @@ export function changeTabs(artifacts, capabilities) {
 }
 
 /**
+ * Does this capability's delta define the scenario with that id?
+ *
+ * The store issues the id and the deltas are where scenarios are written, so this is the
+ * only way to tell a citation into this change from one that resolved somewhere else.
+ */
+const definesScenario = (cap, id) =>
+  new RegExp(String.raw`^####\s+Scenario:\s*${literal(id)}\b`, "im").test(
+    cap.text ?? "",
+  );
+
+/** The document an anchor was rendered in — the half before the first `--`. */
+const prefixOf = (anchor) => String(anchor ?? "").split("--")[0];
+
+/**
  * The tab an anchor lives on, or null when nothing claims it.
  *
  * A heading's id is `<prefix>--<slug>`, and the prefix says which document it was rendered
@@ -93,7 +107,7 @@ export function changeTabs(artifacts, capabilities) {
  * that, because it is the caller that passes the prefix to the renderer.
  */
 export function tabForAnchor(anchor, tabs) {
-  const prefix = String(anchor ?? "").split("--")[0];
+  const prefix = prefixOf(anchor);
   if (!prefix) return null;
 
   const found = tabs.find(
@@ -142,11 +156,37 @@ export function tabAsked(data, tabs, position) {
   if (!scenario) return null;
 
   const defines = data.capabilities.some((cap) =>
-    new RegExp(
-      String.raw`^####\s+Scenario:\s*${literal(scenario)}\b`,
-      "im",
-    ).test(cap.text ?? ""),
+    definesScenario(cap, scenario),
   );
 
   return defines ? (tabs.find((t) => t.kind === "specs")?.name ?? null) : null;
+}
+
+/**
+ * The capability a link asked for, or null when it asked for nothing this change deltas.
+ *
+ * The specs tab folds a change's capabilities away and opens with all of them closed, so
+ * a link that named a heading inside one arrived on the right tab and then stopped: the
+ * heading it was pointing at is not in the DOM to be scrolled to, and the reader is left
+ * on the list of capabilities to find it themselves. Which is the whole of what the link
+ * was for.
+ *
+ * The same two shapes `tabAsked` reads, answered one level down. `?to=` carries the
+ * document the heading was rendered in, and for a spec that is the capability itself.
+ * `?at=` names a scenario, and the delta defining it is the one to open.
+ */
+export function capabilityAsked(capabilities, position = {}) {
+  const named = prefixOf(position[HEADING_KEY]);
+  const holding = named
+    ? capabilities.find((cap) => cap.capability === named)
+    : null;
+  if (holding) return holding.capability;
+
+  const scenario = position[SCENARIO_KEY];
+  if (!scenario) return null;
+
+  return (
+    capabilities.find((cap) => definesScenario(cap, scenario))?.capability ??
+    null
+  );
 }
