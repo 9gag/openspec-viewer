@@ -232,6 +232,30 @@ export function changesDifferingFrom(storePath, commit) {
   return [...ids].sort();
 }
 
+/**
+ * The sync state: which changes the plan holds, and where this checkout disagrees with main.
+ *
+ * The plan is main's, so `changes` is every change in development there, whether or not this
+ * checkout has it, and every change only this checkout has — `unmerged`. `onMain` is the
+ * first half, whose task lists are read at main. `differs` names the changes on main whose
+ * copy here is not main's. With no main the checkout is all there is, and all of it is read.
+ */
+export function syncState(storePath, main) {
+  const local = changeIds(storePath);
+  if (!main) return { changes: local, onMain: [], unmerged: [], differs: [] };
+
+  const onMain = changeIdsAt(storePath, main.commit);
+  const unmerged = local.filter((id) => !onMain.includes(id));
+  return {
+    changes: [...onMain, ...unmerged].sort(),
+    onMain,
+    unmerged,
+    differs: changesDifferingFrom(storePath, main.commit).filter((id) =>
+      onMain.includes(id),
+    ),
+  };
+}
+
 /** The store clone: the branch it is on, and the main its plan is read at. */
 export function storeStatus(root, main) {
   const path = root.path;

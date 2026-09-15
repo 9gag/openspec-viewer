@@ -11,11 +11,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, before, describe, it } from "node:test";
 
-import { groupsAt, readGroups, snapshots } from "../server/board.mjs";
+import { board, groupsAt, readGroups, snapshots } from "../server/board.mjs";
+import { change } from "../server/change.mjs";
 import {
   changeIdsAt,
   changesDifferingFrom,
   mainOf,
+  syncState,
 } from "../server/store.mjs";
 
 const CHANGE = "guest-checkout";
@@ -202,5 +204,60 @@ describe("changesDifferingFrom", () => {
     rmSync(join(dir, TASKS));
 
     assert.deepEqual(changesDifferingFrom(dir, main), [CHANGE]);
+  });
+});
+
+describe("syncState", () => {
+  /**
+   * Main holds guest-checkout and wishlist in development. The checkout is on a planning
+   * branch cut before wishlist, holding guest-checkout and a gift-cards change of its own.
+   */
+  function behind() {
+    const { dir, git, write, commit } = clone();
+    write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    commit("Add guest checkout");
+    git(["checkout", "-q", "-b", "plan/gift-cards"]);
+    git(["checkout", "-q", "main"]);
+    write("openspec/changes/wishlist/proposal.md", "# Wishlist\n");
+    commit("Add wishlist");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(["checkout", "-q", "plan/gift-cards"]);
+    write("openspec/changes/gift-cards/proposal.md", "# Gift cards\n");
+    commit("Add gift cards");
+    return dir;
+  }
+
+  it("lists a change in development on main that this checkout lacks", () => {
+    const dir = behind();
+    const sync = syncState(dir, mainOf(dir));
+
+    assert.deepEqual(sync.changes, ["gift-cards", CHANGE, "wishlist"]);
+    assert.deepEqual(sync.onMain, [CHANGE, "wishlist"]);
+    assert.deepEqual(sync.unmerged, ["gift-cards"]);
+    assert.deepEqual(sync.differs, ["wishlist"]);
+  });
+
+  it("is the checkout alone for a clone with no main", () => {
+    assert.deepEqual(syncState(behind(), null).changes, ["gift-cards", CHANGE]);
+  });
+});
+
+describe("board", () => {
+  it("lists a change on main this checkout lacks, read there, and its page says so", () => {
+    const { dir, git, write, commit } = clone();
+    write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    commit("Add guest checkout");
+    git(["checkout", "-q", "-b", "plan/gift-cards"]);
+    git(["checkout", "-q", "main"]);
+    write("openspec/changes/wishlist/proposal.md", "# Wishlist\n");
+    write("openspec/changes/wishlist/tasks.md", tasks("dana"));
+    commit("Add wishlist, claimed by @dana");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(["checkout", "-q", "plan/gift-cards"]);
+
+    const root = { path: dir };
+    const row = board(Date.now(), root).changes.find((c) => c.id === "wishlist");
+    assert.equal(row?.groups[0].owner, "dana");
+    assert.match(change("wishlist", root).error, /in development on origin\/main/);
   });
 });
