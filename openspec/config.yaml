@@ -25,9 +25,9 @@ context: |
   and 404 in the shipped tool. src/ is the browser app and reaches the store only
   through /api. Nothing in server/ is ever bundled into the client.
 
-  Read-only, on purpose. Every claim and every checkmark is a git commit made by
-  the openspec CLI, and an unpushed claim is not a claim - a viewer that could
-  write would break the convention it exists to show. What it adds over the CLI is
+  Read-only, on purpose. Every claim and every checkmark is a git commit the
+  openspec CLI records on the store's main - a viewer that could write would
+  break the convention it exists to show. What it adds over the CLI is
   inference the CLI has no place to put: how long a claim has sat without progress,
   which capabilities two in-flight changes both delta, which artifacts a change is
   missing.

@@ -10,8 +10,8 @@ both; it is not a spec and carries no implementation detail.
 ### The store
 
 **Store**:
-The git repository an OpenSpec plan lives in — every change, spec and claim in one clone
-a team pushes to and pulls from.
+The git repository an OpenSpec plan lives in — every change, spec and claim, on the one
+main a team shares.
 _Avoid_: repo, project, workspace
 
 **Origin**:
@@ -20,9 +20,9 @@ it is reading.
 _Avoid_: root, target, cwd
 
 **Sync state**:
-How far the store clone has drifted from its remote — behind, ahead, uncommitted, or up
-to date. Because every claim is a commit, drift means the board is showing a plan the
-rest of the team cannot see.
+Where the plan is read — the store's main — and which changes in the checkout differ
+from it or are not on it. A change whose copy differs is showing a brief the team has not
+settled.
 _Avoid_: git status, freshness, health
 
 ### A change
@@ -132,8 +132,8 @@ a commit.
 _Avoid_: subtask, item, step
 
 **Claim**:
-A person's name on a task group, taken when they pick it up and recorded as a commit. An
-unpushed claim is not a claim.
+A person's name on a task group, taken when they pick it up and recorded as a commit on
+the store's main.
 _Avoid_: assignment, lock, reservation
 
 **Owner**:
