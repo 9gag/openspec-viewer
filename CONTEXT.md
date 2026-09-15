@@ -20,9 +20,9 @@ it is reading.
 _Avoid_: root, target, cwd
 
 **Sync state**:
-Where the plan is read — the store's main — and which changes in the checkout differ
-from it or are not on it. A change whose copy differs is showing a brief the team has not
-settled.
+Where the plan is read — the store's main — and where the checkout disagrees with it:
+changes whose copy differs, changes not on main, and changes main has already archived. A
+change whose copy differs is showing a brief the team has not settled.
 _Avoid_: git status, freshness, health
 
 ### A change
@@ -33,7 +33,8 @@ built and shipped.
 _Avoid_: PR, ticket, epic, feature
 
 **In development**:
-A change that has been created and not yet archived. The board shows exactly these.
+A change that has been created and not yet archived on the store's main. The board shows
+exactly these.
 _Avoid_: open, active, WIP, in flight
 
 **Planning**:
