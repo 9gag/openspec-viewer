@@ -16,14 +16,16 @@ import {
   completeness,
   readDocs,
 } from "./artifacts.mjs";
-import { readGroups } from "./board.mjs";
+import { groupsAt, readGroups } from "./board.mjs";
 import { modifiedDrift } from "./deltas.mjs";
 import { checkReferences } from "./references.mjs";
 import {
   changeIds,
+  changeIdsAt,
   dirs,
   files,
   lastCommit,
+  mainOf,
   openspecText,
   read,
   resolveRoot,
@@ -104,7 +106,12 @@ export function change(changeId) {
   const dir = archived
     ? join("openspec", "changes", "archive", changeId)
     : join("openspec", "changes", changeId);
-  const groups = readGroups(root.path, changeId, archived);
+  // Owners and checkmarks as the board reads them: at main, for a change in development there.
+  const main = archived ? null : mainOf(root.path);
+  const groups =
+    main && changeIdsAt(root.path, main.commit).includes(changeId)
+      ? groupsAt(root.path, main.commit, changeId)
+      : readGroups(root.path, changeId, archived);
 
   return {
     id: changeId,

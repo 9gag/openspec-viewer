@@ -141,8 +141,74 @@ export function files(abs, ext = ".md") {
     .sort();
 }
 
-/** Sync state of the store clone: branch, uncommitted files, and drift from its remote. */
-export function storeStatus(root) {
+/**
+ * The store's shared main, where claims and checkmarks are recorded: `origin/HEAD` where
+ * the clone recorded it, because which branch a store calls main is the store's decision,
+ * else `origin/main`. With the commit it points at, or null when the clone has neither and
+ * its checkout is all there is to read.
+ *
+ * No fetch. Polling while shelling out to the network would hammer the remote, so this is
+ * main as of the clone's last fetch.
+ */
+export function mainOf(storePath) {
+  const head = git(storePath, [
+    "symbolic-ref",
+    "--quiet",
+    "refs/remotes/origin/HEAD",
+  ]);
+  const ref = head ? head.replace(/^refs\/remotes\//, "") : "origin/main";
+  const commit = git(storePath, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    `${ref}^{commit}`,
+  ]);
+  return commit ? { ref, commit } : null;
+}
+
+/** Changes in development at one commit — the archive is not one of them. */
+export function changeIdsAt(storePath, commit) {
+  return (
+    git(storePath, [
+      "ls-tree",
+      "-d",
+      "--name-only",
+      `${commit}:openspec/changes`,
+    ]) ?? ""
+  )
+    .split("\n")
+    .filter((name) => name && name !== "archive");
+}
+
+/**
+ * Changes whose copy in the checkout differs from one commit: edited, committed on another
+ * branch, untracked, or missing. tasks.md is left out, because every claim and checkmark
+ * moves it on main and a difference there says nothing about the artifacts on the page.
+ * Two spawns for the whole store rather than a pair per change, since the board runs this
+ * on every poll.
+ */
+export function changesDifferingFrom(storePath, commit) {
+  const files = [
+    git(storePath, ["diff", "--name-only", commit, "--", "openspec/changes"]),
+    git(storePath, [
+      "ls-files",
+      "--others",
+      "--exclude-standard",
+      "--",
+      "openspec/changes",
+    ]),
+  ].flatMap((out) => (out ?? "").split("\n"));
+
+  const ids = new Set();
+  for (const file of files) {
+    const [, id, rest] = file.match(/^openspec\/changes\/([^/]+)\/(.+)$/) ?? [];
+    if (id && id !== "archive" && rest !== "tasks.md") ids.add(id);
+  }
+  return [...ids].sort();
+}
+
+/** The store clone: the branch it is on, and the main its plan is read at. */
+export function storeStatus(root, main) {
   const path = root.path;
   // `cli` rides along with the store rather than in its own endpoint: every place the
   // page prints a command is a place that already has the store in hand.
@@ -151,29 +217,7 @@ export function storeStatus(root) {
 
   status.git = true;
   status.branch = git(path, ["rev-parse", "--abbrev-ref", "HEAD"]);
-  status.dirty = (git(path, ["status", "--porcelain"]) || "")
-    .split("\n")
-    .filter(Boolean).length;
-
-  // No fetch. Polling while shelling out to the network would hammer the remote, so
-  // this reports drift as of the last fetch somebody else did.
-  status.upstream = git(path, [
-    "rev-parse",
-    "--abbrev-ref",
-    "--symbolic-full-name",
-    "@{u}",
-  ]);
-  if (status.upstream) {
-    const counts = git(path, [
-      "rev-list",
-      "--left-right",
-      "--count",
-      `${status.upstream}...HEAD`,
-    ]);
-    const [behind, ahead] = (counts || "0\t0").split(/\s+/).map(Number);
-    status.behind = behind;
-    status.ahead = ahead;
-  }
+  status.main = main?.ref ?? null;
   return status;
 }
 

@@ -2,9 +2,9 @@
  * Everything that touches the store. Runs in Node inside the Vite dev server, never
  * in the browser — the store is a git working copy on disk, not an API.
  *
- * Read-only, on purpose. Writes have to stay git commits made by the CLI's `claim` /
- * `done` / `unclaim`: an unpushed claim is not a claim, and `git log` on a
- * change's tasks.md is the build log. A viewer that could edit would break both.
+ * Read-only, on purpose. Claims and checkmarks are commits the CLI's `claim` / `done` /
+ * `unclaim` record on the store's main, and `git log` on a change's tasks.md there is
+ * the build log. A viewer that could edit would break both.
  *
  * What this adds over the CLI is staleness. The board can only show that @dana
  * owns group 5; it cannot show that the claim landed six days ago and nothing has
@@ -19,8 +19,11 @@ import { changeArtifacts } from "./artifacts.mjs";
 import {
   catFile,
   changeIds,
+  changeIdsAt,
+  changesDifferingFrom,
   git,
   headSignature,
+  mainOf,
   read,
   resolveRoot,
   specDirs,
@@ -77,6 +80,28 @@ export function parse(text) {
   return groups;
 }
 
+const tasksPath = (changeId) => `openspec/changes/${changeId}/tasks.md`;
+
+/**
+ * Each change's tasks.md at one commit, keyed by id, null where it has none. One
+ * `git cat-file` for all of them, since the board reads every change on every poll.
+ */
+function tasksAt(storePath, commit, ids) {
+  const texts = catFile(
+    storePath,
+    ids.map((id) => `${commit}:${tasksPath(id)}`),
+  );
+  return new Map(
+    ids.map((id) => [id, texts.get(`${commit}:${tasksPath(id)}`)]),
+  );
+}
+
+/** One change's task groups at one commit, or null where it has no tasks.md there. */
+export function groupsAt(storePath, commit, changeId) {
+  const text = tasksAt(storePath, commit, [changeId]).get(changeId);
+  return text === null ? null : parse(text);
+}
+
 /**
  * The working-copy state of one change, or null while it is still being planned.
  *
@@ -109,26 +134,29 @@ export function readGroups(storePath, changeId, archived = false) {
 const snapshotCache = new Map();
 
 /**
- * Rebuilt when HEAD moves, for the reason the commit index is: this reads committed
+ * Read back from `commit` when one is given — a full commit id, the store's main, where
+ * claims and checkmarks are recorded — and from HEAD otherwise.
+ *
+ * Rebuilt when that commit moves, for the reason the commit index is: this reads committed
  * history and nothing else, so a working tree that changes under it changes no answer
  * here. Worth caching because the board polls every five seconds and this was two git
  * spawns per change on every one of them — about 600ms of the poll on a store of
  * twenty-one changes, spent re-deriving a history that had not moved.
  */
-export function snapshots(storePath, changeId) {
-  const head = headSignature(storePath);
+export function snapshots(storePath, changeId, commit = null) {
+  const head = commit ?? headSignature(storePath);
   const key = `${storePath}\u0000${changeId}`;
   const hit = snapshotCache.get(key);
   if (hit && hit.head === head) return hit.value;
 
-  const value = readSnapshots(storePath, changeId);
+  const value = readSnapshots(storePath, changeId, commit ?? "HEAD");
   snapshotCache.set(key, { head, value });
   return value;
 }
 
-function readSnapshots(storePath, changeId) {
-  const rel = ["openspec", "changes", changeId, "tasks.md"].join("/");
-  const log = git(storePath, ["log", "--format=%H %ct", "--", rel]);
+function readSnapshots(storePath, changeId, rev) {
+  const rel = tasksPath(changeId);
+  const log = git(storePath, ["log", "--format=%H %ct", rev, "--", rel]);
   if (!log) return [];
 
   const commits = log
@@ -207,8 +235,30 @@ export function idleness(group, snaps, now) {
 /** The whole board, as JSON. Throws if the store cannot be resolved at all. */
 export function board(now = Date.now()) {
   const root = resolveRoot();
-  const store = storeStatus(root);
+  const main = mainOf(root.path);
   const ids = changeIds(root.path);
+  // Claims and checkmarks are commits on main, so a change in development there has its
+  // task list and history read at main. One only this checkout has — unmerged, or already
+  // archived on main — is read from disk, and so is every change in a clone with no main.
+  const onMain = main ? changeIdsAt(root.path, main.commit) : [];
+  const tasksOnMain = main
+    ? tasksAt(
+        root.path,
+        main.commit,
+        ids.filter((id) => onMain.includes(id)),
+      )
+    : new Map();
+  const store = {
+    ...storeStatus(root, main),
+    unmerged: main ? ids.filter((id) => !onMain.includes(id)) : [],
+    // A change on main that this checkout lacks is named here rather than listed below:
+    // its page reads artifacts this checkout does not have.
+    differs: main
+      ? changesDifferingFrom(root.path, main.commit).filter((id) =>
+          onMain.includes(id),
+        )
+      : [],
+  };
 
   return {
     generatedAt: now,
@@ -219,7 +269,12 @@ export function board(now = Date.now()) {
     // would put a file read per capability per change on every poll to learn nothing this
     // needs.
     changes: ids.map((id) => {
-      const groups = readGroups(root.path, id);
+      const commit = tasksOnMain.has(id) ? main.commit : null;
+      const text = commit
+        ? tasksOnMain.get(id)
+        : read(join(root.path, tasksPath(id)));
+      const groups = text === null ? null : parse(text);
+      const unmerged = store.unmerged.includes(id);
       // Names and presence only. This runs for every change on every poll, so it stays
       // two readdirs — no file bodies, no git.
       const artifacts = changeArtifacts(
@@ -237,6 +292,7 @@ export function board(now = Date.now()) {
       if (!groups) {
         return {
           id,
+          unmerged,
           planning: true,
           done: 0,
           total: 0,
@@ -247,10 +303,11 @@ export function board(now = Date.now()) {
         };
       }
 
-      const snaps = store.git ? snapshots(root.path, id) : [];
+      const snaps = store.git ? snapshots(root.path, id, commit) : [];
 
       return {
         id,
+        unmerged,
         planning: false,
         done: groups.reduce(
           (n, g) => n + g.tasks.filter((t) => t.done).length,

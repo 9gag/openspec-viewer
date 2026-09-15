@@ -43,19 +43,12 @@ import NamespaceDetail from "./views/NamespaceDetail.jsx";
 import DocDetail from "./views/Doc.jsx";
 import Search from "./views/Search.jsx";
 
-/** Sync state of the store clone, which everything else on the page is read from. */
+/** Where the plan is read, and the checkout a change's artifacts are read from. */
 function StoreStatus({ store }) {
   const bits = [];
-  if (store.branch) bits.push(`branch ${store.branch}`);
-  if (store.dirty) bits.push(`${store.dirty} uncommitted file(s)`);
-  if (store.upstream) {
-    if (store.behind) bits.push(`${store.behind} behind ${store.upstream}`);
-    if (store.ahead) bits.push(`${store.ahead} unpushed`);
-    if (!store.behind && !store.ahead)
-      bits.push(`up to date with ${store.upstream}`);
-  } else if (store.git) {
-    bits.push("no upstream configured");
-  }
+  if (store.main) bits.push(`plan read at ${store.main}`);
+  if (store.branch) bits.push(`checkout on ${store.branch}`);
+  if (store.git && !store.main) bits.push("no origin");
 
   return (
     <VStack gap={1}>
@@ -80,8 +73,8 @@ function StoreStatus({ store }) {
 /**
  * Warnings about the clone itself, not about the plans.
  *
- * They come first because everything below is read from this working copy: a board built
- * from a stale clone is confidently wrong, which is worse than a board that is missing.
+ * They come first because a change's artifacts are read from this checkout: a copy that
+ * differs from main is confidently wrong, which is worse than one that is missing.
  */
 function StoreWarnings({ store }) {
   return (
@@ -94,20 +87,20 @@ function StoreWarnings({ store }) {
           description="Plans cannot be shared, and with no history there are no idle times."
         />
       )}
-      {store.behind > 0 && (
+      {store.differs?.length > 0 && (
         <Banner
           status="warning"
           container="card"
-          title={`This clone is ${store.behind} commit(s) behind ${store.upstream}`}
-          description={`Everything below may already be out of date. Run ${store.cli} sync.`}
+          title={`${store.differs.length} change(s) in this checkout differ from ${store.main}`}
+          description={`${store.differs.join(", ")}. Owners and checkmarks are read at ${store.main}, but the artifacts shown are this checkout's copy. Update this checkout to ${store.main} before reading them.`}
         />
       )}
-      {store.dirty > 0 && (
+      {store.unmerged?.length > 0 && (
         <Banner
           status="info"
           container="card"
-          title={`${store.dirty} uncommitted file(s) in the store`}
-          description="Checkmarks nobody pushed are invisible to the team — the store is the only notification channel."
+          title={`${store.unmerged.length} change(s) in this checkout are not in development on ${store.main}`}
+          description={`${store.unmerged.join(", ")}. Unmerged, or already archived there: their groups are read from this checkout, and none can be claimed.`}
         />
       )}
     </VStack>

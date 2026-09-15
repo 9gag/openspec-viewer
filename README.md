@@ -429,11 +429,11 @@ with validation on. `--no-validate` drops the CLI runs, which are most of that t
 
 ## Read-only, deliberately
 
-No writes, and no write endpoint. Claims and checkmarks stay git commits made by the
-CLI, because an unpushed claim is not a claim and `git log` on a change's `tasks.md` is
-the build log. A dashboard that could edit the store would break both. It prints the
-command to run instead — under whatever name `OPENSPEC_VIEWER_CLI` gives it — so the
-action still lands as a commit someone can push.
+No writes, and no write endpoint. Claims and checkmarks stay git commits the CLI records
+on the store's main, and `git log` on a change's `tasks.md` there is the build log. A
+dashboard that could edit the store would break both. It prints the command to run
+instead — under whatever name `OPENSPEC_VIEWER_CLI` gives it — so the action still lands
+as that commit.
 
 ## Borrowing the readings
 
@@ -541,8 +541,9 @@ passes the CLI's own message through.
   when files actually appear or disappear. `validate --strict` has its own endpoint so
   the artifacts never wait on it.
 - **It does not fetch.** Polling every 5s while shelling out to the network would hammer
-  the remote, so the page shows your clone as of the last fetch somebody did — and says
-  loudly when that clone is behind or dirty.
+  the remote, so the page reads the store's main as of the clone's last fetch. Owners and
+  checkmarks are read there, where they are recorded; a change's artifacts are the
+  checkout's copy, and the page says loudly when that copy differs from main.
 - **It polls rather than watching.** The store changes when someone runs git, not while
   the page is open. Artifact bodies are fetched once per visit — re-rendering a proposal
   under the reader's cursor every 5s is worse than being 5s stale.
