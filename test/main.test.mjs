@@ -20,23 +20,37 @@ import {
 
 const CHANGE = "guest-checkout";
 const TASKS = `openspec/changes/${CHANGE}/tasks.md`;
-let store;
+const clones = [];
 
-const git = (args, options = {}) =>
-  execFileSync("git", args, { cwd: store, encoding: "utf8", ...options }).trim();
-
-function write(rel, text) {
-  mkdirSync(dirname(join(store, rel)), { recursive: true });
-  writeFileSync(join(store, rel), text);
+/** A fresh git repository, with the few moves these tests make in it. */
+function clone() {
+  const dir = mkdtempSync(join(tmpdir(), "openspec-viewer-main-"));
+  clones.push(dir);
+  const git = (args, options = {}) =>
+    execFileSync("git", args, { cwd: dir, encoding: "utf8", ...options }).trim();
+  const write = (rel, text) => {
+    mkdirSync(dirname(join(dir, rel)), { recursive: true });
+    writeFileSync(join(dir, rel), text);
+  };
+  const commit = (message) => {
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", message]);
+  };
+  git(["init", "-q", "-b", "main"]);
+  git(["config", "user.email", "test@example.com"]);
+  git(["config", "user.name", "Test"]);
+  return { dir, git, write, commit };
 }
 
-function commit(message) {
-  git(["add", "-A"]);
-  git(["commit", "-q", "-m", message]);
-}
+after(() => {
+  for (const dir of clones) rmSync(dir, { recursive: true, force: true });
+});
 
 const tasks = (owner, done = false) =>
   `## 1. Payment${owner ? ` (owner: @${owner})` : ""}\n\n- [${done ? "x" : " "}] 1.1 Take it\n`;
+
+let store;
+let git;
 
 /** A commit on origin/main that never touches the checkout, the way a claim lands. */
 function recordOnMain(text) {
@@ -51,10 +65,9 @@ function recordOnMain(text) {
 }
 
 before(() => {
-  store = mkdtempSync(join(tmpdir(), "openspec-viewer-main-"));
-  git(["init", "-q", "-b", "main"]);
-  git(["config", "user.email", "test@example.com"]);
-  git(["config", "user.name", "Test"]);
+  let write;
+  let commit;
+  ({ dir: store, git, write, commit } = clone());
   write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
   write(TASKS, tasks(null));
   write("openspec/changes/archive/2026-01-01-cart/proposal.md", "# Cart\n");
@@ -71,8 +84,6 @@ before(() => {
   git(["checkout", "-q", "plan/stock-alerts"]);
   write("openspec/changes/stock-alerts/proposal.md", "# Stock alerts\n");
 });
-
-after(() => rmSync(store, { recursive: true, force: true }));
 
 describe("mainOf", () => {
   it("names origin/main and the commit it points at", () => {
@@ -94,13 +105,7 @@ describe("mainOf", () => {
   });
 
   it("is null for a clone with no main to read", () => {
-    const bare = mkdtempSync(join(tmpdir(), "openspec-viewer-nomain-"));
-    try {
-      execFileSync("git", ["init", "-q", "-b", "main"], { cwd: bare });
-      assert.equal(mainOf(bare), null);
-    } finally {
-      rmSync(bare, { recursive: true, force: true });
-    }
+    assert.equal(mainOf(clone().dir), null);
   });
 });
 
@@ -135,6 +140,17 @@ describe("reading the plan at main", () => {
 });
 
 describe("changesDifferingFrom", () => {
+  /** A checkout on main itself, so anything it reports is what the test did to it. */
+  function agreeing() {
+    const repo = clone();
+    repo.write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    repo.write(TASKS, tasks(null));
+    repo.write("openspec/changes/wishlist/proposal.md", "# Wishlist\n");
+    repo.commit("Add guest checkout and wishlist");
+    repo.git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    return { ...repo, main: mainOf(repo.dir).commit };
+  }
+
   it("names what the checkout lacks or adds, and leaves tasks.md out", () => {
     const { commit: main } = mainOf(store);
     assert.deepEqual(changesDifferingFrom(store, main), [
@@ -142,11 +158,25 @@ describe("changesDifferingFrom", () => {
       "wishlist",
     ]);
 
-    write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout, edited\n");
+    writeFileSync(
+      join(store, "openspec/changes", CHANGE, "proposal.md"),
+      "# Guest checkout, edited\n",
+    );
     assert.deepEqual(changesDifferingFrom(store, main), [
       CHANGE,
       "stock-alerts",
       "wishlist",
     ]);
+  });
+
+  it("names both changes a file moves between", () => {
+    const { dir, git, main } = agreeing();
+    git([
+      "mv",
+      `openspec/changes/${CHANGE}/proposal.md`,
+      "openspec/changes/wishlist/design.md",
+    ]);
+
+    assert.deepEqual(changesDifferingFrom(dir, main), [CHANGE, "wishlist"]);
   });
 });

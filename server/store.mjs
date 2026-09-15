@@ -184,12 +184,20 @@ export function changeIdsAt(storePath, commit) {
  * Changes whose copy in the checkout differs from one commit: edited, committed on another
  * branch, untracked, or missing. tasks.md is left out, because every claim and checkmark
  * moves it on main and a difference there says nothing about the artifacts on the page.
- * Two spawns for the whole store rather than a pair per change, since the board runs this
- * on every poll.
+ * Renames are not paired, because a file moved out of a change is a difference in the change
+ * it left, and a rename names only where the file went. Two spawns for the whole store
+ * rather than a pair per change, since the board runs this on every poll.
  */
 export function changesDifferingFrom(storePath, commit) {
   const files = [
-    git(storePath, ["diff", "--name-only", commit, "--", "openspec/changes"]),
+    git(storePath, [
+      "diff",
+      "--name-only",
+      "--no-renames",
+      commit,
+      "--",
+      "openspec/changes",
+    ]),
     git(storePath, [
       "ls-files",
       "--others",
