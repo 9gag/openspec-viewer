@@ -182,35 +182,52 @@ export function changeIdsAt(storePath, commit) {
 
 /**
  * Changes whose copy in the checkout differs from one commit: edited, committed on another
- * branch, untracked, or missing. tasks.md is left out, because every claim and checkmark
- * moves it on main and a difference there says nothing about the artifacts on the page.
- * Renames are not paired, because a file moved out of a change is a difference in the change
- * it left, and a rename names only where the file went. Two spawns for the whole store
- * rather than a pair per change, since the board runs this on every poll.
+ * branch, untracked, or missing. A tasks.md both sides hold is left out, because every
+ * claim and checkmark moves it on main and a difference there says nothing about the
+ * artifacts on the page; one only one side holds is a plan the other has not got. Renames
+ * are not paired, because a file moved out of a change is a difference in the change it
+ * left, and a rename names only where the file went. Two spawns for the whole store rather
+ * than a pair per change, since the board runs this on every poll.
  */
 export function changesDifferingFrom(storePath, commit) {
-  const files = [
+  const diffed = (
     git(storePath, [
       "diff",
-      "--name-only",
+      "--name-status",
       "--no-renames",
       commit,
       "--",
       "openspec/changes",
-    ]),
+    ]) ?? ""
+  )
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.split("\t"));
+  const untracked = (
     git(storePath, [
       "ls-files",
       "--others",
       "--exclude-standard",
       "--",
       "openspec/changes",
-    ]),
-  ].flatMap((out) => (out ?? "").split("\n"));
+    ]) ?? ""
+  )
+    .split("\n")
+    .filter(Boolean);
+  // Every status but an addition names a file the commit holds.
+  const atCommit = new Set(
+    diffed.filter(([status]) => status !== "A").map(([, file]) => file),
+  );
 
   const ids = new Set();
-  for (const file of files) {
+  for (const file of [...diffed.map(([, file]) => file), ...untracked]) {
     const [, id, rest] = file.match(/^openspec\/changes\/([^/]+)\/(.+)$/) ?? [];
-    if (id && id !== "archive" && rest !== "tasks.md") ids.add(id);
+    if (!id || id === "archive") continue;
+    const planOnBothSides =
+      rest === "tasks.md" &&
+      atCommit.has(file) &&
+      existsSync(join(storePath, file));
+    if (!planOnBothSides) ids.add(id);
   }
   return [...ids].sort();
 }

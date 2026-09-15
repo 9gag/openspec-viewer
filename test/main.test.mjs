@@ -179,4 +179,28 @@ describe("changesDifferingFrom", () => {
 
     assert.deepEqual(changesDifferingFrom(dir, main), [CHANGE, "wishlist"]);
   });
+
+  it("leaves out a plan both sides hold, since every claim moves it on main", () => {
+    const { dir, write, main } = agreeing();
+    write(TASKS, tasks("dana", true));
+
+    assert.deepEqual(changesDifferingFrom(dir, main), []);
+  });
+
+  it("names a plan only the checkout holds, committed or not", () => {
+    const { dir, git, write, commit, main } = agreeing();
+    git(["checkout", "-q", "-b", "plan/wishlist"]);
+    write("openspec/changes/wishlist/tasks.md", tasks(null));
+    assert.deepEqual(changesDifferingFrom(dir, main), ["wishlist"]);
+
+    commit("Plan wishlist");
+    assert.deepEqual(changesDifferingFrom(dir, main), ["wishlist"]);
+  });
+
+  it("names a plan only main holds", () => {
+    const { dir, main } = agreeing();
+    rmSync(join(dir, TASKS));
+
+    assert.deepEqual(changesDifferingFrom(dir, main), [CHANGE]);
+  });
 });
