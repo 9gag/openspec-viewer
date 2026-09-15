@@ -38,10 +38,12 @@ function storeState(store) {
     };
   if (!store.main)
     return { tone: "ok", label: "no origin", detail: "read from this checkout" };
-  if (store.differs.length > 0) {
+  // A change main has archived differs from it too: this checkout still has it in development.
+  const differing = store.differs.length + store.archived.length;
+  if (differing > 0) {
     return {
       tone: "warning",
-      label: `${store.differs.length} differ from ${store.main}`,
+      label: `${differing} differ from ${store.main}`,
       detail: `update this checkout to ${store.main} before reading them`,
     };
   }

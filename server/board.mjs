@@ -16,6 +16,7 @@
 import { join } from "node:path";
 
 import { changeArtifacts } from "./artifacts.mjs";
+import { conflicts } from "./catalog.mjs";
 import {
   catFile,
   git,
@@ -246,12 +247,16 @@ export function board(now = Date.now(), root = resolveRoot()) {
   const store = {
     ...storeStatus(root, main),
     unmerged: sync.unmerged,
+    archived: sync.archived,
     differs: sync.differs,
   };
 
   return {
     generatedAt: now,
     store,
+    // A directory scan per change, and the warning PM most needs before the archive that would
+    // expose it. Over the board's own rows, so a change main has archived is in no conflict.
+    conflicts: conflicts(root.path, sync.changes),
     // `capabilities` is the paths only, walked with specDirs rather than read with
     // capabilities() from change.mjs: the nav groups a change by the namespaces it deltas,
     // and a namespace is in the directory name. Reading the deltas for their kinds as well

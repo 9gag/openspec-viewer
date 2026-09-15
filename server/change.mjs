@@ -21,7 +21,7 @@ import { modifiedDrift } from "./deltas.mjs";
 import { checkReferences } from "./references.mjs";
 import {
   changeIds,
-  changeIdsAt,
+  changesAt,
   dirs,
   files,
   lastCommit,
@@ -104,7 +104,8 @@ export function change(changeId, root = resolveRoot()) {
   // Owners and checkmarks as the board reads them: at main, for a change in development there.
   const main = archived ? null : mainOf(root.path);
   const onMain =
-    main !== null && changeIdsAt(root.path, main.commit).includes(changeId);
+    main !== null &&
+    changesAt(root.path, main.commit).inDevelopment.includes(changeId);
   if (!inDevelopment && !archived) {
     // The board lists it, read at main, but a change's artifacts are this checkout's copy.
     return onMain

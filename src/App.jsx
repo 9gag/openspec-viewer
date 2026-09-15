@@ -95,12 +95,20 @@ function StoreWarnings({ store }) {
           description={`${store.differs.join(", ")}. Owners and checkmarks are read at ${store.main}, but the artifacts shown are this checkout's copy. Update this checkout to ${store.main} before reading them.`}
         />
       )}
+      {store.archived?.length > 0 && (
+        <Banner
+          status="warning"
+          container="card"
+          title={`${store.archived.length} change(s) in this checkout are already archived on ${store.main}`}
+          description={`${store.archived.join(", ")}. They have shipped, so the board leaves them out. Update this checkout to ${store.main} to read them in the archive.`}
+        />
+      )}
       {store.unmerged?.length > 0 && (
         <Banner
           status="info"
           container="card"
-          title={`${store.unmerged.length} change(s) in this checkout are not in development on ${store.main}`}
-          description={`${store.unmerged.join(", ")}. Unmerged, or already archived there: their groups are read from this checkout, and none can be claimed.`}
+          title={`${store.unmerged.length} change(s) in this checkout are not on ${store.main}`}
+          description={`${store.unmerged.join(", ")}. Unmerged: their groups are read from this checkout, and none can be claimed.`}
         />
       )}
     </VStack>

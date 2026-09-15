@@ -166,18 +166,28 @@ export function mainOf(storePath) {
   return commit ? { ref, commit } : null;
 }
 
-/** Changes in development at one commit — the archive is not one of them. */
-export function changeIdsAt(storePath, commit) {
-  return (
-    git(storePath, [
-      "ls-tree",
-      "-d",
-      "--name-only",
-      `${commit}:openspec/changes`,
-    ]) ?? ""
-  )
-    .split("\n")
-    .filter((name) => name && name !== "archive");
+/**
+ * The changes at one commit: those in development, and those archived, each archived one by
+ * its id rather than the dated directory it sits in. One `git ls-tree` for both.
+ */
+export function changesAt(storePath, commit) {
+  const inDevelopment = [];
+  const archived = [];
+  const listed = git(storePath, [
+    "ls-tree",
+    "-d",
+    "--name-only",
+    commit,
+    "openspec/changes/",
+    "openspec/changes/archive/",
+  ]);
+  for (const path of (listed ?? "").split("\n")) {
+    const [, archive, name] =
+      path.match(/^openspec\/changes\/(archive\/)?([^/]+)$/) ?? [];
+    if (archive) archived.push(name.replace(/^\d{4}-\d{2}-\d{2}-/, ""));
+    else if (name && name !== "archive") inDevelopment.push(name);
+  }
+  return { inDevelopment, archived };
 }
 
 /**
@@ -237,21 +247,32 @@ export function changesDifferingFrom(storePath, commit) {
  *
  * The plan is main's, so `changes` is every change in development there, whether or not this
  * checkout has it, and every change only this checkout has — `unmerged`. `onMain` is the
- * first half, whose task lists are read at main. `differs` names the changes on main whose
- * copy here is not main's. With no main the checkout is all there is, and all of it is read.
+ * first half, whose task lists are read at main. A change main has archived is in neither,
+ * though this checkout still has it in development: it is `archived`, since it has shipped
+ * and no claim can land on it. `differs` names the changes on main whose copy here is not
+ * main's. With no main the checkout is all there is, and all of it is read.
  */
 export function syncState(storePath, main) {
   const local = changeIds(storePath);
-  if (!main) return { changes: local, onMain: [], unmerged: [], differs: [] };
+  if (!main)
+    return {
+      changes: local,
+      onMain: [],
+      unmerged: [],
+      archived: [],
+      differs: [],
+    };
 
-  const onMain = changeIdsAt(storePath, main.commit);
-  const unmerged = local.filter((id) => !onMain.includes(id));
+  const at = changesAt(storePath, main.commit);
+  const offMain = local.filter((id) => !at.inDevelopment.includes(id));
+  const unmerged = offMain.filter((id) => !at.archived.includes(id));
   return {
-    changes: [...onMain, ...unmerged].sort(),
-    onMain,
+    changes: [...at.inDevelopment, ...unmerged].sort(),
+    onMain: at.inDevelopment,
     unmerged,
+    archived: offMain.filter((id) => at.archived.includes(id)),
     differs: changesDifferingFrom(storePath, main.commit).filter((id) =>
-      onMain.includes(id),
+      at.inDevelopment.includes(id),
     ),
   };
 }

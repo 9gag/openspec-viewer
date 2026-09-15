@@ -14,7 +14,7 @@ import { after, before, describe, it } from "node:test";
 import { board, groupsAt, readGroups, snapshots } from "../server/board.mjs";
 import { change } from "../server/change.mjs";
 import {
-  changeIdsAt,
+  changesAt,
   changesDifferingFrom,
   mainOf,
   syncState,
@@ -112,11 +112,11 @@ describe("mainOf", () => {
 });
 
 describe("reading the plan at main", () => {
-  it("lists the changes in development on main, not the checkout's", () => {
-    assert.deepEqual(changeIdsAt(store, mainOf(store).commit), [
-      CHANGE,
-      "wishlist",
-    ]);
+  it("lists the changes on main, not the checkout's, each archived one by its id", () => {
+    assert.deepEqual(changesAt(store, mainOf(store).commit), {
+      inDevelopment: [CHANGE, "wishlist"],
+      archived: ["cart"],
+    });
   });
 
   it("reads a claim on main that the checkout has not seen", () => {
@@ -209,17 +209,25 @@ describe("changesDifferingFrom", () => {
 
 describe("syncState", () => {
   /**
-   * Main holds guest-checkout and wishlist in development. The checkout is on a planning
-   * branch cut before wishlist, holding guest-checkout and a gift-cards change of its own.
+   * Main holds guest-checkout and wishlist in development, and has archived stock-alerts.
+   * The checkout is on a planning branch cut before either, holding guest-checkout,
+   * stock-alerts and a gift-cards change of its own.
    */
   function behind() {
     const { dir, git, write, commit } = clone();
     write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
-    commit("Add guest checkout");
+    write("openspec/changes/stock-alerts/proposal.md", "# Stock alerts\n");
+    commit("Add guest checkout and stock alerts");
     git(["checkout", "-q", "-b", "plan/gift-cards"]);
     git(["checkout", "-q", "main"]);
     write("openspec/changes/wishlist/proposal.md", "# Wishlist\n");
-    commit("Add wishlist");
+    mkdirSync(join(dir, "openspec/changes/archive"));
+    git([
+      "mv",
+      "openspec/changes/stock-alerts",
+      "openspec/changes/archive/2026-03-01-stock-alerts",
+    ]);
+    commit("Add wishlist, archive stock alerts");
     git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
     git(["checkout", "-q", "plan/gift-cards"]);
     write("openspec/changes/gift-cards/proposal.md", "# Gift cards\n");
@@ -231,14 +239,26 @@ describe("syncState", () => {
     const dir = behind();
     const sync = syncState(dir, mainOf(dir));
 
-    assert.deepEqual(sync.changes, ["gift-cards", CHANGE, "wishlist"]);
+    assert.ok(sync.changes.includes("wishlist"));
     assert.deepEqual(sync.onMain, [CHANGE, "wishlist"]);
-    assert.deepEqual(sync.unmerged, ["gift-cards"]);
     assert.deepEqual(sync.differs, ["wishlist"]);
   });
 
+  it("calls a change main has archived archived there, not unmerged, and leaves it out", () => {
+    const dir = behind();
+    const sync = syncState(dir, mainOf(dir));
+
+    assert.deepEqual(sync.unmerged, ["gift-cards"]);
+    assert.deepEqual(sync.changes, ["gift-cards", CHANGE, "wishlist"]);
+    assert.deepEqual(sync.archived, ["stock-alerts"]);
+  });
+
   it("is the checkout alone for a clone with no main", () => {
-    assert.deepEqual(syncState(behind(), null).changes, ["gift-cards", CHANGE]);
+    assert.deepEqual(syncState(behind(), null).changes, [
+      "gift-cards",
+      CHANGE,
+      "stock-alerts",
+    ]);
   });
 });
 
@@ -259,5 +279,34 @@ describe("board", () => {
     const row = board(Date.now(), root).changes.find((c) => c.id === "wishlist");
     assert.equal(row?.groups[0].owner, "dana");
     assert.match(change("wishlist", root).error, /in development on origin\/main/);
+  });
+
+  it("leaves off a change main has archived, and counts it in no conflict", () => {
+    const { dir, git, write, commit } = clone();
+    const delta = "## ADDED Requirements\n\n### Requirement: Limit\n";
+    write("openspec/changes/stock-alerts/proposal.md", "# Stock alerts\n");
+    write("openspec/changes/stock-alerts/specs/cart/spec.md", delta);
+    write(`openspec/changes/${CHANGE}/specs/cart/spec.md`, delta);
+    commit("Add stock alerts and guest checkout");
+    git(["checkout", "-q", "-b", "plan/old"]);
+    git(["checkout", "-q", "main"]);
+    mkdirSync(join(dir, "openspec/changes/archive"));
+    git([
+      "mv",
+      "openspec/changes/stock-alerts",
+      "openspec/changes/archive/2026-03-01-stock-alerts",
+    ]);
+    commit("Archive stock alerts");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(["checkout", "-q", "plan/old"]);
+
+    const read = board(Date.now(), { path: dir });
+    assert.deepEqual(
+      read.changes.map((c) => c.id),
+      [CHANGE],
+    );
+    assert.deepEqual(read.store.archived, ["stock-alerts"]);
+    assert.deepEqual(read.store.unmerged, []);
+    assert.deepEqual(read.conflicts, []);
   });
 });
