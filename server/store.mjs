@@ -205,6 +205,8 @@ export function changesDifferingFrom(storePath, commit) {
       "diff",
       "--name-status",
       "--no-renames",
+      // Paths from the store rather than the git root, for a store that sits below it.
+      "--relative",
       commit,
       "--",
       "openspec/changes",

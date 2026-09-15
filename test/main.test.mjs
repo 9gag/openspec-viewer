@@ -281,6 +281,20 @@ describe("board", () => {
     assert.match(change("wishlist", root).error, /in development on origin\/main/);
   });
 
+  it("reads main in a store below its git root", () => {
+    const { dir, git, write, commit } = clone();
+    write(`pkg/openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    write(`pkg/${TASKS}`, tasks("dana"));
+    commit("Add guest checkout, claimed by @dana");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    write(`pkg/openspec/changes/${CHANGE}/proposal.md`, "# Edited\n");
+
+    const read = board(Date.now(), { path: join(dir, "pkg") });
+    assert.equal(read.changes[0].groups[0].owner, "dana");
+    assert.equal(read.changes[0].lastActivity !== null, true);
+    assert.deepEqual(read.store.differs, [CHANGE]);
+  });
+
   it("leaves off a change main has archived, and counts it in no conflict", () => {
     const { dir, git, write, commit } = clone();
     const delta = "## ADDED Requirements\n\n### Requirement: Limit\n";

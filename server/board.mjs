@@ -82,16 +82,22 @@ export function parse(text) {
 const tasksPath = (changeId) => `openspec/changes/${changeId}/tasks.md`;
 
 /**
+ * A file at one commit, as `git cat-file` names it. `./` reads the path from the store
+ * rather than from the git root, for a store that sits below it.
+ */
+const refAt = (commit, rel) => `${commit}:./${rel}`;
+
+/**
  * Each change's tasks.md at one commit, keyed by id, null where it has none. One
  * `git cat-file` for all of them, since the board reads every change on every poll.
  */
 function tasksAt(storePath, commit, ids) {
   const texts = catFile(
     storePath,
-    ids.map((id) => `${commit}:${tasksPath(id)}`),
+    ids.map((id) => refAt(commit, tasksPath(id))),
   );
   return new Map(
-    ids.map((id) => [id, texts.get(`${commit}:${tasksPath(id)}`)]),
+    ids.map((id) => [id, texts.get(refAt(commit, tasksPath(id)))]),
   );
 }
 
@@ -164,12 +170,12 @@ function readSnapshots(storePath, changeId, rev) {
     .map((line) => line.split(" "));
   const texts = catFile(
     storePath,
-    commits.map(([sha]) => `${sha}:${rel}`),
+    commits.map(([sha]) => refAt(sha, rel)),
   );
 
   const out = [];
   for (const [sha, when] of commits) {
-    const text = texts.get(`${sha}:${rel}`);
+    const text = texts.get(refAt(sha, rel));
     if (text === null) continue; // the commit that deleted or renamed it
     out.push({ sha, at: Number(when) * 1000, groups: indexByNum(parse(text)) });
   }
