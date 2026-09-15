@@ -25,7 +25,10 @@ export function initialFilter() {
   return FILTERS.includes(value) ? value : null;
 }
 
-/** Sync state of the clone, since everything else on the page is read from it. */
+/**
+ * Where the plan is read, and whether the checkout agrees: owners and checkmarks are read
+ * at main, but a change's artifacts are the checkout's copy.
+ */
 function storeState(store) {
   if (!store.git)
     return {
@@ -33,31 +36,22 @@ function storeState(store) {
       label: "not a git repo",
       detail: "plans cannot be shared",
     };
-  if (store.behind > 0) {
-    return {
-      tone: "error",
-      label: `${store.behind} behind`,
-      detail: `run ${store.cli} sync`,
-    };
-  }
-  if (store.dirty > 0) {
+  if (!store.main)
+    return { tone: "ok", label: "no origin", detail: "read from this checkout" };
+  if (store.differs.length > 0) {
     return {
       tone: "warning",
-      label: `${store.dirty} uncommitted`,
-      detail: "unpushed checkmarks are invisible",
-    };
-  }
-  if (store.ahead > 0) {
-    return {
-      tone: "warning",
-      label: `${store.ahead} unpushed`,
-      detail: "the team cannot see these yet",
+      label: `${store.differs.length} differ from ${store.main}`,
+      detail: `update this checkout to ${store.main} before reading them`,
     };
   }
   return {
     tone: "ok",
-    label: store.upstream ? "up to date" : "no upstream",
-    detail: store.upstream ?? "nothing to be stale against",
+    label: `read at ${store.main}`,
+    detail:
+      store.unmerged.length > 0
+        ? `${store.unmerged.length} not on ${store.main}`
+        : `checkout on ${store.branch}`,
   };
 }
 
@@ -96,7 +90,8 @@ export function summarize(board) {
       const tone = level(group.idle);
       if (tone === "stale" || tone === "quiet")
         idle.push({ change: ch.id, group, tone });
-      else if (!group.owner && group.done < group.total)
+      // A change not on main cannot be claimed yet, so its open groups are nobody's work.
+      else if (!ch.unmerged && !group.owner && group.done < group.total)
         unclaimed.push({ change: ch.id, group });
     }
 
@@ -146,7 +141,8 @@ export function changeState(change) {
     const tone = level(group.idle);
     if (tone === "stale") return { variant: "error", label: "idle claim" };
     if (tone === "quiet") quiet = true;
-    else if (!group.owner && group.done < group.total) unclaimed = true;
+    else if (!change.unmerged && !group.owner && group.done < group.total)
+      unclaimed = true;
   }
 
   if (quiet) return { variant: "warning", label: "idle claim" };

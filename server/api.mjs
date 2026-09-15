@@ -6,7 +6,7 @@
  * the failure this file exists to make impossible.
  *
  * GET only: this is a viewer, and writes belong to `openspec claim` / `done` /
- * `unclaim` so that every change to the plan stays a commit somebody can push.
+ * `unclaim` so that every change to the plan stays a commit on the store's main.
  */
 
 import { board } from "./board.mjs";

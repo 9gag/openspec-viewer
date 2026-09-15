@@ -48,7 +48,13 @@ const artifacts = (...written) =>
   }));
 
 const board = (changes, extra = {}) => ({
-  store: { git: true, upstream: "origin/main", behind: 0, ahead: 0, dirty: 0 },
+  store: {
+    git: true,
+    main: "origin/main",
+    branch: "main",
+    differs: [],
+    unmerged: [],
+  },
   changes,
   conflicts: [],
   ...extra,
@@ -274,57 +280,38 @@ describe("summarize gaps", () => {
 });
 
 describe("summarize store state", () => {
-  const state = (store) => summarize(board([], { store })).store;
+  const state = (store) =>
+    summarize(board([], { store: { ...board([]).store, ...store } })).store;
 
-  it("reports being behind as the loudest problem, since the whole page is read from here", () => {
-    assert.equal(
-      state({
-        git: true,
-        upstream: "origin/main",
-        behind: 3,
-        ahead: 1,
-        dirty: 2,
-      }).tone,
-      "error",
-    );
-    assert.match(
-      state({ git: true, upstream: "origin/main", behind: 3 }).label,
-      /3 behind/,
-    );
+  it("warns when a checkout copy differs from main, since the artifacts are read from it", () => {
+    const s = state({ differs: ["cart"], unmerged: ["stock-alerts"] });
+    assert.equal(s.tone, "warning");
+    assert.equal(s.label, "1 differ from origin/main");
   });
 
-  it("warns about uncommitted and unpushed work without calling it an error", () => {
-    assert.equal(
-      state({ git: true, upstream: "origin/main", behind: 0, dirty: 2 }).tone,
-      "warning",
-    );
-    assert.equal(
-      state({
-        git: true,
-        upstream: "origin/main",
-        behind: 0,
-        ahead: 1,
-        dirty: 0,
-      }).tone,
-      "warning",
-    );
+  it("counts a change only the checkout has without calling it a problem", () => {
+    const s = state({ unmerged: ["stock-alerts"] });
+    assert.equal(s.tone, "ok");
+    assert.equal(s.detail, "1 not on origin/main");
   });
 
-  it("is ok when clean, and says so differently with no upstream", () => {
-    assert.equal(
-      state({
-        git: true,
-        upstream: "origin/main",
-        behind: 0,
-        ahead: 0,
-        dirty: 0,
-      }).tone,
-      "ok",
-    );
-    assert.equal(
-      state({ git: true, upstream: null, behind: 0, ahead: 0, dirty: 0 }).label,
-      "no upstream",
-    );
+  it("is ok when the checkout agrees with main, and says so differently with no origin", () => {
+    assert.equal(state({}).tone, "ok");
+    assert.equal(state({}).label, "read at origin/main");
+    assert.equal(state({ main: null }).label, "no origin");
+  });
+
+  it("offers no claim on a change that is not on main", () => {
+    const unmerged = {
+      id: "stock-alerts",
+      unmerged: true,
+      planning: false,
+      done: 0,
+      total: 4,
+      groups: [group("1")],
+    };
+    assert.equal(summarize(board([unmerged])).unclaimed.length, 0);
+    assert.equal(changeState(unmerged).label, "not started");
   });
 
   it("treats a store that is not a git repo as an error", () => {
