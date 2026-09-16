@@ -20,6 +20,7 @@ import { readGroups } from "./board.mjs";
 import { modifiedDrift } from "./deltas.mjs";
 import { checkReferences } from "./references.mjs";
 import {
+  capabilityDirs,
   changeIds,
   dirs,
   files,
@@ -27,10 +28,18 @@ import {
   openspecText,
   read,
   resolveRoot,
-  specDirs,
 } from "./store.mjs";
 
-/** The capabilities this change deltas, and whether each is new or a change to shipped behavior. */
+/**
+ * The capabilities this change touches, and whether each is new or a change to shipped
+ * behavior.
+ *
+ * Touches rather than deltas: a capability directory is opened by whichever document is
+ * written into it first, and under a schema that has the journeys written ahead of the
+ * requirements that is not the spec. One with no `spec.md` yet comes back with no kinds
+ * and an empty text, carrying the documents that *are* there — which is the whole reason
+ * it has to be listed, since the tabs for those documents are gathered from here.
+ */
 export function capabilities(storePath, changeId, archived = false) {
   const base = archived
     ? join(storePath, "openspec", "changes", "archive", changeId, "specs")
@@ -38,7 +47,7 @@ export function capabilities(storePath, changeId, archived = false) {
 
   const rel = `openspec/changes/${archived ? "archive/" : ""}${changeId}/specs`;
 
-  return specDirs(base).map((cap) => {
+  return capabilityDirs(base).map((cap) => {
     const text = read(join(base, cap, "spec.md")) ?? "";
     // A delta that rewrites shipped behavior carries `## MODIFIED Requirements`; a new
     // capability opens with `## Purpose`. This is the distinction that decides whether

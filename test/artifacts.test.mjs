@@ -22,6 +22,7 @@ import {
   label,
   schemaArtifacts,
 } from "../server/artifacts.mjs";
+import { capabilityDirs } from "../server/store.mjs";
 
 let store;
 
@@ -69,6 +70,14 @@ function change(id, schemaName, files, capabilities = []) {
     writeFileSync(spec, "## ADDED Requirements\n");
   }
   return join("openspec", "changes", id);
+}
+
+/**
+ * A capability directory with no delta in it yet — what a change carries between the
+ * first document filed under a capability and the spec that arrives later.
+ */
+function capabilityDir(dir, cap) {
+  mkdirSync(join(store, dir, "specs", cap), { recursive: true });
 }
 
 /** A document filed beside a capability's spec, where a per-capability artifact writes it. */
@@ -216,6 +225,31 @@ describe("changeArtifacts", () => {
       [
         ["specs", true],
         ["user-journeys", false],
+      ],
+    );
+  });
+
+  it("finds a per-capability artifact written before the delta beside it", () => {
+    // A schema is free to declare the journeys ahead of the requirements, and this store
+    // does — so between the two there is a capability directory holding user-journeys.md
+    // and no spec.md. Read with the baseline's rule, that change had no capabilities at
+    // all: the journeys its author had already written were reported missing, and the tab
+    // that would have opened them was never built.
+    schema("journeys-first", [
+      ["user-journeys", "specs/**/user-journeys.md"],
+      ["specs", "specs/**/spec.md"],
+    ]);
+    const dir = change("add-stock-alerts", "journeys-first", []);
+    capabilityDir(dir, "storefront/checkout");
+    capabilityDoc(dir, "storefront/checkout", "user-journeys.md");
+
+    assert.deepEqual(
+      changeArtifacts(store, dir).map((a) => [a.name, a.present]),
+      [
+        ["user-journeys", true],
+        // Still missing, and it is the directory that made it look otherwise: the spec is
+        // the file, not the folder it will be written into.
+        ["specs", false],
       ],
     );
   });
@@ -397,6 +431,31 @@ describe("completeness", () => {
     ]);
   });
 
+  it("names the journeys a change wrote before it wrote any spec", () => {
+    schema("journeys-first", [
+      ["user-journeys", "specs/**/user-journeys.md"],
+      ["specs", "specs/**/spec.md"],
+    ]);
+    const dir = change("add-stock-alerts", "journeys-first", []);
+    capabilityDir(dir, "storefront/checkout");
+    capabilityDoc(dir, "storefront/checkout", "user-journeys.md");
+
+    assert.deepEqual(completeness(store, dir), [
+      {
+        name: "user-journeys",
+        expected: "specs/**/user-journeys.md",
+        present: true,
+        paths: ["specs/storefront/checkout/user-journeys.md"],
+      },
+      {
+        name: "specs",
+        expected: "specs/**/spec.md",
+        present: false,
+        paths: [],
+      },
+    ]);
+  });
+
   it("counts every spec file a delta wrote, not just the first", () => {
     schema("full-planning", declared);
     const dir = change(
@@ -473,5 +532,42 @@ describe("capabilityDocs", () => {
       ),
       [],
     );
+  });
+});
+
+/**
+ * Which directories under a change's `specs/` are capabilities at all.
+ *
+ * The baseline answers this with `spec.md`, because the baseline is nothing but specs. A
+ * change is a plan being written in stages, so inside one the same question has to be
+ * answered by the documents that are there rather than the one that comes last.
+ */
+describe("capabilityDirs", () => {
+  /** A directory under a change's specs, with the files named in it. */
+  const dir = (path, ...names) => {
+    const abs = join(store, "specs", path);
+    mkdirSync(abs, { recursive: true });
+    for (const name of names) writeFileSync(join(abs, name), `# ${name}\n`);
+  };
+
+  const found = () => capabilityDirs(join(store, "specs"));
+
+  it("counts a directory holding any of the change's documents, at any depth", () => {
+    dir("storefront/checkout", "user-journeys.md");
+    dir("shared/ui/cart", "spec.md");
+    assert.deepEqual(found(), ["shared/ui/cart", "storefront/checkout"]);
+  });
+
+  it("leaves a grouping a grouping, whatever is filed at that level", () => {
+    // A README beside the products is a note about the deltas, not a capability called
+    // "specs/storefront" — and reading it as one would hide the capability under it.
+    dir("storefront", "README.md");
+    dir("storefront/checkout", "user-journeys.md");
+    assert.deepEqual(found(), ["storefront/checkout"]);
+  });
+
+  it("is empty for a directory tree with nothing written in it yet", () => {
+    dir("storefront/checkout");
+    assert.deepEqual(found(), []);
   });
 });
