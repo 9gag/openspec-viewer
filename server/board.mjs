@@ -18,13 +18,13 @@ import { join } from "node:path";
 import { changeArtifacts } from "./artifacts.mjs";
 import { conflicts } from "./catalog.mjs";
 import {
+  capabilityDirs,
   catFile,
   git,
   headSignature,
   mainOf,
   read,
   resolveRoot,
-  specDirs,
   storeStatus,
   syncState,
 } from "./store.mjs";
@@ -263,7 +263,7 @@ export function board(now = Date.now(), root = resolveRoot()) {
     // A directory scan per change, and the warning PM most needs before the archive that would
     // expose it. Over the board's own rows, so a change main has archived is in no conflict.
     conflicts: conflicts(root.path, sync.changes),
-    // `capabilities` is the paths only, walked with specDirs rather than read with
+    // `capabilities` is the paths only, walked with capabilityDirs rather than read with
     // capabilities() from change.mjs: the nav groups a change by the namespaces it deltas,
     // and a namespace is in the directory name. Reading the deltas for their kinds as well
     // would put a file read per capability per change on every poll to learn nothing this
@@ -286,7 +286,7 @@ export function board(now = Date.now(), root = resolveRoot()) {
         present,
         declared,
       }));
-      const capabilities = specDirs(
+      const capabilities = capabilityDirs(
         join(root.path, "openspec", "changes", id, "specs"),
       );
       if (!groups) {

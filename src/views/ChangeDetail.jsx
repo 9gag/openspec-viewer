@@ -476,8 +476,13 @@ export default function ChangeDetail({ id, tab, position }) {
           re-reads it without any wiring. Tasks has its own structure and no prose. */}
         <WithOutline>
           {current?.kind === "specs" && (
+            /* The ones whose delta is written. A capability directory exists from the
+              moment the first document is filed in it — a schema that has the journeys
+              written before the requirements leaves one standing there with no spec for
+              the length of that stage — and this tab is the requirements. The document
+              filed in it has a tab of its own. */
             <Capabilities
-              capabilities={data.capabilities}
+              capabilities={data.capabilities.filter((c) => c.text)}
               position={position}
             />
           )}

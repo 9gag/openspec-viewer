@@ -15,7 +15,13 @@
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { files, lastCommit, openspecJson, read, specDirs } from "./store.mjs";
+import {
+  capabilityDirs,
+  files,
+  lastCommit,
+  openspecJson,
+  read,
+} from "./store.mjs";
 
 /**
  * Ordering used only when the schema cannot be read at all — a change directory with no
@@ -261,7 +267,7 @@ export function schemaArtifacts(storePath, name) {
 export function changeArtifacts(storePath, dir) {
   const base = join(storePath, dir);
   const unclaimed = new Set(files(base));
-  const caps = specDirs(join(base, "specs"));
+  const caps = capabilityDirs(join(base, "specs"));
 
   const schema = schemaArtifacts(storePath, schemaFor(storePath, base));
   const order = schema.length
@@ -287,7 +293,9 @@ export function changeArtifacts(storePath, dir) {
         label: label(id),
         kind,
         declared,
-        present: caps.length > 0,
+        // The spec, not the directory: a capability directory exists from the moment the
+        // first document is filed in it, and the deltas are written later.
+        present: capabilityPaths(base, caps, "spec.md").length > 0,
       });
       continue;
     }
@@ -360,13 +368,13 @@ export function completeness(storePath, dir) {
   if (!declared.length) return null;
 
   const here = files(base);
-  const caps = specDirs(join(base, "specs"));
+  const caps = capabilityDirs(join(base, "specs"));
   return declared.map(({ id, generates }) => {
     const file = capabilityFile(generates);
     const paths = file
       ? capabilityPaths(base, caps, file)
       : kindOf(generates) === "specs"
-        ? caps.map((cap) => `specs/${cap}/spec.md`)
+        ? capabilityPaths(base, caps, "spec.md")
         : here.includes(generates)
           ? [generates]
           : [];
