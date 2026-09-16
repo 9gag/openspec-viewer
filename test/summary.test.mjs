@@ -54,6 +54,7 @@ const board = (changes, extra = {}) => ({
     branch: "main",
     differs: [],
     unmerged: [],
+    archived: [],
   },
   changes,
   conflicts: [],
@@ -285,6 +286,12 @@ describe("summarize store state", () => {
 
   it("warns when a checkout copy differs from main, since the artifacts are read from it", () => {
     const s = state({ differs: ["cart"], unmerged: ["stock-alerts"] });
+    assert.equal(s.tone, "warning");
+    assert.equal(s.label, "1 differ from origin/main");
+  });
+
+  it("warns when this checkout still has in development a change main has archived", () => {
+    const s = state({ archived: ["stock-alerts"] });
     assert.equal(s.tone, "warning");
     assert.equal(s.label, "1 differ from origin/main");
   });

@@ -10,28 +10,14 @@
  */
 
 import { board } from "./board.mjs";
-import {
-  archive,
-  capability,
-  capabilityCatalog,
-  conflicts,
-} from "./catalog.mjs";
+import { archive, capability, capabilityCatalog } from "./catalog.mjs";
 import { change, validate } from "./change.mjs";
 import { doc } from "./doc.mjs";
 import { corpus, search } from "./search.mjs";
-import { changeIds, resolveRoot } from "./store.mjs";
+import { resolveRoot } from "./store.mjs";
 
 const ROUTES = {
-  "/api/board": () => {
-    const data = board();
-    const root = resolveRoot();
-    // Folded into the board rather than given its own view: it is a directory scan per
-    // change, and it is the warning PM most needs before the archive that would expose it.
-    return {
-      ...data,
-      conflicts: conflicts(root.path, changeIds(root.path)),
-    };
-  },
+  "/api/board": () => board(),
   "/api/change": (url) => {
     const id = url.searchParams.get("id");
     if (!id) return { error: "missing ?id" };

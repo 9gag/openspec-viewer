@@ -21,7 +21,7 @@ import { modifiedDrift } from "./deltas.mjs";
 import { checkReferences } from "./references.mjs";
 import {
   changeIds,
-  changeIdsAt,
+  changesAt,
   dirs,
   files,
   lastCommit,
@@ -95,23 +95,32 @@ export function validate(changeId) {
   };
 }
 
-export function change(changeId) {
-  const root = resolveRoot();
+/** `root` is the resolved store, as `board()` takes it. */
+export function change(changeId, root = resolveRoot()) {
   const inDevelopment = changeIds(root.path).includes(changeId);
   const archived =
     !inDevelopment &&
     dirs(join(root.path, "openspec", "changes", "archive")).includes(changeId);
-  if (!inDevelopment && !archived) return null;
+  // Owners and checkmarks as the board reads them: at main, for a change in development there.
+  const main = archived ? null : mainOf(root.path);
+  const onMain =
+    main !== null &&
+    changesAt(root.path, main.commit).inDevelopment.includes(changeId);
+  if (!inDevelopment && !archived) {
+    // The board lists it, read at main, but a change's artifacts are this checkout's copy.
+    return onMain
+      ? {
+          error: `${changeId} is in development on ${main.ref}, and not in development in this checkout, whose copy of a change is what this page reads.`,
+        }
+      : null;
+  }
 
   const dir = archived
     ? join("openspec", "changes", "archive", changeId)
     : join("openspec", "changes", changeId);
-  // Owners and checkmarks as the board reads them: at main, for a change in development there.
-  const main = archived ? null : mainOf(root.path);
-  const groups =
-    main && changeIdsAt(root.path, main.commit).includes(changeId)
-      ? groupsAt(root.path, main.commit, changeId)
-      : readGroups(root.path, changeId, archived);
+  const groups = onMain
+    ? groupsAt(root.path, main.commit, changeId)
+    : readGroups(root.path, changeId, archived);
 
   return {
     id: changeId,

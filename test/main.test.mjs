@@ -11,32 +11,48 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, before, describe, it } from "node:test";
 
-import { groupsAt, readGroups, snapshots } from "../server/board.mjs";
+import { board, groupsAt, readGroups, snapshots } from "../server/board.mjs";
+import { change } from "../server/change.mjs";
 import {
-  changeIdsAt,
+  changesAt,
   changesDifferingFrom,
   mainOf,
+  syncState,
 } from "../server/store.mjs";
 
 const CHANGE = "guest-checkout";
 const TASKS = `openspec/changes/${CHANGE}/tasks.md`;
-let store;
+const clones = [];
 
-const git = (args, options = {}) =>
-  execFileSync("git", args, { cwd: store, encoding: "utf8", ...options }).trim();
-
-function write(rel, text) {
-  mkdirSync(dirname(join(store, rel)), { recursive: true });
-  writeFileSync(join(store, rel), text);
+/** A fresh git repository, with the few moves these tests make in it. */
+function clone() {
+  const dir = mkdtempSync(join(tmpdir(), "openspec-viewer-main-"));
+  clones.push(dir);
+  const git = (args, options = {}) =>
+    execFileSync("git", args, { cwd: dir, encoding: "utf8", ...options }).trim();
+  const write = (rel, text) => {
+    mkdirSync(dirname(join(dir, rel)), { recursive: true });
+    writeFileSync(join(dir, rel), text);
+  };
+  const commit = (message) => {
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", message]);
+  };
+  git(["init", "-q", "-b", "main"]);
+  git(["config", "user.email", "test@example.com"]);
+  git(["config", "user.name", "Test"]);
+  return { dir, git, write, commit };
 }
 
-function commit(message) {
-  git(["add", "-A"]);
-  git(["commit", "-q", "-m", message]);
-}
+after(() => {
+  for (const dir of clones) rmSync(dir, { recursive: true, force: true });
+});
 
 const tasks = (owner, done = false) =>
   `## 1. Payment${owner ? ` (owner: @${owner})` : ""}\n\n- [${done ? "x" : " "}] 1.1 Take it\n`;
+
+let store;
+let git;
 
 /** A commit on origin/main that never touches the checkout, the way a claim lands. */
 function recordOnMain(text) {
@@ -51,10 +67,9 @@ function recordOnMain(text) {
 }
 
 before(() => {
-  store = mkdtempSync(join(tmpdir(), "openspec-viewer-main-"));
-  git(["init", "-q", "-b", "main"]);
-  git(["config", "user.email", "test@example.com"]);
-  git(["config", "user.name", "Test"]);
+  let write;
+  let commit;
+  ({ dir: store, git, write, commit } = clone());
   write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
   write(TASKS, tasks(null));
   write("openspec/changes/archive/2026-01-01-cart/proposal.md", "# Cart\n");
@@ -71,8 +86,6 @@ before(() => {
   git(["checkout", "-q", "plan/stock-alerts"]);
   write("openspec/changes/stock-alerts/proposal.md", "# Stock alerts\n");
 });
-
-after(() => rmSync(store, { recursive: true, force: true }));
 
 describe("mainOf", () => {
   it("names origin/main and the commit it points at", () => {
@@ -94,22 +107,16 @@ describe("mainOf", () => {
   });
 
   it("is null for a clone with no main to read", () => {
-    const bare = mkdtempSync(join(tmpdir(), "openspec-viewer-nomain-"));
-    try {
-      execFileSync("git", ["init", "-q", "-b", "main"], { cwd: bare });
-      assert.equal(mainOf(bare), null);
-    } finally {
-      rmSync(bare, { recursive: true, force: true });
-    }
+    assert.equal(mainOf(clone().dir), null);
   });
 });
 
 describe("reading the plan at main", () => {
-  it("lists the changes in development on main, not the checkout's", () => {
-    assert.deepEqual(changeIdsAt(store, mainOf(store).commit), [
-      CHANGE,
-      "wishlist",
-    ]);
+  it("lists the changes on main, not the checkout's, each archived one by its id", () => {
+    assert.deepEqual(changesAt(store, mainOf(store).commit), {
+      inDevelopment: [CHANGE, "wishlist"],
+      archived: ["cart"],
+    });
   });
 
   it("reads a claim on main that the checkout has not seen", () => {
@@ -135,6 +142,17 @@ describe("reading the plan at main", () => {
 });
 
 describe("changesDifferingFrom", () => {
+  /** A checkout on main itself, so anything it reports is what the test did to it. */
+  function agreeing() {
+    const repo = clone();
+    repo.write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    repo.write(TASKS, tasks(null));
+    repo.write("openspec/changes/wishlist/proposal.md", "# Wishlist\n");
+    repo.commit("Add guest checkout and wishlist");
+    repo.git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    return { ...repo, main: mainOf(repo.dir).commit };
+  }
+
   it("names what the checkout lacks or adds, and leaves tasks.md out", () => {
     const { commit: main } = mainOf(store);
     assert.deepEqual(changesDifferingFrom(store, main), [
@@ -142,11 +160,167 @@ describe("changesDifferingFrom", () => {
       "wishlist",
     ]);
 
-    write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout, edited\n");
+    writeFileSync(
+      join(store, "openspec/changes", CHANGE, "proposal.md"),
+      "# Guest checkout, edited\n",
+    );
     assert.deepEqual(changesDifferingFrom(store, main), [
       CHANGE,
       "stock-alerts",
       "wishlist",
     ]);
+  });
+
+  it("names both changes a file moves between", () => {
+    const { dir, git, main } = agreeing();
+    git([
+      "mv",
+      `openspec/changes/${CHANGE}/proposal.md`,
+      "openspec/changes/wishlist/design.md",
+    ]);
+
+    assert.deepEqual(changesDifferingFrom(dir, main), [CHANGE, "wishlist"]);
+  });
+
+  it("leaves out a plan both sides hold, since every claim moves it on main", () => {
+    const { dir, write, main } = agreeing();
+    write(TASKS, tasks("dana", true));
+
+    assert.deepEqual(changesDifferingFrom(dir, main), []);
+  });
+
+  it("names a plan only the checkout holds, committed or not", () => {
+    const { dir, git, write, commit, main } = agreeing();
+    git(["checkout", "-q", "-b", "plan/wishlist"]);
+    write("openspec/changes/wishlist/tasks.md", tasks(null));
+    assert.deepEqual(changesDifferingFrom(dir, main), ["wishlist"]);
+
+    commit("Plan wishlist");
+    assert.deepEqual(changesDifferingFrom(dir, main), ["wishlist"]);
+  });
+
+  it("names a plan only main holds", () => {
+    const { dir, main } = agreeing();
+    rmSync(join(dir, TASKS));
+
+    assert.deepEqual(changesDifferingFrom(dir, main), [CHANGE]);
+  });
+});
+
+describe("syncState", () => {
+  /**
+   * Main holds guest-checkout and wishlist in development, and has archived stock-alerts.
+   * The checkout is on a planning branch cut before either, holding guest-checkout,
+   * stock-alerts and a gift-cards change of its own.
+   */
+  function behind() {
+    const { dir, git, write, commit } = clone();
+    write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    write("openspec/changes/stock-alerts/proposal.md", "# Stock alerts\n");
+    commit("Add guest checkout and stock alerts");
+    git(["checkout", "-q", "-b", "plan/gift-cards"]);
+    git(["checkout", "-q", "main"]);
+    write("openspec/changes/wishlist/proposal.md", "# Wishlist\n");
+    mkdirSync(join(dir, "openspec/changes/archive"));
+    git([
+      "mv",
+      "openspec/changes/stock-alerts",
+      "openspec/changes/archive/2026-03-01-stock-alerts",
+    ]);
+    commit("Add wishlist, archive stock alerts");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(["checkout", "-q", "plan/gift-cards"]);
+    write("openspec/changes/gift-cards/proposal.md", "# Gift cards\n");
+    commit("Add gift cards");
+    return dir;
+  }
+
+  it("lists a change in development on main that this checkout lacks", () => {
+    const dir = behind();
+    const sync = syncState(dir, mainOf(dir));
+
+    assert.ok(sync.changes.includes("wishlist"));
+    assert.deepEqual(sync.onMain, [CHANGE, "wishlist"]);
+    assert.deepEqual(sync.differs, ["wishlist"]);
+  });
+
+  it("calls a change main has archived archived there, not unmerged, and leaves it out", () => {
+    const dir = behind();
+    const sync = syncState(dir, mainOf(dir));
+
+    assert.deepEqual(sync.unmerged, ["gift-cards"]);
+    assert.deepEqual(sync.changes, ["gift-cards", CHANGE, "wishlist"]);
+    assert.deepEqual(sync.archived, ["stock-alerts"]);
+  });
+
+  it("is the checkout alone for a clone with no main", () => {
+    assert.deepEqual(syncState(behind(), null).changes, [
+      "gift-cards",
+      CHANGE,
+      "stock-alerts",
+    ]);
+  });
+});
+
+describe("board", () => {
+  it("lists a change on main this checkout lacks, read there, and its page says so", () => {
+    const { dir, git, write, commit } = clone();
+    write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    commit("Add guest checkout");
+    git(["checkout", "-q", "-b", "plan/gift-cards"]);
+    git(["checkout", "-q", "main"]);
+    write("openspec/changes/wishlist/proposal.md", "# Wishlist\n");
+    write("openspec/changes/wishlist/tasks.md", tasks("dana"));
+    commit("Add wishlist, claimed by @dana");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(["checkout", "-q", "plan/gift-cards"]);
+
+    const root = { path: dir };
+    const row = board(Date.now(), root).changes.find((c) => c.id === "wishlist");
+    assert.equal(row?.groups[0].owner, "dana");
+    assert.match(change("wishlist", root).error, /in development on origin\/main/);
+  });
+
+  it("reads main in a store below its git root", () => {
+    const { dir, git, write, commit } = clone();
+    write(`pkg/openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    write(`pkg/${TASKS}`, tasks("dana"));
+    commit("Add guest checkout, claimed by @dana");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    write(`pkg/openspec/changes/${CHANGE}/proposal.md`, "# Edited\n");
+
+    const read = board(Date.now(), { path: join(dir, "pkg") });
+    assert.equal(read.changes[0].groups[0].owner, "dana");
+    assert.equal(read.changes[0].lastActivity !== null, true);
+    assert.deepEqual(read.store.differs, [CHANGE]);
+  });
+
+  it("leaves off a change main has archived, and counts it in no conflict", () => {
+    const { dir, git, write, commit } = clone();
+    const delta = "## ADDED Requirements\n\n### Requirement: Limit\n";
+    write("openspec/changes/stock-alerts/proposal.md", "# Stock alerts\n");
+    write("openspec/changes/stock-alerts/specs/cart/spec.md", delta);
+    write(`openspec/changes/${CHANGE}/specs/cart/spec.md`, delta);
+    commit("Add stock alerts and guest checkout");
+    git(["checkout", "-q", "-b", "plan/old"]);
+    git(["checkout", "-q", "main"]);
+    mkdirSync(join(dir, "openspec/changes/archive"));
+    git([
+      "mv",
+      "openspec/changes/stock-alerts",
+      "openspec/changes/archive/2026-03-01-stock-alerts",
+    ]);
+    commit("Archive stock alerts");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(["checkout", "-q", "plan/old"]);
+
+    const read = board(Date.now(), { path: dir });
+    assert.deepEqual(
+      read.changes.map((c) => c.id),
+      [CHANGE],
+    );
+    assert.deepEqual(read.store.archived, ["stock-alerts"]);
+    assert.deepEqual(read.store.unmerged, []);
+    assert.deepEqual(read.conflicts, []);
   });
 });

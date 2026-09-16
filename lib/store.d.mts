@@ -123,7 +123,7 @@ export function idleness(
 /**
  * Every in-development delta in the store, keyed by capability.
  *
- * @param changeIds Defaults to every change in development.
+ * @param changeIds Defaults to every change in development in this checkout.
  */
 export function deltasInDevelopment(
   storePath: string,

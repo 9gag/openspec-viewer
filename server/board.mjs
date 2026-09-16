@@ -16,11 +16,9 @@
 import { join } from "node:path";
 
 import { changeArtifacts } from "./artifacts.mjs";
+import { conflicts } from "./catalog.mjs";
 import {
   catFile,
-  changeIds,
-  changeIdsAt,
-  changesDifferingFrom,
   git,
   headSignature,
   mainOf,
@@ -28,6 +26,7 @@ import {
   resolveRoot,
   specDirs,
   storeStatus,
+  syncState,
 } from "./store.mjs";
 
 /**
@@ -83,16 +82,22 @@ export function parse(text) {
 const tasksPath = (changeId) => `openspec/changes/${changeId}/tasks.md`;
 
 /**
+ * A file at one commit, as `git cat-file` names it. `./` reads the path from the store
+ * rather than from the git root, for a store that sits below it.
+ */
+const refAt = (commit, rel) => `${commit}:./${rel}`;
+
+/**
  * Each change's tasks.md at one commit, keyed by id, null where it has none. One
  * `git cat-file` for all of them, since the board reads every change on every poll.
  */
 function tasksAt(storePath, commit, ids) {
   const texts = catFile(
     storePath,
-    ids.map((id) => `${commit}:${tasksPath(id)}`),
+    ids.map((id) => refAt(commit, tasksPath(id))),
   );
   return new Map(
-    ids.map((id) => [id, texts.get(`${commit}:${tasksPath(id)}`)]),
+    ids.map((id) => [id, texts.get(refAt(commit, tasksPath(id)))]),
   );
 }
 
@@ -165,12 +170,12 @@ function readSnapshots(storePath, changeId, rev) {
     .map((line) => line.split(" "));
   const texts = catFile(
     storePath,
-    commits.map(([sha]) => `${sha}:${rel}`),
+    commits.map(([sha]) => refAt(sha, rel)),
   );
 
   const out = [];
   for (const [sha, when] of commits) {
-    const text = texts.get(`${sha}:${rel}`);
+    const text = texts.get(refAt(sha, rel));
     if (text === null) continue; // the commit that deleted or renamed it
     out.push({ sha, at: Number(when) * 1000, groups: indexByNum(parse(text)) });
   }
@@ -232,43 +237,38 @@ export function idleness(group, snaps, now) {
   };
 }
 
-/** The whole board, as JSON. Throws if the store cannot be resolved at all. */
-export function board(now = Date.now()) {
-  const root = resolveRoot();
+/**
+ * The whole board, as JSON. Throws if the store cannot be resolved at all. `root` is the
+ * resolved store, passed by a test that has a clone and no CLI to resolve one.
+ */
+export function board(now = Date.now(), root = resolveRoot()) {
   const main = mainOf(root.path);
-  const ids = changeIds(root.path);
   // Claims and checkmarks are commits on main, so a change in development there has its
-  // task list and history read at main. One only this checkout has — unmerged, or already
-  // archived on main — is read from disk, and so is every change in a clone with no main.
-  const onMain = main ? changeIdsAt(root.path, main.commit) : [];
+  // task list and history read at main, whether or not this checkout has it. One only this
+  // checkout has is read from disk, and so is every change in a clone with no main.
+  const sync = syncState(root.path, main);
   const tasksOnMain = main
-    ? tasksAt(
-        root.path,
-        main.commit,
-        ids.filter((id) => onMain.includes(id)),
-      )
+    ? tasksAt(root.path, main.commit, sync.onMain)
     : new Map();
   const store = {
     ...storeStatus(root, main),
-    unmerged: main ? ids.filter((id) => !onMain.includes(id)) : [],
-    // A change on main that this checkout lacks is named here rather than listed below:
-    // its page reads artifacts this checkout does not have.
-    differs: main
-      ? changesDifferingFrom(root.path, main.commit).filter((id) =>
-          onMain.includes(id),
-        )
-      : [],
+    unmerged: sync.unmerged,
+    archived: sync.archived,
+    differs: sync.differs,
   };
 
   return {
     generatedAt: now,
     store,
+    // A directory scan per change, and the warning PM most needs before the archive that would
+    // expose it. Over the board's own rows, so a change main has archived is in no conflict.
+    conflicts: conflicts(root.path, sync.changes),
     // `capabilities` is the paths only, walked with specDirs rather than read with
     // capabilities() from change.mjs: the nav groups a change by the namespaces it deltas,
     // and a namespace is in the directory name. Reading the deltas for their kinds as well
     // would put a file read per capability per change on every poll to learn nothing this
     // needs.
-    changes: ids.map((id) => {
+    changes: sync.changes.map((id) => {
       const commit = tasksOnMain.has(id) ? main.commit : null;
       const text = commit
         ? tasksOnMain.get(id)
