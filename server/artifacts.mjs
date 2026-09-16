@@ -12,7 +12,7 @@
  * change page turns that into its tabs, and the board turns it into coverage.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { files, lastCommit, openspecJson, read, specDirs } from "./store.mjs";
@@ -152,22 +152,52 @@ function storeSchema(storePath) {
 export const schemaFor = (storePath, changeDir) =>
   schemaName(changeDir) ?? storeSchema(storePath);
 
-const schemaCache = new Map();
-
 /**
- * Where a schema's definition lives.
+ * Where a schema's definition lives, or null when neither the store nor the CLI knows it.
  *
  * A store's own schemas sit in `openspec/schemas/<name>/`; the built-ins ship inside the
  * CLI package, and only the CLI knows where that is on this machine. Looking there first
- * means the common case costs a `existsSync`, and the spawn is paid once per schema for
- * the life of the process.
+ * means the common case costs an `existsSync`, and the spawn is paid once per schema for
+ * the life of the process — where the CLI is installed does not move while the viewer
+ * runs, and a store that writes its own copy of that name later is still found, because
+ * the local path is checked ahead of the cache. A name nothing can resolve is remembered
+ * too, so a change pointing at one does not spawn the CLI again on every board poll.
  */
-function readSchema(storePath, name) {
+const schemaPaths = new Map();
+
+function schemaPath(storePath, name) {
   const local = join(storePath, "openspec", "schemas", name, "schema.yaml");
-  if (existsSync(local)) return read(local);
+  if (existsSync(local)) return local;
+  if (schemaPaths.has(name)) return schemaPaths.get(name);
+
+  let path = null;
   try {
-    const { path } = openspecJson(["schema", "which", name]);
-    return read(join(path, "schema.yaml"));
+    path = join(openspecJson(["schema", "which", name]).path, "schema.yaml");
+  } catch {
+    // Left null: the caller answers with no artifacts, which is the same thing it does
+    // for a change that records no schema at all.
+  }
+  schemaPaths.set(name, path);
+  return path;
+}
+
+/** One schema file's parse, against the version of the file it was read from. */
+const schemaCache = new Map();
+
+/**
+ * Which version of a file a parse belongs to: modified time and size, which is what a
+ * stat can answer without opening it. Null when the file has gone, which never equals a
+ * stamp taken while it was there, so the parse is thrown away rather than served.
+ *
+ * Nanoseconds rather than the millisecond float, because the edit this has to notice is
+ * often one that changes nothing else: reordering two artifacts leaves the file exactly
+ * the length it was, so the size says nothing and a coarser clock can hand back the
+ * previous order as if the file had not been touched.
+ */
+function stamp(file) {
+  try {
+    const { mtimeNs, size } = statSync(file, { bigint: true });
+    return `${mtimeNs}:${size}`;
   } catch {
     return null;
   }
@@ -182,9 +212,22 @@ function readSchema(storePath, name) {
  */
 export function schemaArtifacts(storePath, name) {
   if (!name) return [];
-  if (schemaCache.has(name)) return schemaCache.get(name);
+  const file = schemaPath(storePath, name);
+  if (!file) return [];
 
-  const text = readSchema(storePath, name) ?? "";
+  // Kept against the file rather than for the life of the process. A schema is a file in
+  // the store, and the store is edited while the viewer is watching it: the hand that
+  // adds an artifact to a schema, or reorders the ones it has, is the hand that reloads
+  // the change page to see it. Held under the name alone, that edit did not land until
+  // the server was restarted — the page went on listing the artifacts the schema used to
+  // declare, in the order it used to declare them, with nothing to say it was stale, and
+  // an artifact added since read as a file nobody asked for and went to the end of the
+  // tab bar. The stat is per call; the parse is paid once per edit.
+  const version = stamp(file);
+  const hit = schemaCache.get(file);
+  if (hit && hit.version === version) return hit.artifacts;
+
+  const text = read(file) ?? "";
   // The `artifacts:` sequence, cut at the next top-level key (`apply:`, `archive:`), so
   // nothing below it is read as an artifact.
   const block = (text.split(/^artifacts:[ \t]*$/m)[1] ?? "").split(/^\S/m)[0];
@@ -200,7 +243,7 @@ export function schemaArtifacts(storePath, name) {
     out.push({ id, generates: generates.replace(/["']/g, "") });
   }
 
-  schemaCache.set(name, out);
+  schemaCache.set(file, { version, artifacts: out });
   return out;
 }
 
