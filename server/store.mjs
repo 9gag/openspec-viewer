@@ -116,6 +116,29 @@ export function dirs(abs) {
 }
 
 /**
+ * The walk both readings below share: a directory holding a `spec.md` is a capability,
+ * a directory with capabilities under it is a grouping to descend into, and `loose`
+ * decides what happens to the rest.
+ */
+function walkSpecs(abs, prefix, loose) {
+  const out = [];
+  for (const name of dirs(abs)) {
+    const rel = prefix ? `${prefix}/${name}` : name;
+    const dir = join(abs, name);
+    if (existsSync(join(dir, "spec.md"))) {
+      out.push(rel);
+      continue;
+    }
+    const nested = walkSpecs(dir, rel, loose);
+    if (nested.length) out.push(...nested);
+    // A grouping directory is still a grouping when a stray markdown file sits in it, so
+    // the looser mark only ever decides a directory with no capabilities below it.
+    else if (loose && files(dir).length) out.push(rel);
+  }
+  return out;
+}
+
+/**
  * Capability directories under a specs root, as `/`-joined relative paths.
  *
  * A capability is any directory holding a `spec.md`, however deep: stores group specs
@@ -123,15 +146,23 @@ export function dirs(abs) {
  * zero-groups case. Listing first-level directories instead would present a product as
  * an empty capability and hide everything inside it.
  */
-export function specDirs(abs, prefix = "") {
-  const out = [];
-  for (const name of dirs(abs)) {
-    const rel = prefix ? `${prefix}/${name}` : name;
-    if (existsSync(join(abs, name, "spec.md"))) out.push(rel);
-    else out.push(...specDirs(join(abs, name), rel));
-  }
-  return out;
-}
+export const specDirs = (abs, prefix = "") => walkSpecs(abs, prefix, false);
+
+/**
+ * The same directories inside a change, where the delta need not be written yet.
+ *
+ * `spec.md` marks a capability in the baseline, because the baseline is nothing but
+ * specs. Inside a change it marks one stage of the plan: a schema that declares user
+ * journeys ahead of the requirements — the order it has them written in — leaves a
+ * capability directory carrying `user-journeys.md` and no spec for as long as that stage
+ * lasts. Read with the baseline's rule such a change has no capabilities at all, so the
+ * journeys its author had already written were reported missing and had no tab to open.
+ *
+ * So markdown is the mark here. Which of those directories carry a delta is a separate
+ * question, asked of `spec.md` directly by whoever needs the answer.
+ */
+export const capabilityDirs = (abs, prefix = "") =>
+  walkSpecs(abs, prefix, true);
 
 export function files(abs, ext = ".md") {
   if (!existsSync(abs)) return [];

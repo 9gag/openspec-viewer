@@ -17,13 +17,13 @@ import { join } from "node:path";
 
 import { changeArtifacts } from "./artifacts.mjs";
 import {
+  capabilityDirs,
   catFile,
   changeIds,
   git,
   headSignature,
   read,
   resolveRoot,
-  specDirs,
   storeStatus,
 } from "./store.mjs";
 
@@ -213,7 +213,7 @@ export function board(now = Date.now()) {
   return {
     generatedAt: now,
     store,
-    // `capabilities` is the paths only, walked with specDirs rather than read with
+    // `capabilities` is the paths only, walked with capabilityDirs rather than read with
     // capabilities() from change.mjs: the nav groups a change by the namespaces it deltas,
     // and a namespace is in the directory name. Reading the deltas for their kinds as well
     // would put a file read per capability per change on every poll to learn nothing this
@@ -231,7 +231,7 @@ export function board(now = Date.now()) {
         present,
         declared,
       }));
-      const capabilities = specDirs(
+      const capabilities = capabilityDirs(
         join(root.path, "openspec", "changes", id, "specs"),
       );
       if (!groups) {
