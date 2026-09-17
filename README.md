@@ -544,7 +544,9 @@ passes the CLI's own message through.
   the remote, so the page reads the store's main as of the clone's last fetch. Owners and
   checkmarks are read there, where they are recorded, and so is which changes are in
   development: one on main that the checkout lacks is still on the board, and one main has
-  archived is not. A change's artifacts are the checkout's copy, and the page says loudly
+  archived is not. A plan main does not hold — a `tasks.md` written on a branch, or not
+  committed at all — is read from the checkout instead, and nothing in it can be claimed
+  until it lands. A change's artifacts are the checkout's copy, and the page says loudly
   when that copy differs from main.
 - **It polls rather than watching.** The store changes when someone runs git, not while
   the page is open. Artifact bodies are fetched once per visit — re-rendering a proposal

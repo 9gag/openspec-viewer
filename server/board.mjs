@@ -243,9 +243,9 @@ export function idleness(group, snaps, now) {
  */
 export function board(now = Date.now(), root = resolveRoot()) {
   const main = mainOf(root.path);
-  // Claims and checkmarks are commits on main, so a change in development there has its
-  // task list and history read at main, whether or not this checkout has it. One only this
-  // checkout has is read from disk, and so is every change in a clone with no main.
+  // Claims and checkmarks are commits on main, so a task list main holds is read there —
+  // with its history — whether or not this checkout has it. A plan main does not hold yet
+  // is read from disk, and so is every change in a clone with no main.
   const sync = syncState(root.path, main);
   const tasksOnMain = main
     ? tasksAt(root.path, main.commit, sync.onMain)
@@ -269,12 +269,17 @@ export function board(now = Date.now(), root = resolveRoot()) {
     // would put a file read per capability per change on every poll to learn nothing this
     // needs.
     changes: sync.changes.map((id) => {
-      const commit = tasksOnMain.has(id) ? main.commit : null;
-      const text = commit
-        ? tasksOnMain.get(id)
-        : read(join(root.path, tasksPath(id)));
+      // The plan is read at main where main holds one. A tasks.md only this checkout has —
+      // written on a planning branch, or not committed at all — is read here, exactly as a
+      // change main does not have is: the work is there to read, and no claim on it has
+      // landed. Reading it at main regardless said a change with a task list on disk had
+      // none, while the artifacts beside it said the file was there.
+      const atMain = tasksOnMain.get(id) ?? null;
+      const commit = atMain === null ? null : main.commit;
+      const text = atMain ?? read(join(root.path, tasksPath(id)));
       const groups = text === null ? null : parse(text);
-      const unmerged = store.unmerged.includes(id);
+      // Where the groups came from, since only a plan on main can be claimed.
+      const planOnMain = commit !== null;
       // Names and presence only. This runs for every change on every poll, so it stays
       // two readdirs — no file bodies, no git.
       const artifacts = changeArtifacts(
@@ -292,7 +297,7 @@ export function board(now = Date.now(), root = resolveRoot()) {
       if (!groups) {
         return {
           id,
-          unmerged,
+          planOnMain,
           planning: true,
           done: 0,
           total: 0,
@@ -307,7 +312,7 @@ export function board(now = Date.now(), root = resolveRoot()) {
 
       return {
         id,
-        unmerged,
+        planOnMain,
         planning: false,
         done: groups.reduce(
           (n, g) => n + g.tasks.filter((t) => t.done).length,
