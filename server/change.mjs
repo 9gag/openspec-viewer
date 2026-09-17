@@ -127,9 +127,13 @@ export function change(changeId, root = resolveRoot()) {
   const dir = archived
     ? join("openspec", "changes", "archive", changeId)
     : join("openspec", "changes", changeId);
-  const groups = onMain
-    ? groupsAt(root.path, main.commit, changeId)
-    : readGroups(root.path, changeId, archived);
+  // Owners and checkmarks at main, where they are recorded — but only where main holds the
+  // plan at all. A tasks.md this checkout wrote and main has not seen is read from disk,
+  // the same rule the board's rows read by: the tab is onto the file the artifacts beside
+  // it say is there.
+  const groups =
+    (onMain ? groupsAt(root.path, main.commit, changeId) : null) ??
+    readGroups(root.path, changeId, archived);
 
   return {
     id: changeId,

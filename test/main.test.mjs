@@ -281,6 +281,24 @@ describe("board", () => {
     assert.match(change("wishlist", root).error, /in development on origin\/main/);
   });
 
+  it("reads a plan main does not have from the checkout, claimable by nobody", () => {
+    const { dir, git, write, commit } = clone();
+    write(`openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");
+    commit("Add guest checkout");
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(["checkout", "-q", "-b", "plan/guest-checkout"]);
+    write(TASKS, tasks("dana"));
+
+    const root = { path: dir };
+    const row = board(Date.now(), root).changes.find((c) => c.id === CHANGE);
+    assert.equal(row.planning, false);
+    assert.equal(row.total, 1);
+    assert.equal(row.planOnMain, false);
+    assert.deepEqual(change(CHANGE, root).groups[0].tasks, [
+      { done: false, id: "1.1", text: "Take it" },
+    ]);
+  });
+
   it("reads main in a store below its git root", () => {
     const { dir, git, write, commit } = clone();
     write(`pkg/openspec/changes/${CHANGE}/proposal.md`, "# Guest checkout\n");

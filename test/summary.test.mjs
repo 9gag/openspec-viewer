@@ -47,6 +47,8 @@ const artifacts = (...written) =>
     present: written[i] ?? false,
   }));
 
+// Every row the board sends says where its plan was read; these are read at main unless
+// the test says otherwise.
 const board = (changes, extra = {}) => ({
   store: {
     git: true,
@@ -56,7 +58,7 @@ const board = (changes, extra = {}) => ({
     unmerged: [],
     archived: [],
   },
-  changes,
+  changes: changes.map((ch) => ({ planOnMain: true, ...ch })),
   conflicts: [],
   ...extra,
 });
@@ -308,17 +310,17 @@ describe("summarize store state", () => {
     assert.equal(state({ main: null }).label, "no origin");
   });
 
-  it("offers no claim on a change that is not on main", () => {
-    const unmerged = {
+  it("offers no claim on a plan main does not have, wherever the change stands", () => {
+    const offMain = {
       id: "stock-alerts",
-      unmerged: true,
+      planOnMain: false,
       planning: false,
       done: 0,
       total: 4,
       groups: [group("1")],
     };
-    assert.equal(summarize(board([unmerged])).unclaimed.length, 0);
-    assert.equal(changeState(unmerged).label, "not started");
+    assert.equal(summarize(board([offMain])).unclaimed.length, 0);
+    assert.equal(changeState(offMain).label, "not started");
   });
 
   it("treats a store that is not a git repo as an error", () => {
@@ -568,6 +570,7 @@ describe("filter wiring", () => {
 describe("changeState", () => {
   const change = (extra = {}) => ({
     id: "c",
+    planOnMain: true,
     planning: false,
     done: 0,
     total: 8,

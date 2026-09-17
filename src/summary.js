@@ -92,8 +92,8 @@ export function summarize(board) {
       const tone = level(group.idle);
       if (tone === "stale" || tone === "quiet")
         idle.push({ change: ch.id, group, tone });
-      // A change not on main cannot be claimed yet, so its open groups are nobody's work.
-      else if (!ch.unmerged && !group.owner && group.done < group.total)
+      // A plan not on main cannot be claimed yet, so its open groups are nobody's work.
+      else if (ch.planOnMain && !group.owner && group.done < group.total)
         unclaimed.push({ change: ch.id, group });
     }
 
@@ -143,7 +143,7 @@ export function changeState(change) {
     const tone = level(group.idle);
     if (tone === "stale") return { variant: "error", label: "idle claim" };
     if (tone === "quiet") quiet = true;
-    else if (!change.unmerged && !group.owner && group.done < group.total)
+    else if (change.planOnMain && !group.owner && group.done < group.total)
       unclaimed = true;
   }
 
