@@ -195,9 +195,15 @@ export function mdComponents({
   if (base) components.link = linkRenderer(base, inheritTextSize);
 
   // Only for specs: a stray "must" in a proposal is prose, not an obligation.
+  //
+  // Block, said explicitly: Text is inline unless told otherwise, whatever element it is
+  // asked to render as, and an inline paragraph runs into the one after it — a
+  // requirement written as four labelled paragraphs read as one sentence with no gaps.
   if (bdd)
     components.paragraph = ({ children }) => (
-      <Text as="p">{highlightObligations(children)}</Text>
+      <Text as="p" display="block">
+        {highlightObligations(children)}
+      </Text>
     );
 
   return components;
