@@ -5,23 +5,28 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { ToggleButton } from "@astryxdesign/core/ToggleButton";
 import { useState } from "react";
 
-import { buildUpcomingText, changesTouching, disagreementCount } from "../upcoming.js";
+import {
+  buildUpcomingDocText,
+  buildUpcomingText,
+  changesTouching,
+} from "../upcoming.js";
 import { Artifact, LensControl } from "./bits.jsx";
 import WithOutline from "./WithOutline.jsx";
 
 /**
- * `spec/<id>`'s Upcoming reading: the same document Durable shows, with every enabled
- * in-development change on the capability folded onto it at once (see `server/upcoming.mjs`
- * and `src/upcoming.js`) — same headings, same order, same Purpose section, so switching
- * the toggle never reorients a reader, only changes what a requirement says.
+ * `spec/<id>`'s Upcoming reading: the same document Durable shows — spec.md, or whichever
+ * of its documents is the active tab — with every enabled in-development change on the
+ * capability folded onto it (see `server/upcoming.mjs` and `src/upcoming.js`). Same
+ * headings, same order, same Purpose section for spec.md; a document beside it has no such
+ * paragraph to fold, so every version present is shown in full instead.
  *
- * Owns which changes are enabled itself, keyed by the caller on the capability id — a
- * fresh capability is a fresh chip row, all on, and a `key` remount says that for free
- * instead of an effect watching for the id to change.
+ * Mounted once per capability regardless of which tab is active — `doc` is a prop that
+ * changes underneath it, not something that remounts it — so which changes are enabled
+ * survives switching between spec.md and its documents. Only a fresh capability, keyed by
+ * the caller, gets a fresh chip row, all on.
  */
-export default function Upcoming({ cap, lens, onLens }) {
-  const requirements = cap.upcoming?.requirements ?? [];
-  const changes = changesTouching(requirements);
+export default function Upcoming({ cap, doc, lens, onLens }) {
+  const changes = changesTouching(cap.upcoming);
   const [enabled, setEnabled] = useState(() => new Set(changes));
 
   const toggle = (changeId, pressed) =>
@@ -32,21 +37,22 @@ export default function Upcoming({ cap, lens, onLens }) {
       return next;
     });
 
-  const text = buildUpcomingText(cap.text, requirements, enabled);
-  const drifted = cap.upcoming?.driftedChanges ?? [];
-  const disagreements = disagreementCount(requirements, enabled);
+  const drifted = doc ? [] : (cap.upcoming?.driftedChanges ?? []);
 
-  // A fragment, not a VStack: `.doc-page > :not(.with-outline)` is what holds every card on
-  // the page to the same column and lets `.with-outline` alone run the full column-plus-rail
-  // width. A wrapping element here would be *that* child instead of `.with-outline`, capping
-  // the rail's own grid to the narrower width from inside — which is exactly what shipped
-  // first, and why the rail sat pinched against the text instead of out at the page's edge.
+  const text = doc
+    ? buildUpcomingDocText(
+        doc.text,
+        cap.upcoming?.docs?.find((d) => d.name === doc.name)?.versions,
+        enabled,
+      )
+    : buildUpcomingText(cap.text, cap.upcoming?.requirements, enabled);
+
   return (
     <>
       <Banner
         status="info"
         title="Not yet shipped"
-        description={`A preview of ${cap.capability} with every enabled change below folded onto the baseline — a guess at what will fold cleanly, not a guarantee. The actual fold happens once at archive time.${disagreements > 0 ? ` ${disagreements} requirement${disagreements === 1 ? "" : "s"} below ${disagreements === 1 ? "is" : "are"} touched by more than one enabled change and marked as a disagreement rather than folded.` : ""}`}
+        description={`A preview of ${cap.capability} with every enabled change below folded onto the baseline — a guess at what will fold cleanly, not a guarantee. The actual fold happens once at archive time.`}
       />
 
       {drifted.length > 0 && (
@@ -81,18 +87,22 @@ export default function Upcoming({ cap, lens, onLens }) {
       {text ? (
         <WithOutline>
           <Card padding={4}>
-            <VStack gap={3}>
-              <HStack hAlign="end">
-                <LensControl value={lens} onChange={onLens} />
-              </HStack>
-              <Artifact text={text} bdd prefix={cap.capability} lens={lens} />
-            </VStack>
+            {doc ? (
+              <Artifact text={text} prefix={doc.name} />
+            ) : (
+              <VStack gap={3}>
+                <HStack hAlign="end">
+                  <LensControl value={lens} onChange={onLens} />
+                </HStack>
+                <Artifact text={text} bdd prefix={cap.capability} lens={lens} />
+              </VStack>
+            )}
           </Card>
         </WithOutline>
       ) : (
         <EmptyState
           title="Nothing to preview"
-          description="Every chip above is disabled, and this capability has no baseline of its own to fall back to."
+          description="Every chip above is disabled, and there is no shipped version to fall back to."
           isCompact
         />
       )}

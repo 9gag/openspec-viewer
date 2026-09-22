@@ -1,27 +1,28 @@
 /**
- * What a capability's whole document reads like once whichever in-development changes a
- * reader currently has enabled have landed.
+ * What a capability's own artifacts read like once whichever in-development changes a
+ * reader currently has enabled have landed — spec.md and any document filed beside it, a
+ * journey or a set of test cases.
  *
- * `/api/spec`'s `upcoming.requirements` carries every touch, from every in-development
- * change, on every requirement heading — the raw material, not a rendering. This is the
+ * `/api/spec`'s `upcoming` carries every touch, from every in-development change, on every
+ * requirement heading and every document — the raw material, not a rendering. This is the
  * seam the chip row runs through: disabling a chip is a checkbox click, and turning it back
  * into a reading has to stay instant, so the fold happens here instead of a round trip back
  * to the server for something it already sent once.
  *
- * The result is spliced into the baseline's own document rather than pulled out into a
- * separate list, so Upcoming reads exactly like Durable — same headings, same order, same
+ * spec.md's result is spliced into the baseline's own document rather than pulled out into
+ * a separate list, so Upcoming reads exactly like Durable — same headings, same order, same
  * Purpose section — with only the touched requirements marked and, where more than one
  * change touches the same one, both versions shown in place rather than one chosen for you.
+ * A document beside spec.md has no such paragraph to fold — nothing marks one of its
+ * sentences ADDED or another REMOVED — so every version present, shipped or not, is shown
+ * in full instead.
  */
 
 /** A requirement heading — the line a spliced block is found and rejoined by. */
 const REQUIREMENT = /^###\s+Requirement:\s*(.+?)\s*$/gim;
 
-const OPERATION_LABEL = { ADDED: "ADDED", MODIFIED: "MODIFIED", REMOVED: "REMOVED" };
-
 /** A plain blockquote line, so it renders through the same Markdown every requirement does. */
-const marker = (operation, changeId) =>
-  `> **${OPERATION_LABEL[operation]}** · via \`${changeId}\``;
+const marker = (label, changeId) => `> **${label}** · via \`${changeId}\``;
 
 /** A delta's own requirement text, with its `### Requirement:` line dropped — the heading
  * spliced text sits under is already on the page, in the baseline's own spelling. */
@@ -86,10 +87,10 @@ function foldEntry(entry, enabled) {
 }
 
 /**
- * The capability's document, as it would read with every enabled in-development change on
- * it folded in — same requirement order the baseline holds, an ADDED-only requirement
- * appended after it, and nothing at all when a capability with no baseline has every
- * touching change disabled.
+ * spec.md's document, as it would read with every enabled in-development change on it
+ * folded in — same requirement order the baseline holds, an ADDED-only requirement appended
+ * after it, and nothing at all when a capability with no baseline has every touching change
+ * disabled.
  */
 export function buildUpcomingText(baselineText, requirements, enabledChangeIds) {
   const enabled = new Set(enabledChangeIds);
@@ -117,18 +118,41 @@ export function buildUpcomingText(baselineText, requirements, enabledChangeIds) 
   return [before.trimEnd(), ...spliced, ...appended].filter(Boolean).join("\n\n");
 }
 
-/** Every change id `upcoming.requirements` mentions, in first-appearance order. */
-export function changesTouching(requirements) {
-  const seen = new Set();
-  for (const entry of requirements ?? [])
-    for (const touch of entry.touches) seen.add(touch.changeId);
-  return [...seen];
+/**
+ * A document filed beside spec.md — a journey, a set of test cases — as it would read with
+ * whichever in-development copies a reader has enabled. There is no paragraph here to fold
+ * the way a requirement's is: a change carries its own whole copy of the file, or none at
+ * all, so every version present — the shipped one, and every enabled change's own — is
+ * shown in full, marked, rather than merged into a single guess.
+ */
+export function buildUpcomingDocText(durableText, versions, enabledChangeIds) {
+  const enabled = new Set(enabledChangeIds);
+  const touches = (versions ?? []).filter((v) => enabled.has(v.changeId));
+  if (touches.length === 0) return durableText ?? "";
+
+  const parts = [];
+  if (durableText) parts.push(`> **Shipped**\n\n${durableText}`);
+  for (const touch of touches)
+    parts.push(`${marker("Not yet shipped", touch.changeId)}\n\n${touch.text}`);
+
+  const warning =
+    touches.length > 1
+      ? `> ⚠ **${touches.length} changes disagree here** — shown separately, not merged\n\n`
+      : "";
+
+  return `${warning}${parts.join("\n\n---\n\n")}`;
 }
 
-/** How many requirements two or more of the enabled changes disagree on right now. */
-export function disagreementCount(requirements, enabledChangeIds) {
-  const enabled = new Set(enabledChangeIds);
-  return (requirements ?? []).filter(
-    (entry) => entry.touches.filter((t) => enabled.has(t.changeId)).length >= 2,
-  ).length;
+/**
+ * Every change id `upcoming` mentions, from spec.md's own requirements or any document
+ * beside it, in first-appearance order — the chip row's own list, shared across every tab
+ * a capability has rather than rebuilt per one.
+ */
+export function changesTouching(upcoming) {
+  const seen = new Set();
+  for (const entry of upcoming?.requirements ?? [])
+    for (const touch of entry.touches) seen.add(touch.changeId);
+  for (const doc of upcoming?.docs ?? [])
+    for (const version of doc.versions) seen.add(version.changeId);
+  return [...seen];
 }

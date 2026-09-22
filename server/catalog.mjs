@@ -5,7 +5,7 @@
 
 import { join } from "node:path";
 
-import { capabilityDocs, readDocs } from "./artifacts.mjs";
+import { capabilityDocs, label, readDocs } from "./artifacts.mjs";
 import { checkReferences } from "./references.mjs";
 import { capabilities } from "./change.mjs";
 import { modifiedDrift } from "./deltas.mjs";
@@ -308,7 +308,9 @@ export function archive() {
 
 /**
  * What this capability reads like with every in-development change on it folded on at
- * once, and which of those changes could not fold at all.
+ * once, which of those changes could not fold at all, and every in-development change's
+ * own copy of a document filed beside the capability's spec.md — user journeys, test
+ * cases, whatever a store keeps there.
  *
  * `null` for a capability nothing in development touches — `spec/<id>` reads that as "no
  * Upcoming to offer" rather than an empty one. `drift` is `modifiedDrift`, run once per
@@ -316,23 +318,44 @@ export function archive() {
  * unshipped) exactly as `capabilities()` already runs it for the change page; a change
  * whose MODIFIED block cannot fold is named here rather than folded into `composeUpcoming`,
  * whose entries are only ever the touches that did match a heading.
+ *
+ * A document beside spec.md is not a delta the way spec.md's own text is — nothing marks
+ * one paragraph of a journey as ADDED or another as REMOVED — so there is nothing to fold
+ * per paragraph. Each touching change simply carries its own whole copy of the file, or
+ * none at all, and `docs` is every copy any of them has, by the document's name.
  */
 export function upcomingFor(storePath, capability, baselineText, history) {
   const touching = history.filter((h) => !h.archived);
   if (touching.length === 0) return null;
 
-  const deltas = touching.map((h) => ({
-    changeId: h.changeId,
-    text:
-      capabilities(storePath, h.change).find((c) => c.capability === capability)
-        ?.text ?? "",
-  }));
+  const touches = touching.map((h) => {
+    const cap = capabilities(storePath, h.change).find(
+      (c) => c.capability === capability,
+    );
+    return {
+      changeId: h.changeId,
+      text: cap?.text ?? "",
+      docs: readDocs(storePath, cap?.docs ?? []),
+    };
+  });
+
+  const byName = new Map();
+  for (const t of touches)
+    for (const doc of t.docs) {
+      if (!byName.has(doc.name)) byName.set(doc.name, []);
+      byName.get(doc.name).push({ changeId: t.changeId, text: doc.text });
+    }
 
   return {
-    requirements: composeUpcoming(baselineText, deltas),
-    driftedChanges: deltas
-      .map((d) => ({ changeId: d.changeId, drift: modifiedDrift(d.text, baselineText) }))
+    requirements: composeUpcoming(baselineText, touches),
+    driftedChanges: touches
+      .map((t) => ({ changeId: t.changeId, drift: modifiedDrift(t.text, baselineText) }))
       .filter((d) => d.drift !== null),
+    docs: [...byName.entries()].map(([name, versions]) => ({
+      name,
+      label: label(name),
+      versions,
+    })),
   };
 }
 

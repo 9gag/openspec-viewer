@@ -13,9 +13,9 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { deltasInDevelopment, upcomingFor } from "../server/catalog.mjs";
 import { composeUpcoming } from "../server/upcoming.mjs";
 import {
+  buildUpcomingDocText,
   buildUpcomingText,
   changesTouching,
-  disagreementCount,
 } from "../src/upcoming.js";
 
 const baseline = [
@@ -250,6 +250,12 @@ describe("upcomingFor", () => {
     writeFileSync(join(dir, "spec.md"), text);
   }
 
+  function writeChangeDoc(changeId, capability, file, text) {
+    const dir = join(store, "openspec", "changes", changeId, "specs", capability);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, file), text);
+  }
+
   const historyFor = (ids, capability) =>
     deltasInDevelopment(store, ids).get(capability) ?? [];
 
@@ -286,6 +292,37 @@ describe("upcomingFor", () => {
     assert.deepEqual(result.driftedChanges, []);
     const split = result.requirements.find((r) => r.heading === "Split payment");
     assert.equal(split.touches[0].changeId, "add-split-payment");
+    // Neither change carries a document of its own beside spec.md.
+    assert.deepEqual(result.docs, []);
+  });
+
+  it("gathers each change's own copy of a document filed beside spec.md", () => {
+    writeBaseline("cart", baseline);
+    writeDelta("reprice-cart-totals", "cart", delta("## MODIFIED Requirements"));
+    writeChangeDoc(
+      "reprice-cart-totals",
+      "cart",
+      "user-journeys.md",
+      "A shopper reprices their basket.",
+    );
+    writeDelta("add-split-payment", "cart", delta("## ADDED Requirements"));
+    writeChangeDoc(
+      "add-split-payment",
+      "cart",
+      "user-journeys.md",
+      "A shopper splits their basket across two cards.",
+    );
+
+    const ids = ["reprice-cart-totals", "add-split-payment"];
+    const result = upcomingFor(store, "cart", baseline, historyFor(ids, "cart"));
+
+    assert.equal(result.docs.length, 1);
+    assert.equal(result.docs[0].name, "user-journeys");
+    assert.equal(result.docs[0].label, "User Journeys");
+    assert.deepEqual(
+      result.docs[0].versions.map((d) => d.changeId).sort(),
+      ["add-split-payment", "reprice-cart-totals"],
+    );
   });
 
   it("names a change whose MODIFIED block could not fold", () => {
@@ -443,39 +480,71 @@ describe("buildUpcomingText", () => {
   });
 });
 
-describe("disagreementCount", () => {
-  const requirements = [
-    {
-      heading: "Cart totals",
-      baselineText: "...",
-      touches: [
-        { changeId: "a", operation: "MODIFIED", text: "" },
-        { changeId: "b", operation: "MODIFIED", text: "" },
-      ],
-    },
-    {
-      heading: "Guest checkout",
-      baselineText: "...",
-      touches: [{ changeId: "a", operation: "MODIFIED", text: "" }],
-    },
-  ];
+describe("buildUpcomingDocText", () => {
+  const durable = "A shopper checks out as a guest.";
 
-  it("counts a requirement only while two of its touches are both enabled", () => {
-    assert.equal(disagreementCount(requirements, ["a", "b"]), 1);
-    assert.equal(disagreementCount(requirements, ["a"]), 0);
+  it("reads exactly like the shipped document with nothing enabled", () => {
+    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
+    assert.equal(buildUpcomingDocText(durable, versions, []), durable);
+  });
+
+  it("shows the shipped text and the one enabled copy, marked", () => {
+    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
+    const text = buildUpcomingDocText(durable, versions, ["add-split-payment"]);
+
+    assert.equal(text.includes("**Shipped**"), true);
+    assert.equal(text.includes(durable), true);
+    assert.equal(text.includes("**Not yet shipped** · via `add-split-payment`"), true);
+    assert.equal(text.includes("A shopper splits a basket."), true);
+  });
+
+  it("shows just the change's copy for a document with no shipped version", () => {
+    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
+    const text = buildUpcomingDocText(null, versions, ["add-split-payment"]);
+
+    assert.equal(text.includes("**Shipped**"), false);
+    assert.equal(text.includes("A shopper splits a basket."), true);
+  });
+
+  it("shows every enabled copy and the shipped text when two changes disagree", () => {
+    const versions = [
+      { changeId: "add-split-payment", text: "A shopper splits a basket by card." },
+      { changeId: "add-wallet-split", text: "A shopper splits a basket by wallet." },
+    ];
+    const text = buildUpcomingDocText(durable, versions, [
+      "add-split-payment",
+      "add-wallet-split",
+    ]);
+
+    assert.equal(text.includes("2 changes disagree here"), true);
+    assert.equal(text.includes("by card"), true);
+    assert.equal(text.includes("by wallet"), true);
+    assert.equal(text.includes(durable), true);
   });
 });
 
 describe("changesTouching", () => {
-  it("lists every change a requirement set mentions, once each, in first appearance order", () => {
-    const requirements = [
-      { heading: "A", baselineText: null, touches: [{ changeId: "x" }, { changeId: "y" }] },
-      { heading: "B", baselineText: null, touches: [{ changeId: "y" }, { changeId: "z" }] },
-    ];
-    assert.deepEqual(changesTouching(requirements), ["x", "y", "z"]);
+  it("lists every change spec.md's requirements mention, once each, in first appearance order", () => {
+    const upcoming = {
+      requirements: [
+        { heading: "A", baselineText: null, touches: [{ changeId: "x" }, { changeId: "y" }] },
+        { heading: "B", baselineText: null, touches: [{ changeId: "y" }, { changeId: "z" }] },
+      ],
+    };
+    assert.deepEqual(changesTouching(upcoming), ["x", "y", "z"]);
+  });
+
+  it("includes changes that only touch a document beside spec.md", () => {
+    const upcoming = {
+      requirements: [
+        { heading: "A", baselineText: null, touches: [{ changeId: "x" }] },
+      ],
+      docs: [{ name: "user-journeys", versions: [{ changeId: "y" }] }],
+    };
+    assert.deepEqual(changesTouching(upcoming), ["x", "y"]);
   });
 
   it("is empty for a capability nothing in development touches", () => {
-    assert.deepEqual(changesTouching([]), []);
+    assert.deepEqual(changesTouching({}), []);
   });
 });

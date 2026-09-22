@@ -581,9 +581,10 @@ export function SpecDetail({ id, tab, position }) {
               </Text>
             )}
           </HStack>
-          {/* Only when a doc tab isn't open: Upcoming is a reading of the spec itself, and
-              a capability with no in-development change has nothing to fold onto it. */}
-          {!doc && data.upcoming && (
+          {/* Only for a capability at least one in-development change touches — spec.md or
+              any document beside it. The toggle covers whichever tab is open, not only
+              Requirements: a journey or a set of test cases has its own Upcoming reading. */}
+          {data.upcoming && (
             <SegmentedControl
               value={version}
               onChange={setVersion}
@@ -622,8 +623,14 @@ export function SpecDetail({ id, tab, position }) {
           </TabList>
         )}
 
-        {!doc && version === "upcoming" && data.upcoming ? (
-          <Upcoming key={data.capability} cap={data} lens={lens} onLens={chooseLens} />
+        {version === "upcoming" && data.upcoming ? (
+          <Upcoming
+            key={data.capability}
+            cap={data}
+            doc={doc}
+            lens={lens}
+            onLens={chooseLens}
+          />
         ) : (
           <WithOutline>
             <Card padding={4}>

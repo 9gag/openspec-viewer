@@ -125,3 +125,31 @@ shipped and read nothing like Durable when dogfooded.
 - [x] 6.4 Remove the now-unused `.upcoming-removed` CSS class and the `resolveUpcoming`
       tests it was rendered through.
 - [x] 6.5 Run `pnpm test && pnpm build` and confirm both succeed end to end.
+
+## 7. Follow-up: a document beside spec.md gets its own Upcoming reading
+
+Raised once the toggle shipped scoped to spec.md alone — a capability's journeys and test
+cases are exactly as unshipped-or-not as its requirements, and had no way to preview either.
+
+- [x] 7.1 `server/catalog.mjs`'s `upcomingFor` gathers each touching change's own copy of
+      every document beside spec.md (already read for the change page via
+      `capabilities()`/`readDocs`) into `upcoming.docs`: one entry per document name,
+      `{ name, label, versions: [{ changeId, text }] }`, reusing `label()` from
+      `server/artifacts.mjs`. Verify with `node --test test/upcoming.test.mjs`.
+- [x] 7.2 Fixture: two in-development changes, one carrying a document beside spec.md the
+      other does not — verify `upcoming.docs` holds exactly one entry, naming only the
+      change that has it.
+- [x] 7.3 Add `buildUpcomingDocText` to `src/upcoming.js`: with nothing enabled, the
+      document reads exactly as shipped; with one enabled copy, the shipped text and the
+      copy both appear, the second marked as not yet shipped; with two or more, every
+      enabled copy appears alongside the shipped text, marked as disagreeing; with no
+      shipped copy at all, only the enabled copies appear.
+- [x] 7.4 Lift the chip row and its `enabled` state out of being spec.md-specific: mount
+      `Upcoming` once per capability regardless of which tab is open, passing the active
+      tab's document as a prop rather than remounting on tab switch, so a chip's state
+      survives moving between spec.md and a document beside it. Remove the `!doc` guard
+      that hid the Durable/Upcoming toggle on a document tab.
+- [x] 7.5 Run `pnpm test && pnpm build` and confirm both succeed end to end; verified
+      end-to-end against a scratch store with a shipped `user-journeys.md` and an
+      in-development change carrying its own copy, hitting `/api/spec` directly and
+      confirming `docs`/`upcoming.docs` match the shape §7.1-7.3 expect.

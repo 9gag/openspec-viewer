@@ -156,9 +156,11 @@ of it, side by side, and SHALL NOT be folded into a single reading.
 
 ### Requirement: A reader can narrow the composite to a subset of changes
 
-The page SHALL show one toggle chip per in-development change deltaing the capability, all
-enabled by default, and SHALL recompute Upcoming from only the enabled subset when a reader
-changes which chips are on.
+The page SHALL show one toggle chip per in-development change touching the capability —
+through spec.md or through any document filed beside it — all enabled by default, and SHALL
+recompute Upcoming from only the enabled subset when a reader changes which chips are on.
+The chip row is one control for the whole capability: disabling a chip while reading spec.md
+SHALL leave it disabled on every document's own Upcoming reading too.
 
 #### Scenario: Narrowing to one change
 
@@ -172,3 +174,41 @@ changes which chips are on.
 - **GIVEN** a capability with at least one in-development change
 - **WHEN** a reader disables every chip
 - **THEN** Upcoming shows the baseline exactly as Durable does
+
+#### Scenario: A chip stays disabled across tabs
+
+- **GIVEN** `storefront/pricing` deltaed by `adjust-storefront-pricing-tiers`, and a reader
+  disables its chip while reading spec.md's Upcoming
+- **WHEN** the reader switches to a document filed beside spec.md
+- **THEN** that document's own Upcoming reading treats the same chip as disabled, with
+  nothing to re-enable it
+
+### Requirement: A document beside spec.md has its own Upcoming reading
+
+A document filed beside spec.md — a journey, a set of test cases — SHALL offer the same
+Durable/Upcoming toggle spec.md does. A document is not a delta: nothing marks one of its
+paragraphs ADDED or another REMOVED, so an in-development change's own copy of it SHALL be
+shown in full — alongside the shipped version, not replacing it — rather than folded
+paragraph by paragraph the way spec.md's requirements are.
+
+#### Scenario: One change carries its own copy
+
+- **GIVEN** `storefront/pricing`'s shipped `user-journeys.md`, and an in-development change
+  carrying its own copy of `user-journeys.md`
+- **WHEN** Upcoming is read on the User Journeys tab
+- **THEN** the shipped text appears, and the change's own text appears after it, marked as
+  not yet shipped and naming the change
+
+#### Scenario: Two changes disagree over the same document
+
+- **GIVEN** two in-development changes, each carrying its own copy of `user-journeys.md`
+- **WHEN** Upcoming is read on the User Journeys tab with both enabled
+- **THEN** the shipped text and both changes' copies all appear, each marked, and the page
+  states that the changes disagree rather than choosing one
+
+#### Scenario: A document no in-development change touches
+
+- **GIVEN** `storefront/pricing` deltaed by a change that touches spec.md but carries no
+  copy of `user-journeys.md`
+- **WHEN** Upcoming is read on the User Journeys tab
+- **THEN** it shows exactly the shipped text, unchanged

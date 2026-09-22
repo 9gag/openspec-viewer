@@ -33,7 +33,14 @@ as a decision nobody made.
   MODIFIEs while another REMOVEs it.
 - A row of toggle chips, one per in-development change touching the capability, lets a
   reader narrow the composite down to a subset — down to one chip, that subset is the
-  single-change preview the composite generalizes.
+  single-change preview the composite generalizes. The row is shared across spec.md and
+  every document filed beside it, so a chip's state does not change when a reader switches
+  tabs.
+- A document beside spec.md — a journey, a set of test cases — gets its own Upcoming
+  reading. It is not a delta, so there is nothing to fold paragraph by paragraph: an
+  in-development change's own copy is shown in full, alongside the shipped version, marked
+  as not yet shipped; two changes each carrying their own copy disagree the same way two
+  requirements can.
 
 ## Capabilities
 
@@ -59,8 +66,11 @@ None. This store has no baseline for `spec/<id>` yet.
 - A new read on `/api/spec` (or a sibling route) returns the composite: baseline text, the
   fold applied, which change touched which requirement, and the disagreement list. Exact
   shape is `design.md`'s call.
-- `src/views/Catalog.jsx` — `SpecDetail` gains the toggle, the chip row, and the composite
-  rendering; `SpecBody` and `ChangedBy` are unchanged.
+- `src/views/Catalog.jsx` — `SpecDetail` gains the toggle and passes the active tab's
+  document, if any, to a single `Upcoming` component that outlives tab switches; `SpecBody`
+  and `ChangedBy` are unchanged.
+- `server/artifacts.mjs` — `label()` is reused, not duplicated, for a document's name only
+  `upcoming.docs` carries.
 - `test/` — fixtures for a capability with one in-development change (composite equals the
   single-change case), two changes on disjoint requirements (both fold in cleanly), and two
   changes disagreeing on the same requirement in each of the three ways above.

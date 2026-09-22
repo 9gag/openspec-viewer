@@ -99,6 +99,31 @@ deltas on a capability by heading is a different question, asked from a differen
 `server/upcoming.mjs`) that imports `key()`-style matching from `deltas.mjs` rather than
 extending its exports.
 
+**A document beside spec.md is a whole file, not a delta — so its Upcoming reading shows
+every version, not a fold.** `capabilityDocs`/`readDocs` already list and read whatever
+files a capability directory holds besides spec.md — a journey, a set of test cases — and
+`capabilities()` already reads a change's own copies of them the same way for the change
+page. `upcomingFor` gathers those per touching change into `upcoming.docs`: one entry per
+document name, `{ name, label, versions: [{ changeId, text }] }`, reusing `label()` from
+`server/artifacts.mjs` rather than inventing a second name-to-label rule. `buildUpcomingDocText`
+(`src/upcoming.js`) shows the shipped text and every enabled change's own copy stacked, each
+marked, with a disagreement warning once more than one is enabled — no heading-matching, no
+splicing, because there is no substructure to match on. Rejected: trying to diff or merge
+two copies of a journey line by line. A journey is prose written by a person, not requirement
+blocks with a fixed heading grammar; guessing at which lines "are the same one across two
+copies" is exactly the confidently-wrong inference this feature exists to avoid, not add.
+
+**One chip row, shared across spec.md and every document beside it, not one per tab.** A
+reader picking which in-development changes to preview is answering one question — "what do
+I want to see landed" — for the whole capability, not once per artifact it has. `Upcoming`
+is mounted once per capability (keyed on `cap.capability`, same as before) and takes `doc` as
+a prop that changes as a reader switches tabs, rather than being remounted per tab; its
+`enabled` state, and the chip row itself, therefore survive a tab switch. Rejected: an
+independent chip row per tab. It would let a reader disable a change on spec.md and still see
+it enabled on User Journeys, silently previewing a state the change never actually produces —
+spec.md's requirements and its capability's journeys either both land with a given change or
+neither does, so the picker should not be able to say otherwise.
+
 ## Risks / Trade-offs
 
 - Two changes MODIFYing the same heading to text that turns out identical still renders as
@@ -117,6 +142,11 @@ extending its exports.
   same block, so which is which stays visible by position; two headings for one requirement
   name would give `SpecText`'s scenario index two definitions to pick from, which its
   "first definition wins" rule is not built to disambiguate.
+- A document with the shipped text plus several changes' own full copies stacked is long,
+  and none of it is scoped down by a lens the way spec.md's Contract/Scenarios/Full reading
+  is. → Mitigation: bounded the same way the chip row is — by how many in-development
+  changes actually carry their own copy of *this* document, which real stores keep small; a
+  lens for prose documents is a separate feature with its own bar to clear.
 
 ## Migration Plan
 
