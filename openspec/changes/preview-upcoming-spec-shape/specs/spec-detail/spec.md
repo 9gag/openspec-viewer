@@ -262,33 +262,58 @@ requirement Upcoming leaves untouched SHALL carry none.
 Which of Durable or Upcoming a reader has open SHALL be readable from a `version` query
 parameter, so a link opens straight on the reading it names, and SHALL be written into the
 address bar the moment a reader switches — unlike the store's other readings, which only
-ever take a query parameter's value on load. Upcoming SHALL be named explicitly
-(`?version=upcoming`); Durable SHALL be the absence of the parameter rather than a second
-spelling of it (`?version=durable`), since an address with no opinion about the reading
-already means Durable.
+ever take a query parameter's value on load. Upcoming SHALL open by default: a capability
+worth having this toggle on at all is one something is about to change, which is the more
+useful thing to see first. Durable SHALL be named explicitly (`?version=durable`); Upcoming
+SHALL be the absence of the parameter rather than a second spelling of it
+(`?version=upcoming`), since an address with no opinion about the reading already means the
+one the page opens on.
 
-#### Scenario: A link opens straight on Upcoming
+#### Scenario: A link opens straight on Durable
 
-- **GIVEN** a link to `spec/storefront/pricing` with `?version=upcoming` in its query
+- **GIVEN** a link to `spec/storefront/pricing` with `?version=durable` in its query
 - **WHEN** the page loads
-- **THEN** it opens already showing Upcoming, with no click needed
+- **THEN** it opens already showing Durable, with no click needed
+
+#### Scenario: A capability with in-development changes opens on Upcoming
+
+- **GIVEN** a link to `spec/storefront/pricing` with no `version` parameter, and at least
+  one in-development change touching it
+- **WHEN** the page loads
+- **THEN** it opens already showing Upcoming
 
 #### Scenario: Switching rewrites the address bar
 
-- **GIVEN** `spec/storefront/pricing` open on Durable, with no `version` parameter in the
+- **GIVEN** `spec/storefront/pricing` open on Upcoming, with no `version` parameter in the
   address
-- **WHEN** a reader switches to Upcoming
-- **THEN** the address bar reads `?version=upcoming`, without adding a new entry to the
+- **WHEN** a reader switches to Durable
+- **THEN** the address bar reads `?version=durable`, without adding a new entry to the
   browser's back/forward history
 
-#### Scenario: Switching back to Durable removes the parameter
+#### Scenario: Switching back to Upcoming removes the parameter
 
-- **GIVEN** the address bar reading `?version=upcoming`
-- **WHEN** a reader switches back to Durable
+- **GIVEN** the address bar reading `?version=durable`
+- **WHEN** a reader switches back to Upcoming
 - **THEN** the address bar no longer carries a `version` parameter at all
 
 #### Scenario: Every other query parameter survives the switch
 
 - **GIVEN** the address bar reading `?mode=dark`
-- **WHEN** a reader switches to Upcoming
-- **THEN** the address bar reads `?mode=dark&version=upcoming`, with `mode` unchanged
+- **WHEN** a reader switches to Durable
+- **THEN** the address bar reads `?mode=dark&version=durable`, with `mode` unchanged
+
+### Requirement: Switching Durable and Upcoming drops a heading position
+
+A `?to=` naming a heading belongs to the reading it was followed or clicked on: Durable and
+Upcoming are not the same document, so a heading position from one carries no guarantee it
+still names anything, or the same thing, on the other. Switching between them SHALL drop
+`?to=` from the address entirely rather than carry it to a document it was never read
+against.
+
+#### Scenario: A heading position does not survive the switch
+
+- **GIVEN** `spec/storefront/pricing` open on a specific requirement, the address reading
+  `#/spec/storefront/pricing?to=tier-thresholds-are-configurable`
+- **WHEN** a reader switches to the other reading
+- **THEN** the address no longer carries `?to=`, and the page is not scrolled to a
+  requirement of that name on arrival

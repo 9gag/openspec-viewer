@@ -599,47 +599,47 @@ describe("changesTouching", () => {
 });
 
 describe("versionFromUrl", () => {
-  it("is durable with nothing in the query", () => {
-    assert.equal(versionFromUrl(""), "durable");
-    assert.equal(versionFromUrl("?mode=dark"), "durable");
+  it("is upcoming with nothing in the query", () => {
+    assert.equal(versionFromUrl(""), "upcoming");
+    assert.equal(versionFromUrl("?mode=dark"), "upcoming");
   });
 
-  it("is upcoming when the query names it", () => {
-    assert.equal(versionFromUrl("?version=upcoming"), "upcoming");
-    assert.equal(versionFromUrl("?mode=dark&version=upcoming"), "upcoming");
-  });
-
-  it("is durable for anything else the query says", () => {
+  it("is durable when the query names it", () => {
     assert.equal(versionFromUrl("?version=durable"), "durable");
-    assert.equal(versionFromUrl("?version=bogus"), "durable");
+    assert.equal(versionFromUrl("?mode=dark&version=durable"), "durable");
+  });
+
+  it("is upcoming for anything else the query says", () => {
+    assert.equal(versionFromUrl("?version=upcoming"), "upcoming");
+    assert.equal(versionFromUrl("?version=bogus"), "upcoming");
   });
 });
 
 describe("withVersion", () => {
-  it("drops the parameter entirely for durable", () => {
+  it("drops the parameter entirely for upcoming", () => {
     assert.equal(
-      withVersion({ pathname: "/", search: "?version=upcoming", hash: "#/spec/cart" }, "durable"),
+      withVersion({ pathname: "/", search: "?version=durable", hash: "#/spec/cart" }, "upcoming"),
       "/#/spec/cart",
     );
   });
 
-  it("sets the parameter for upcoming", () => {
+  it("sets the parameter for durable", () => {
     assert.equal(
-      withVersion({ pathname: "/", search: "", hash: "#/spec/cart" }, "upcoming"),
-      "/?version=upcoming#/spec/cart",
+      withVersion({ pathname: "/", search: "", hash: "#/spec/cart" }, "durable"),
+      "/?version=durable#/spec/cart",
     );
   });
 
   it("keeps every other query parameter untouched", () => {
     assert.equal(
-      withVersion({ pathname: "/", search: "?mode=dark", hash: "#/spec/cart" }, "upcoming"),
-      "/?mode=dark&version=upcoming#/spec/cart",
+      withVersion({ pathname: "/", search: "?mode=dark", hash: "#/spec/cart" }, "durable"),
+      "/?mode=dark&version=durable#/spec/cart",
     );
   });
 
   it("round-trips through versionFromUrl", () => {
-    const url = withVersion({ pathname: "/", search: "", hash: "#/spec/cart" }, "upcoming");
+    const url = withVersion({ pathname: "/", search: "", hash: "#/spec/cart" }, "durable");
     const search = url.slice(url.indexOf("?"), url.indexOf("#"));
-    assert.equal(versionFromUrl(search), "upcoming");
+    assert.equal(versionFromUrl(search), "durable");
   });
 });

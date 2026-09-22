@@ -190,24 +190,25 @@ export function changesTouching(upcoming) {
  */
 export const VERSION_KEY = "version";
 
-/** Durable unless the query says otherwise — `?version=upcoming` for a link written to
- * open straight on it. Anything else, including nothing at all, is Durable: an address
- * with no opinion about the reading means the one every capability opens on. */
+/** Upcoming unless the query says otherwise — `?version=durable` for a link written to
+ * open straight on the shipped baseline. Anything else, including nothing at all, is
+ * Upcoming: a capability worth opening this toggle on is one something is about to
+ * change, and that is the more useful thing to see first. */
 export function versionFromUrl(search = "") {
-  return new URLSearchParams(search).get(VERSION_KEY) === "upcoming"
-    ? "upcoming"
-    : "durable";
+  return new URLSearchParams(search).get(VERSION_KEY) === "durable"
+    ? "durable"
+    : "upcoming";
 }
 
 /**
  * The address a switch to `version` writes into the bar — every other query parameter
- * kept, `version` dropped entirely for Durable rather than written out as
- * `?version=durable`. An address with the parameter absent already means Durable, so
+ * kept, `version` dropped entirely for Upcoming rather than written out as
+ * `?version=upcoming`. An address with the parameter absent already means Upcoming, so
  * writing it anyway would make two spellings of the same link.
  */
 export function withVersion({ pathname = "", search = "", hash = "" } = {}, version) {
   const params = new URLSearchParams(search);
-  if (version === "upcoming") params.set(VERSION_KEY, "upcoming");
+  if (version === "durable") params.set(VERSION_KEY, "durable");
   else params.delete(VERSION_KEY);
   const query = params.toString();
   return `${pathname}${query ? `?${query}` : ""}${hash}`;

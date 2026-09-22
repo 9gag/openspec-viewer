@@ -224,13 +224,30 @@ instead, via `history.replaceState` so a click never adds a back-button entry.
       (`?version=upcoming`); Durable is the parameter's absence, never a second spelling
       of it, and every other query parameter passes through untouched. Verify with
       `node --test test/upcoming.test.mjs`.
+      (Which one is explicit and which is the absence flipped in §12 — the shape stayed.)
 - [x] 11.2 Fixtures: nothing in the query, an unrelated parameter, and an unrecognised
       `version` value all read as Durable; `withVersion` round-trips through
       `versionFromUrl`; switching to Durable removes the parameter rather than writing
       `?version=durable`.
+      (Updated in §12 for the flipped default — same fixtures, Durable and Upcoming
+      swapped.)
 - [x] 11.3 `SpecDetail` seeds `version` from `versionFromUrl(window.location.search)` on
       first render and calls `history.replaceState(null, "", withVersion(window.location,
       next))` on every switch, so the address bar and the toggle can never disagree.
 - [x] 11.4 Run `pnpm test && pnpm build` and confirm both succeed end to end; verified by
       opening a capability at `?version=upcoming#/spec/<id>` directly and confirming it
       opens already on Upcoming.
+
+## 12. Follow-up: Upcoming as the default, and a stale position dropped
+
+Two changes requested right after §11 shipped.
+
+- [x] 12.1 Flip `versionFromUrl`/`withVersion`: Durable is now the explicit spelling
+      (`?version=durable`); the parameter's absence means Upcoming, since a capability
+      worth having the toggle on at all is one something is about to change. Update the
+      §11.2 fixtures accordingly — same shape, values swapped.
+- [x] 12.2 `chooseVersion` drops `?to=` from the hash before writing the new address:
+      `withPosition(window.location.hash, HEADING_KEY, null)`, the same call following an
+      unrelated nav link already makes. Durable's document and Upcoming's are not the same
+      one, so a heading position from either carries no guarantee onto the other.
+- [x] 12.3 Run `pnpm test && pnpm build` and confirm both succeed end to end.

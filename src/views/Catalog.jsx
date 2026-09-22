@@ -42,7 +42,7 @@ import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import Upcoming from "../components/Upcoming.jsx";
 import { versionFromUrl, withVersion } from "../upcoming.js";
 import { tabForAnchor } from "../tabs.js";
-import { HEADING_KEY } from "../toc.js";
+import { HEADING_KEY, withPosition } from "../toc.js";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
 
@@ -529,15 +529,29 @@ export function SpecDetail({ id, tab, position }) {
   };
 
   // Durable is the baseline as shipped; Upcoming is that baseline with every in-development
-  // change on it folded on. A reading, the same kind of thing `?mode=` and `?board=` are —
-  // read from the query on the way in, and, unlike those two, rewritten into the address
-  // bar the moment it changes: which changes are enabled lives in memory, so this is the
-  // one part of that state a link can still point at exactly.
+  // change on it folded on, and is what opens by default — a capability worth having this
+  // toggle on at all is one something is about to change, which is the more useful thing to
+  // see first. A reading, the same kind of thing `?mode=` and `?board=` are — read from the
+  // query on the way in, and, unlike those two, rewritten into the address bar the moment
+  // it changes: which changes are enabled lives in memory, so this is the one part of that
+  // state a link can still point at exactly.
   const [version, setVersion] = useState(() => versionFromUrl(window.location.search));
 
   const chooseVersion = (next) => {
     setVersion(next);
-    window.history.replaceState(null, "", withVersion(window.location, next));
+    // A heading position belongs to the reading it was clicked on — Durable's headings and
+    // Upcoming's are not the same document, so a `?to=` naming one carries no guarantee it
+    // still names anything, or the same thing, on the other. Dropped rather than carried
+    // over, the same way following a link elsewhere in the nav drops it.
+    const hash = withPosition(window.location.hash, HEADING_KEY, null);
+    window.history.replaceState(
+      null,
+      "",
+      withVersion(
+        { pathname: window.location.pathname, search: window.location.search, hash },
+        next,
+      ),
+    );
   };
 
   if (loading) return <Spinner label={`Reading ${id}`} />;

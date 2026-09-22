@@ -180,11 +180,28 @@ read and write a `version` parameter, and `SpecDetail`'s `chooseVersion` calls
 reader picks once per visit and mostly forgets about; Upcoming is a reading of *one
 capability*, computed from server data plus in-memory chip state that cannot travel any
 other way — a reader who wants to send a colleague exactly what they are looking at needs
-the address bar to already say so, not to remember to add `?version=upcoming` by hand.
+the address bar to already say so, not to remember to add `?version=durable` by hand.
 `replaceState`, not `pushState`: switching a reading is not a page navigation, and a back
 button that stepped through every Durable/Upcoming click would be worse than one that
 ignores them, the same reasoning `onRailClick`'s own heading navigation is not built on
 `pushState` for unrelated positions.
+
+**Upcoming, not Durable, is what an absent `version` parameter means.** Raised after the
+above shipped: a reader opening a capability with in-development changes wants to see what
+is about to change, not the shipped baseline they would get to by opening `spec/<id>` a
+week later anyway. `versionFromUrl` and `withVersion` flipped accordingly — `?version=
+durable` is now the explicit spelling, and the parameter's absence means Upcoming. A
+capability nothing in development touches is unaffected either way, since `SpecDetail`
+only ever renders Upcoming when `data.upcoming` exists.
+
+**Switching readings drops `?to=`.** `?to=` names a heading in the document currently on
+screen, and Durable's document and Upcoming's are not the same one — a requirement's
+anchor can appear, disappear (an ADDED-only one Upcoming shows that Durable has no baseline
+for) or simply stop being where the reader left it. `chooseVersion` strips the position
+from the hash with `withPosition(hash, HEADING_KEY, null)` before handing the hash to
+`withVersion`, the same call a reader following an unrelated link elsewhere in the nav
+already makes without thinking about it — position and reading are different axes, but a
+reading switch invalidates a position the way a route change always has.
 
 ## Risks / Trade-offs
 
