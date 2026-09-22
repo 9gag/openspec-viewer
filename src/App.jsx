@@ -42,6 +42,7 @@ import ChangeDetail from "./views/ChangeDetail.jsx";
 import NamespaceDetail from "./views/NamespaceDetail.jsx";
 import DocDetail from "./views/Doc.jsx";
 import Search from "./views/Search.jsx";
+import Status from "./views/Status.jsx";
 
 /** Where the plan is read, and the checkout a change's artifacts are read from. */
 function StoreStatus({ store }) {
@@ -378,6 +379,15 @@ function Nav({
           size="sm"
           isSelected={view === "specs"}
         />
+        {/* The catalogue again, with every capability's in-development change and its
+            board progress already on the row — the one page that answers "what is the
+            state of everything" with no click into a change to find out. */}
+        <SideNavItem
+          href={href("status")}
+          label="Status"
+          size="sm"
+          isSelected={view === "status"}
+        />
         {/* The tree of what is in production, under a row of its own — the same shape as
             In Development below it, since they are the same kind of thing: a tree of the
             store's namespaces with no page of its own to link to. `isSelected` is never
@@ -526,6 +536,7 @@ export default function App() {
             <NamespaceDetail id={arg} plainNames={plainNames} />
           )}
           {view === "specs" && <Specs plainNames={plainNames} />}
+          {view === "status" && <Status plainNames={plainNames} />}
           {view === "spec" && (
             <SpecDetail id={arg} tab={tab} position={position} />
           )}

@@ -232,6 +232,12 @@ The index of every capability, grouped by namespace, with its size and whether a
 rewriting it. Not which changes have touched it — that is the capability's own page.
 _Avoid_: list, browser, directory
 
+**Status**:
+The catalog again, with each in-development change's own board progress — done/total,
+owner, idle signal — already on the row, so a reader does not open the board to see how
+far along the change rewriting a capability actually is.
+_Avoid_: dashboard, overview, health, readiness
+
 **Timeline**:
 A dated sequence read down one column — a capability's history, or the archive.
 _Avoid_: feed, log, activity

@@ -109,6 +109,7 @@ and expanded it put six rows of shell commands between the reader and the board.
 | **Board**           | Every change in development and its overall progress; switched to full, its task groups, who owns each, and how long each claim has been idle                               |
 | **Change**          | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
 | **Namespace**       | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it                                                  |
+| **Status**          | Every capability once, its shipped/unshipped/retired state, and — where a change is currently touching it — that change's own progress, owner(s) and idle signal, reused from the Board |
 | **Capability**      | One spec in full, with its history and an outline rail                                                                                                                      |
 | **Shipped changes** | The archive, and which capability each shipped change produced                                                                                                              |
 
@@ -511,7 +512,7 @@ openspec-viewer/
 ├── vite.config.js           # the React plugin, the API, and the mount, for dev + preview
 ├── src/
 │   ├── App.jsx              # AppShell, nav, appearance, store warnings
-│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Search, Doc
+│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Status, Search, Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
 │   ├── toc.js               # anchors, and the address of a position inside a page
 │   ├── spec.js              # reading requirements and scenarios out of a spec
