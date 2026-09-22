@@ -36,8 +36,13 @@ export default function Upcoming({ cap, lens, onLens }) {
   const drifted = cap.upcoming?.driftedChanges ?? [];
   const disagreements = disagreementCount(requirements, enabled);
 
+  // A fragment, not a VStack: `.doc-page > :not(.with-outline)` is what holds every card on
+  // the page to the same column and lets `.with-outline` alone run the full column-plus-rail
+  // width. A wrapping element here would be *that* child instead of `.with-outline`, capping
+  // the rail's own grid to the narrower width from inside — which is exactly what shipped
+  // first, and why the rail sat pinched against the text instead of out at the page's edge.
   return (
-    <VStack gap={4}>
+    <>
       <Banner
         status="info"
         title="Not yet shipped"
@@ -91,6 +96,6 @@ export default function Upcoming({ cap, lens, onLens }) {
           isCompact
         />
       )}
-    </VStack>
+    </>
   );
 }
