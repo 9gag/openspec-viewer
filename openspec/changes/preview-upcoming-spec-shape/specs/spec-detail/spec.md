@@ -83,11 +83,43 @@ appended.
 - **THEN** it shows both ADDed requirements, tagged with the change each came from, and
   states that the capability is not shipped
 
+#### Scenario: A lone REMOVED touch
+
+- **GIVEN** `storefront/pricing` deltaed by one in-development change REMOVEing "Tier
+  thresholds are configurable"
+- **WHEN** Upcoming is read
+- **THEN** "Tier thresholds are configurable" still appears with its baseline text, tagged
+  as removed by that change, together with whatever Reason the REMOVED block itself gives
+
+### Requirement: Upcoming is the baseline's own document, not a separate list
+
+Upcoming SHALL show every requirement in the same order the baseline holds it, and SHALL
+leave any prose outside the requirements — a Purpose section, feature-set notes — exactly as
+the baseline has it. Touching a requirement changes what that requirement says; it does not
+move it, and does not turn the page into a list of only the requirements something touches.
+An ADDED requirement with no baseline counterpart is appended after every requirement the
+baseline holds, since there is no baseline position for it to take.
+
+#### Scenario: The Purpose section survives
+
+- **GIVEN** `storefront/pricing`'s baseline opens with a Purpose section before its
+  requirements
+- **WHEN** Upcoming is read
+- **THEN** the same Purpose section still opens the page, unchanged
+
+#### Scenario: Requirement order matches the baseline
+
+- **GIVEN** `storefront/pricing`'s baseline lists "Tier thresholds are configurable" before
+  "Bulk orders receive a volume discount", and an in-development change MODIFIEs the first
+- **WHEN** Upcoming is read
+- **THEN** "Tier thresholds are configurable" still reads before "Bulk orders receive a
+  volume discount"
+
 ### Requirement: A requirement two changes both touch is a disagreement, not a merge
 
-A requirement heading touched by more than one in-development change SHALL be shown as a
-disagreement: every touching change's version of it, side by side, and SHALL NOT be folded
-into a single reading.
+A requirement heading touched by more than one in-development change SHALL be shown, in the
+requirement's own place in the document, as a disagreement: every touching change's version
+of it, side by side, and SHALL NOT be folded into a single reading.
 
 #### Scenario: Two changes modify the same requirement
 

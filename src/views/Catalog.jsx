@@ -623,7 +623,7 @@ export function SpecDetail({ id, tab, position }) {
         )}
 
         {!doc && version === "upcoming" && data.upcoming ? (
-          <Upcoming key={data.capability} cap={data} />
+          <Upcoming key={data.capability} cap={data} lens={lens} onLens={chooseLens} />
         ) : (
           <WithOutline>
             <Card padding={4}>

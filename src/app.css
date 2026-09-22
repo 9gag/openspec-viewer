@@ -1028,10 +1028,3 @@ body {
 .ref-preview {
   max-width: 34rem;
 }
-
-/* Upcoming: a requirement an in-development change would remove, struck through rather
-   than hidden — the reader can still see what is going away and which change does it. */
-.upcoming-removed {
-  text-decoration: line-through;
-  opacity: 0.7;
-}

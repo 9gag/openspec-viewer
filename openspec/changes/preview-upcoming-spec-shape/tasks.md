@@ -72,6 +72,9 @@
       with its change id, a disagreement as a callout holding every enabled touch's version
       side by side, and a REMOVED-only requirement struck through and tagged. Include the
       preview caveat from `design.md` - Risks/Trade-offs on the Upcoming banner.
+      (Superseded by §6: struck-through/tagged cards gave way to splicing the fold into the
+      baseline's own document, once dogfooding it showed Upcoming did not read like Durable
+      at all.)
 - [x] 4.4 Manually verify against a real store with an in-development change or two on one
       capability (`pnpm dev` in a store with active changes) - confirm the toggle appears
       only where expected and chip toggling matches §3's fixtures.
@@ -93,3 +96,32 @@
       (No screenshot exists in `README.md` for this or any other page — the file is prose
       throughout. Added a paragraph beside the existing "Changed by" one instead.)
 - [x] 5.3 Run `pnpm test && pnpm build` and confirm both succeed end to end.
+
+## 6. Follow-up: Upcoming matches Durable's layout
+
+`spec-detail/spec.md`'s "Upcoming is the baseline's own document, not a separate list"
+requirement, and `design.md`'s "spliced back into the baseline's own document text"
+decision, were both added after this group — raised once §4's per-requirement card list
+shipped and read nothing like Durable when dogfooded.
+
+- [x] 6.1 Replace `resolveUpcoming` in `src/upcoming.js` with `buildUpcomingText`: locate
+      each `### Requirement:` block inside the baseline's own raw text, splice in the
+      enabled fold for a touched one (a blockquote marker plus the touch's text; a REMOVED
+      touch keeps the baseline text and states the change and its Reason instead of a
+      literal strikethrough, which commonmark cannot apply across a whole block), append
+      any ADDED-only heading after the rest, and leave everything else untouched. Verify
+      with `node --test test/upcoming.test.mjs`.
+- [x] 6.2 Fixtures for `buildUpcomingText`: every chip disabled reproduces the baseline
+      (Purpose section included), a single touch splices in place preserving requirement
+      order, two enabled touches on one heading show both versions, an ADDED heading is
+      appended after the baseline's own requirements, a lone REMOVED touch keeps its text
+      and states its Reason, and an unshipped capability with every chip disabled renders
+      nothing at all.
+- [x] 6.3 Rewrite `src/components/Upcoming.jsx` to wrap its composite text in the same
+      `WithOutline`/`Card`/`LensControl`/`Artifact` structure `SpecBody` uses for Durable,
+      instead of one `Card` per requirement; `SpecDetail` passes its existing `lens`/
+      `onLens` state through so the two toggles (Durable/Upcoming, and the reading lens)
+      compose rather than Upcoming keeping a second one of its own.
+- [x] 6.4 Remove the now-unused `.upcoming-removed` CSS class and the `resolveUpcoming`
+      tests it was rendered through.
+- [x] 6.5 Run `pnpm test && pnpm build` and confirm both succeed end to end.

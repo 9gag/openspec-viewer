@@ -46,12 +46,36 @@ anywhere.
 **The response is per-requirement raw data, not a pre-rendered fold.** For every
 requirement heading the baseline holds, plus every heading only an ADDED block introduces,
 `/api/spec` returns the baseline text (or `null`) and a list of `{ changeId, operation,
-text }` for every in-development change that touches it. The client computes which spans
-are active, which are disagreements, and what Upcoming reads like for the currently-enabled
-chip subset. Rejected: recomputing the fold server-side on every chip toggle. Toggling a
-chip is a checkbox click; round-tripping it makes the one interaction this feature adds feel
-slower than everything else on the page, and the fold over an already-fetched, already
-heading-keyed structure is cheap enough to do in the view.
+text }` for every in-development change that touches it. The client splices the
+currently-enabled subset back into the baseline's own document text — see the next decision
+— rather than the server sending a pre-rendered page. Rejected: recomputing the fold
+server-side on every chip toggle. Toggling a chip is a checkbox click; round-tripping it
+makes the one interaction this feature adds feel slower than everything else on the page,
+and the fold over an already-fetched, already heading-keyed structure is cheap enough to do
+in the view.
+
+**Upcoming is spliced back into the baseline's own document text, not rendered as a
+separate list of cards.** `src/upcoming.js`'s `buildUpcomingText` finds each requirement's
+`### Requirement:` block inside the baseline's raw text by the same heading match, replaces
+or annotates the touched ones in place, appends any ADDED-only heading after the rest, and
+leaves everything else — the Purpose section, feature-set prose, requirement order — exactly
+as the baseline has it. The result is one markdown string, handed to the same `SpecText`
+component and wrapped in the same `Card`/`WithOutline`/`LensControl` Durable already uses, so
+Upcoming is indistinguishable from Durable in layout and only differs where a touch actually
+changes something. Rejected, and actually built first: one `Card` per touched requirement,
+in its own flat list. Dogfooding it against this repo's own store showed the problem
+immediately — no Purpose section, no outline rail, and untouched requirements left out
+entirely, none of which a reader flipping the Durable/Upcoming toggle to compare the two
+would expect. A marker's job is to say what changed, not to change what the page looks like.
+
+**A REMOVED touch is marked, not struck through.** Markdown has no reliable way to strike
+through a whole block of prose and scenarios — `~~like this~~` is inline-only in commonmark
+and does not survive a paragraph break, let alone a heading. A solo REMOVED touch keeps the
+baseline's own text exactly as it reads, with a blockquote marker naming the change and
+whatever Reason/Migration text the REMOVED block itself carries appended below it. Rejected:
+a CSS strikethrough class on a wrapping `<div>`, which is what the first, card-based version
+of this view did — it stopped being an option once REMOVED had to render inline in the same
+markdown-driven document as everything else, rather than as its own isolated component.
 
 **A disagreement is keyed on heading touched by ≥2 changes, not on text equality.** Two
 changes both touching "Tier thresholds are configurable" are a disagreement whether or not
@@ -87,6 +111,12 @@ extending its exports.
 - A capability with many in-development changes makes for a wide chip row. → Mitigation:
   chips wrap; the set is bounded by how many changes touch *this* capability, not the whole
   store.
+- A disagreement's versions sit under one `### Requirement:` heading rather than one each, so
+  their scenarios render in a single flattened disclosure instead of grouped per version. →
+  Mitigation: each version's own marker and prose sit directly above its scenarios in the
+  same block, so which is which stays visible by position; two headings for one requirement
+  name would give `SpecText`'s scenario index two definitions to pick from, which its
+  "first definition wins" rule is not built to disambiguate.
 
 ## Migration Plan
 

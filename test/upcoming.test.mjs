@@ -12,7 +12,11 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { deltasInDevelopment, upcomingFor } from "../server/catalog.mjs";
 import { composeUpcoming } from "../server/upcoming.mjs";
-import { changesTouching, resolveUpcoming } from "../src/upcoming.js";
+import {
+  buildUpcomingText,
+  changesTouching,
+  disagreementCount,
+} from "../src/upcoming.js";
 
 const baseline = [
   "## Purpose",
@@ -304,74 +308,161 @@ describe("upcomingFor", () => {
 
 /**
  * The chip row's own fold: given the same `upcoming.requirements` the server sent once,
- * re-derive the reading for whichever subset of changes is currently enabled, so toggling a
- * chip never has to ask the server again.
+ * splice the enabled subset onto the baseline's own document — same headings, same order,
+ * same Purpose section — so toggling a chip never has to ask the server again, and Upcoming
+ * never reorients a reader the way a separate list of touched requirements would.
  */
-describe("resolveUpcoming", () => {
+describe("buildUpcomingText", () => {
+  const fullBaseline = [
+    "# cart Specification",
+    "",
+    "## Purpose",
+    "",
+    "Taking payment for a basket.",
+    "",
+    "## Requirements",
+    "",
+    "### Requirement: Cart totals",
+    "",
+    "The cart SHALL price a basket once.",
+    "",
+    "### Requirement: Guest checkout",
+    "",
+    "A shopper SHALL check out without an account.",
+    "",
+  ].join("\n");
+
   const requirements = [
     {
       heading: "Cart totals",
-      baselineText: "### Requirement: Cart totals\nThe cart SHALL price a basket once.",
+      baselineText: "### Requirement: Cart totals\n\nThe cart SHALL price a basket once.",
       touches: [
-        { changeId: "reprice-cart-totals", operation: "MODIFIED", text: "reprice" },
-        { changeId: "round-cart-totals", operation: "MODIFIED", text: "round" },
+        {
+          changeId: "reprice-cart-totals",
+          operation: "MODIFIED",
+          text: "### Requirement: Cart totals\nThe cart SHALL price a basket once, including tax.",
+        },
+        {
+          changeId: "round-cart-totals",
+          operation: "MODIFIED",
+          text: "### Requirement: Cart totals\nThe cart SHALL price a basket once, rounded to the nearest cent.",
+        },
       ],
     },
     {
       heading: "Guest checkout",
-      baselineText: "### Requirement: Guest checkout\nA shopper SHALL check out without an account.",
+      baselineText:
+        "### Requirement: Guest checkout\n\nA shopper SHALL check out without an account.",
       touches: [],
     },
     {
       heading: "Split payment",
       baselineText: null,
-      touches: [{ changeId: "add-split-payment", operation: "ADDED", text: "split" }],
+      touches: [
+        {
+          changeId: "add-split-payment",
+          operation: "ADDED",
+          text: "### Requirement: Split payment\nA shopper SHALL split a basket across two cards.",
+        },
+      ],
     },
   ];
 
-  it("marks a disagreement when two enabled changes both touch a requirement", () => {
-    const readings = resolveUpcoming(requirements, [
+  it("reads exactly like the baseline with every chip disabled", () => {
+    const text = buildUpcomingText(fullBaseline, requirements, []);
+
+    assert.equal(text.includes("## Purpose"), true);
+    assert.equal(text.includes("The cart SHALL price a basket once."), true);
+    assert.equal(text.includes("including tax"), false);
+    // Split payment only exists because of a change that is disabled.
+    assert.equal(text.includes("Split payment"), false);
+  });
+
+  it("splices a single enabled touch in place, marked with its change", () => {
+    const text = buildUpcomingText(fullBaseline, requirements, ["reprice-cart-totals"]);
+
+    assert.equal(text.includes("**MODIFIED** · via `reprice-cart-totals`"), true);
+    assert.equal(text.includes("including tax"), true);
+    assert.equal(text.includes("rounded to the nearest cent"), false);
+    // Untouched requirements still appear, in the baseline's own order.
+    assert.ok(text.indexOf("Cart totals") < text.indexOf("Guest checkout"));
+    assert.equal(text.includes("without an account"), true);
+  });
+
+  it("shows both versions when two enabled changes touch the same requirement", () => {
+    const text = buildUpcomingText(fullBaseline, requirements, [
       "reprice-cart-totals",
       "round-cart-totals",
-      "add-split-payment",
     ]);
 
-    const totals = readings.find((r) => r.heading === "Cart totals");
-    assert.equal(totals.kind, "disagreement");
-    assert.equal(totals.touches.length, 2);
-
-    const guest = readings.find((r) => r.heading === "Guest checkout");
-    assert.equal(guest.kind, "durable");
-
-    const split = readings.find((r) => r.heading === "Split payment");
-    assert.equal(split.kind, "single");
-    assert.equal(split.changeId, "add-split-payment");
+    assert.equal(text.includes("2 changes disagree here"), true);
+    assert.equal(text.includes("including tax"), true);
+    assert.equal(text.includes("rounded to the nearest cent"), true);
   });
 
-  it("turns a disagreement back into a single fold when one side is disabled", () => {
-    const readings = resolveUpcoming(requirements, ["reprice-cart-totals"]);
+  it("appends an ADDED requirement after the baseline's own requirements", () => {
+    const text = buildUpcomingText(fullBaseline, requirements, ["add-split-payment"]);
 
-    const totals = readings.find((r) => r.heading === "Cart totals");
-    assert.equal(totals.kind, "single");
-    assert.equal(totals.changeId, "reprice-cart-totals");
-
-    // Split payment only exists because of the change just disabled.
-    assert.equal(
-      readings.some((r) => r.heading === "Split payment"),
-      false,
-    );
+    assert.equal(text.includes("**ADDED** · via `add-split-payment`"), true);
+    assert.ok(text.indexOf("Guest checkout") < text.indexOf("Split payment"));
   });
 
-  it("reads as the durable baseline with every chip disabled", () => {
-    const readings = resolveUpcoming(requirements, []);
+  it("keeps a removed requirement visible, marked and reasoned", () => {
+    const removed = [
+      {
+        heading: "Cart totals",
+        baselineText: requirements[0].baselineText,
+        touches: [
+          {
+            changeId: "drop-cart-totals",
+            operation: "REMOVED",
+            text: "### Requirement: Cart totals\n**Reason**: Pricing moves elsewhere.",
+          },
+        ],
+      },
+    ];
 
-    assert.deepEqual(
-      readings.map((r) => [r.heading, r.kind]),
-      [
-        ["Cart totals", "durable"],
-        ["Guest checkout", "durable"],
+    const text = buildUpcomingText(fullBaseline, removed, ["drop-cart-totals"]);
+
+    assert.equal(text.includes("The cart SHALL price a basket once."), true);
+    assert.equal(text.includes("**REMOVED** · via `drop-cart-totals`"), true);
+    assert.equal(text.includes("Pricing moves elsewhere."), true);
+  });
+
+  it("builds from ADDED-only requirements when the capability has no baseline", () => {
+    const unshipped = [requirements[2]];
+    const text = buildUpcomingText(null, unshipped, ["add-split-payment"]);
+
+    assert.equal(text.includes("Split payment"), true);
+    assert.equal(text.includes("**ADDED** · via `add-split-payment`"), true);
+  });
+
+  it("is empty when an unshipped capability's only change is disabled", () => {
+    const unshipped = [requirements[2]];
+    assert.equal(buildUpcomingText(null, unshipped, []), "");
+  });
+});
+
+describe("disagreementCount", () => {
+  const requirements = [
+    {
+      heading: "Cart totals",
+      baselineText: "...",
+      touches: [
+        { changeId: "a", operation: "MODIFIED", text: "" },
+        { changeId: "b", operation: "MODIFIED", text: "" },
       ],
-    );
+    },
+    {
+      heading: "Guest checkout",
+      baselineText: "...",
+      touches: [{ changeId: "a", operation: "MODIFIED", text: "" }],
+    },
+  ];
+
+  it("counts a requirement only while two of its touches are both enabled", () => {
+    assert.equal(disagreementCount(requirements, ["a", "b"]), 1);
+    assert.equal(disagreementCount(requirements, ["a"]), 0);
   });
 });
 
