@@ -158,6 +158,18 @@ neither applies a background class any more, only the `Badge` itself.
 for a document's lone pending copy — the same variants `@astryxdesign/theme-neutral` already
 ships Badge with, not a palette of this page's own.
 
+**The outline rail's badge is a second copy of `KIND_BADGE`, not a shared import.** Astryx's
+`OutlineItem.label` is typed as a plain string, but the `Outline` component only ever
+renders it as `{item.label}` inside a `<span>` — nothing else reads it as text, so a
+`WithOutline` given an `annotate` prop can hand it a small `<Badge>` + the original label
+instead, and it renders exactly as any other child would. `WithOutline` keeps its own copy
+of the ADDED/MODIFIED/REMOVED/disagreement → `{label, variant}` map rather than importing
+`SpecText`'s, for the reason `Requirement` and `DocVersion` each keep their own: this
+component has no other reason to know the vocabulary exists, and the two only need to stay
+in sync on the four names and colors, which is what review is for. Rejected: teaching
+`Outline` a badge concept upstream — this is a one-page feature of this store, not a change
+`@astryxdesign/core` should carry.
+
 ## Risks / Trade-offs
 
 - Two changes MODIFYing the same heading to text that turns out identical still renders as

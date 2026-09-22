@@ -236,3 +236,23 @@ version, when shown alongside them, SHALL NOT be.
   both shown
 - **WHEN** the page is read
 - **THEN** the change's copy carries a badge and the shipped text does not
+
+### Requirement: The outline rail carries the same badge as the heading it names
+
+`spec/<id>`'s "On this page" rail SHALL show, in front of the entry for a requirement
+Upcoming badges, the same badge — same label, same color — so a reader scanning the rail
+sees what changed without opening the disclosure the entry points to. An entry for a
+requirement Upcoming leaves untouched SHALL carry none.
+
+#### Scenario: A badge in the rail matches the one on the page
+
+- **GIVEN** `storefront/pricing`'s Upcoming reading, with "Tier thresholds are configurable"
+  badged MODIFIED
+- **WHEN** the outline rail is read
+- **THEN** its entry for "Tier thresholds are configurable" carries the same MODIFIED badge
+
+#### Scenario: An untouched requirement's entry carries no badge
+
+- **GIVEN** `storefront/pricing`'s Upcoming reading, with "Guest checkout" untouched
+- **WHEN** the outline rail is read
+- **THEN** its entry for "Guest checkout" carries no badge

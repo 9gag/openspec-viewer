@@ -77,6 +77,9 @@ export default function Upcoming({ cap, doc, lens, onLens }) {
 
   const specText = doc ? null : buildUpcomingText(cap.text, cap.upcoming?.requirements, enabled);
   const kinds = doc ? null : upcomingKinds(cap.upcoming?.requirements, enabled);
+  // Shared by the heading's own badge and the outline rail's copy of it, so a reader
+  // scanning "On this page" sees exactly what opening the requirement would show.
+  const annotate = doc ? undefined : (title) => kinds.get(title.trim());
   const docVersions = doc
     ? upcomingDocVersions(
         doc.text,
@@ -134,7 +137,7 @@ export default function Upcoming({ cap, doc, lens, onLens }) {
       )}
 
       {hasContent ? (
-        <WithOutline>
+        <WithOutline annotate={annotate}>
           <Card padding={4}>
             {doc ? (
               <VStack gap={4}>
@@ -152,7 +155,7 @@ export default function Upcoming({ cap, doc, lens, onLens }) {
                   bdd
                   prefix={cap.capability}
                   lens={lens}
-                  annotate={(title) => kinds.get(title.trim())}
+                  annotate={annotate}
                 />
               </VStack>
             )}

@@ -193,3 +193,22 @@ scenarios read as heavier than the fact it was marking.
       unchanged, and stays the only thing `kind` now controls. Delete the corresponding
       `.upcoming-block*` rules from `src/app.css`.
 - [x] 9.2 Run `pnpm test && pnpm build` and confirm both succeed end to end.
+
+## 10. Follow-up: badge the outline rail too
+
+Raised once §9 shipped — a reader scanning "On this page" for what an in-development change
+touches had no signal until opening the requirement itself.
+
+- [x] 10.1 Give `WithOutline` an optional `annotate(title)` prop, the same shape `SpecText`
+      already takes. When given, decorate each outline item whose label it returns a kind
+      for with a `Badge` in front of the label text, using `WithOutline`'s own local
+      `kind → { label, variant }` map; leave every other item's label untouched.
+- [x] 10.2 `Upcoming` computes `annotate` once and passes the same function to both
+      `Artifact`'s `annotate` (badges the heading) and `WithOutline`'s (badges the rail
+      entry), so the two never disagree about which requirements are touched. Scoped to
+      spec.md only — a document's outline entries (headings inside a journey or test-case
+      file) have no per-heading `kind` the way a requirement does, so `doc` mode passes no
+      `annotate` and its rail is unchanged.
+- [x] 10.3 Run `pnpm test && pnpm build` and confirm both succeed end to end; verified
+      against a scratch store with a MODIFIED and an ADDED requirement that the API returns
+      the touches `upcomingKinds` needs to badge both the heading and its rail entry.

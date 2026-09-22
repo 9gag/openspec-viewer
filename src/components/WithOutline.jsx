@@ -1,8 +1,21 @@
+import { Badge } from "@astryxdesign/core/Badge";
+import { HStack } from "@astryxdesign/core/Layout";
 import { Outline, useOutlineFromDOM } from "@astryxdesign/core/Outline";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { markSection } from "../highlight.js";
 import { headingLink, linkedHeading } from "../toc.js";
+
+/** How a `kind` from `annotate` reads as a badge in front of an outline entry — the same
+ * vocabulary `SpecText`'s own `KIND_BADGE` renders beside the heading itself. Kept as its
+ * own copy rather than imported: this component has no other reason to know about deltas
+ * or in-development changes, and the badge is the only thing the two need to agree on. */
+const KIND_BADGE = {
+  added: { label: "ADDED", variant: "green" },
+  modified: { label: "MODIFIED", variant: "yellow" },
+  removed: { label: "REMOVED", variant: "red" },
+  disagreement: { label: "DISAGREEMENT", variant: "orange" },
+};
 
 /**
  * A document with an "On this page" rail beside it.
@@ -17,10 +30,32 @@ import { headingLink, linkedHeading } from "../toc.js";
  * The rail is dropped entirely on narrow screens (see .with-outline in app.css) rather
  * than stacked above the content, where a table of contents is just a list to scroll past
  * on the way to the thing it indexes.
+ *
+ * `annotate`, when given, names how the heading behind an entry is touched — the same
+ * `(title) => kind` function `SpecText` takes — so a reader scanning "On this page" for
+ * what changed sees the same badge the heading itself carries, without opening the
+ * disclosure it sits above.
  */
-export default function WithOutline({ children, label = "On this page" }) {
+export default function WithOutline({ children, label = "On this page", annotate }) {
   const ref = useRef(null);
   const items = useOutlineFromDOM(ref);
+  const decorated = useMemo(() => {
+    if (!annotate) return items;
+    return items.map((item) => {
+      const kind = annotate(item.label);
+      const badge = kind && KIND_BADGE[kind];
+      if (!badge) return item;
+      return {
+        ...item,
+        label: (
+          <HStack gap={1} align="center" as="span" wrap="nowrap">
+            <Badge variant={badge.variant} label={badge.label} />
+            <span>{item.label}</span>
+          </HStack>
+        ),
+      };
+    });
+  }, [items, annotate]);
 
   /*
    * The rail's own links, taken over.
@@ -78,7 +113,7 @@ export default function WithOutline({ children, label = "On this page" }) {
       {items.length > 1 && (
         // biome-ignore lint/a11y/useKeyWithClickEvents: delegation for the links inside, which are focusable and keyboard-activated in their own right
         <aside className="outline-rail" onClickCapture={onRailClick}>
-          <Outline items={items} label={label} density="compact" />
+          <Outline items={decorated} label={label} density="compact" />
         </aside>
       )}
     </div>
