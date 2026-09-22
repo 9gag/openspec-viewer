@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { capabilityDocs, readDocs } from "./artifacts.mjs";
 import { checkReferences } from "./references.mjs";
 import { capabilities } from "./change.mjs";
+import { modifiedDrift } from "./deltas.mjs";
+import { composeUpcoming } from "./upcoming.mjs";
 import {
   changeIds,
   dirs,
@@ -305,6 +307,36 @@ export function archive() {
 }
 
 /**
+ * What this capability reads like with every in-development change on it folded on at
+ * once, and which of those changes could not fold at all.
+ *
+ * `null` for a capability nothing in development touches — `spec/<id>` reads that as "no
+ * Upcoming to offer" rather than an empty one. `drift` is `modifiedDrift`, run once per
+ * touching change against this capability's own baseline (`null` for one that is
+ * unshipped) exactly as `capabilities()` already runs it for the change page; a change
+ * whose MODIFIED block cannot fold is named here rather than folded into `composeUpcoming`,
+ * whose entries are only ever the touches that did match a heading.
+ */
+export function upcomingFor(storePath, capability, baselineText, history) {
+  const touching = history.filter((h) => !h.archived);
+  if (touching.length === 0) return null;
+
+  const deltas = touching.map((h) => ({
+    changeId: h.changeId,
+    text:
+      capabilities(storePath, h.change).find((c) => c.capability === capability)
+        ?.text ?? "",
+  }));
+
+  return {
+    requirements: composeUpcoming(baselineText, deltas),
+    driftedChanges: deltas
+      .map((d) => ({ changeId: d.changeId, drift: modifiedDrift(d.text, baselineText) }))
+      .filter((d) => d.drift !== null),
+  };
+}
+
+/**
  * One capability, with its baseline text. Null when the store has never heard of it.
  *
  * The ids are checked here rather than in the catalog: this is the only reader that has
@@ -322,5 +354,6 @@ export function capability(name) {
       ...(found.path ? [{ path: found.path, text: found.text }] : []),
       ...(found.docs ?? []).map((doc) => ({ path: doc.path, text: doc.text })),
     ]),
+    upcoming: upcomingFor(root.path, found.capability, found.text, found.history),
   };
 }

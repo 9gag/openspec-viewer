@@ -7,6 +7,10 @@ import { Heading } from "@astryxdesign/core/Heading";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@astryxdesign/core/SegmentedControl";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
@@ -35,6 +39,7 @@ import {
 } from "../components/Timeline.jsx";
 import References from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
+import Upcoming from "../components/Upcoming.jsx";
 import { tabForAnchor } from "../tabs.js";
 import { HEADING_KEY } from "../toc.js";
 import WithOutline from "../components/WithOutline.jsx";
@@ -522,6 +527,11 @@ export function SpecDetail({ id, tab, position }) {
     saveLens(next);
   };
 
+  // Durable is the baseline as shipped; Upcoming is that baseline with every in-development
+  // change on it folded on. Not remembered across pages the way the lens is — which version
+  // a reader wants is a question about the one capability in front of them, not a habit.
+  const [version, setVersion] = useState("durable");
+
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
     return (
@@ -571,6 +581,19 @@ export function SpecDetail({ id, tab, position }) {
               </Text>
             )}
           </HStack>
+          {/* Only when a doc tab isn't open: Upcoming is a reading of the spec itself, and
+              a capability with no in-development change has nothing to fold onto it. */}
+          {!doc && data.upcoming && (
+            <SegmentedControl
+              value={version}
+              onChange={setVersion}
+              label="Version"
+              size="sm"
+            >
+              <SegmentedControlItem value="durable" label="Durable" />
+              <SegmentedControlItem value="upcoming" label="Upcoming" />
+            </SegmentedControl>
+          )}
         </VStack>
 
         <Card padding={4}>
@@ -599,11 +622,15 @@ export function SpecDetail({ id, tab, position }) {
           </TabList>
         )}
 
-        <WithOutline>
-          <Card padding={4}>
-            <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
-          </Card>
-        </WithOutline>
+        {!doc && version === "upcoming" && data.upcoming ? (
+          <Upcoming key={data.capability} cap={data} />
+        ) : (
+          <WithOutline>
+            <Card padding={4}>
+              <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
+            </Card>
+          </WithOutline>
+        )}
       </VStack>
     </ResolvedIds>
   );

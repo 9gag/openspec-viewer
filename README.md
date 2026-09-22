@@ -325,6 +325,15 @@ this here, and what is about to change it"; both directions were in the tree alr
 only the index was missing. It is deliberately not on the index, where it was the same
 list repeated under every row.
 
+**Durable and Upcoming**, a toggle on `#/spec/<capability>` whenever at least one
+in-development change deltas it. Durable is the shipped baseline; Upcoming folds every
+enabled in-development change onto it at once — a **composite**, not one change previewed
+at a time, since there is no landing order for two in-development changes to reflect. A
+requirement two enabled changes both touch is a **disagreement** and is never folded into a
+guess at which one wins: both versions render side by side. A row of chips, one per
+in-development change, lets a reader narrow the composite down to a subset, down to the
+single-change preview that is its own special case.
+
 That view also lists capabilities that have **not** shipped. `openspec/specs/` holds only
 archived behavior, so a catalogue built from it alone silently omits everything in development —
 which on a store early in its life is most of what anyone wants to read.

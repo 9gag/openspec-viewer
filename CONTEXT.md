@@ -201,6 +201,15 @@ Of a capability: the one a conflict is happening to. The conflict is the event, 
 capability is contested — the board counts the first, the catalog marks the second.
 _Avoid_: conflicted, disputed, hot
 
+**Disagreement**:
+Of a requirement, in Upcoming: touched by two or more enabled in-development changes at
+once. Never resolved into one reading — each touching change's version is shown side by
+side, because there is no landing order that says which one wins. Finer-grained than a
+**conflict**, which is the same kind of overlap read at the capability rather than the
+requirement — the two are never the same word on purpose, so a reader of both pages can
+tell which grain a page is talking about.
+_Avoid_: collision, clash, conflict, overlap
+
 **Ready to archive**:
 An in-development change with every task checked off.
 _Avoid_: complete, finished, done
@@ -237,6 +246,13 @@ The catalog again, with each in-development change's own board progress — done
 owner, idle signal — already on the row, so a reader does not open the board to see how
 far along the change rewriting a capability actually is.
 _Avoid_: dashboard, overview, health, readiness
+
+**Composite**:
+`spec/<id>`'s Upcoming reading: the baseline with every enabled in-development change on
+the capability folded onto it at once, rather than one change previewed at a time. There is
+no real order for two in-development changes to land in, so composite never invents one by
+folding one change's result into the next before folding in the one after it.
+_Avoid_: merge, combined view, diff
 
 **Timeline**:
 A dated sequence read down one column — a capability's history, or the archive.
