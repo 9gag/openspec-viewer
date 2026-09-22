@@ -124,6 +124,47 @@ it enabled on User Journeys, silently previewing a state the change never actual
 spec.md's requirements and its capability's journeys either both land with a given change or
 neither does, so the picker should not be able to say otherwise.
 
+**A touched section is tinted through a prop on `SpecText`, not a change to what it
+parses.** `SpecText` (and the `Requirement` component inside it) already renders one
+`<section>` per requirement off `parseSpec`'s own nodes; it now takes an optional `annotate`
+function, keyed by the requirement's title, and adds a `upcoming-block upcoming-block--<kind>`
+class to that one `<section>` when it returns one. `Artifact` forwards the prop; `Upcoming`
+is the only caller that ever passes it, computed by a new pure `upcomingKinds(requirements,
+enabled)` that runs the same touch-filtering `buildUpcomingText` does, kept separate so the
+text handed to a markdown renderer never has to carry styling hints inside it. Rejected:
+folding the tint into the composite text itself, as an HTML `<div>` wrapped around the
+touched markdown. Astryx's `Markdown` is not guaranteed to pass raw HTML through unchanged,
+and even where it does, a `<div>` opened in the middle of one string and closed in the
+middle of another is exactly the kind of markup a future edit silently breaks.
+
+**A document's versions render as a list of blocks, not a spliced string.** Unlike
+spec.md there is no shared `<section>` per version to tint — a document is one block of
+prose start to finish — so `upcomingDocVersions` returns an array (`{ kind, changeId?,
+text }`) instead of joining everything into one string the way `buildUpcomingText` does, and
+`Upcoming` renders each entry as its own tinted `<div>` around its own `<Artifact>`. This is
+the per-card approach an earlier revision of this design rejected for spec.md — but it never
+had the problem that revision found: there is no Purpose section or requirement order for a
+document, so a version rendered as its own block loses nothing spec.md would have.
+
+**The badge beside a heading names the same `kind` the background already tints it by.**
+`Requirement` (in `SpecText`) and `DocVersion` (in `Upcoming`) each keep a small local
+`kind → { label, variant }` map and render a `Badge` next to the heading whenever `kind` is
+present, using the color-named variant (`green`/`yellow`/`red`/`orange`/`blue`) matching the
+section's own `upcoming-block--<kind>` background — so scanning the page or scanning the
+badges finds the same set of touched sections either way. Rejected: one shared map imported
+by both. Requirements and documents use two different, non-overlapping vocabularies for
+`kind` (ADDED/MODIFIED/REMOVED/disagreement against shipped/pending/disagreement) that only
+happen to share the word "disagreement," so a shared map would need its own gate to stop a
+document ever rendering an ADDED badge — more machinery than duplicating four lines twice.
+
+**Colors are Badge's own tokens, not a new palette.** ADDED/MODIFIED/REMOVED/disagreement
+use `--color-background-green/yellow/red/orange`, the same custom properties
+`@astryxdesign/theme-neutral` already backs its `green`/`yellow`/`red`/`orange` Badge variant
+with. A document's single pending copy reuses `--color-background-blue` for the same reason
+Badge has a `blue` variant beside those four: it is not one of ADDED/MODIFIED/REMOVED, so it
+does not borrow one of their colors, and it is not a disagreement either, so it does not
+borrow orange.
+
 ## Risks / Trade-offs
 
 - Two changes MODIFYing the same heading to text that turns out identical still renders as
@@ -147,6 +188,12 @@ neither does, so the picker should not be able to say otherwise.
   is. → Mitigation: bounded the same way the chip row is — by how many in-development
   changes actually carry their own copy of *this* document, which real stores keep small; a
   lens for prose documents is a separate feature with its own bar to clear.
+- A tinted requirement's background sits behind its whole `<section>` — heading, prose and
+  scenario disclosure alike — so a long disagreement with several full requirement bodies
+  stacked inside it is one large tinted block rather than several smaller ones. →
+  Mitigation: accepted; the alternative is tinting only the marker line and leaving the
+  actual rewritten text on a plain background, which defeats the purpose of the tint (to
+  find *what* changed without reading everything).
 
 ## Migration Plan
 

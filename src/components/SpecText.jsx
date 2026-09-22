@@ -1,3 +1,4 @@
+import { Badge } from "@astryxdesign/core/Badge";
 import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
@@ -183,6 +184,15 @@ function Scenario({ scenario, id, components }) {
   );
 }
 
+/** How a `kind` from `annotate` reads as a badge — same name, same color, as the section's
+ * own background tint, so the badge is a legend for it rather than a second vocabulary. */
+const KIND_BADGE = {
+  added: { label: "ADDED", variant: "green" },
+  modified: { label: "MODIFIED", variant: "yellow" },
+  removed: { label: "REMOVED", variant: "red" },
+  disagreement: { label: "DISAGREEMENT", variant: "orange" },
+};
+
 /** One requirement, with its scenarios behind a disclosure. */
 function Requirement({
   node,
@@ -191,15 +201,23 @@ function Requirement({
   scenarios,
   isOpen,
   onOpenChange,
+  kind,
 }) {
   const id = anchor(prefix, node.title);
   const count = node.scenarios.length;
+  const className = kind
+    ? `requirement upcoming-block upcoming-block--${kind}`
+    : "requirement";
+  const badge = kind && KIND_BADGE[kind];
 
   return (
-    <section className="requirement">
-      <HeadingWithLink level={3} id={id}>
-        {node.title}
-      </HeadingWithLink>
+    <section className={className}>
+      <HStack gap={2} align="center" wrap="wrap">
+        <HeadingWithLink level={3} id={id}>
+          {node.title}
+        </HeadingWithLink>
+        {badge && <Badge variant={badge.variant} label={badge.label} />}
+      </HStack>
       <Blocks text={node.text} components={components} scenarios={scenarios} />
 
       {count > 0 && (
@@ -233,11 +251,18 @@ function Requirement({
   );
 }
 
+/**
+ * `annotate`, when given, names how a requirement is touched — `"added"`, `"modified"`,
+ * `"removed"`, `"disagreement"`, or nothing for one it leaves alone — so `spec/<id>`'s
+ * Upcoming reading can tint each one's own `<section>` and badge its heading without this
+ * component knowing anything about deltas or in-development changes itself.
+ */
 export default function SpecText({
   text,
   prefix = "",
   base = "",
   lens = DEFAULT_LENS,
+  annotate,
 }) {
   const components = mdComponents({ prefix, bdd: true, base });
   const nodes = useMemo(() => parseSpec(text), [text]);
@@ -298,6 +323,7 @@ export default function SpecText({
             prefix={prefix}
             components={components}
             scenarios={scenarios}
+            kind={annotate?.(node.title)}
             isOpen={
               opened[node.title] ??
               (node.title === holding ? true : rules.scenarios)

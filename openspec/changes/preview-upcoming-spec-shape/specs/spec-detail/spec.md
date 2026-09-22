@@ -212,3 +212,30 @@ paragraph by paragraph the way spec.md's requirements are.
   copy of `user-journeys.md`
 - **WHEN** Upcoming is read on the User Journeys tab
 - **THEN** it shows exactly the shipped text, unchanged
+
+### Requirement: A touched section is tinted and badged by what happened to it
+
+A requirement Upcoming shows as ADDED, MODIFIED, REMOVED or a disagreement SHALL carry a
+background distinguishing it from a requirement Upcoming leaves untouched, and a badge
+beside its heading naming which of the four it is; the background and the badge SHALL use
+the same color, so the badge reads as a label for the tint rather than a second vocabulary.
+The four SHALL be visibly distinct from each other. The same applies to a document's own
+versions: a version shown because an in-development change carries it, or because more than
+one disagree over it, SHALL be tinted and badged; the shipped version, when shown alongside
+them, SHALL be neither.
+
+#### Scenario: Four requirements, four tints and badges
+
+- **GIVEN** `storefront/pricing`'s Upcoming reading holding one ADDED, one MODIFIED, one
+  REMOVED and one disagreeing requirement, alongside untouched ones
+- **WHEN** the page is read
+- **THEN** each of the four reads with its own background and its own badge naming it,
+  distinct from the others and from the untouched requirements around them
+
+#### Scenario: A document's pending copy is tinted and badged, its shipped text is neither
+
+- **GIVEN** `user-journeys.md`'s shipped text and one in-development change's own copy,
+  both shown
+- **WHEN** the page is read
+- **THEN** the change's copy carries a background and a badge, and the shipped text
+  carries neither

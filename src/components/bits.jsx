@@ -148,6 +148,7 @@ export function Artifact({
   bdd = false,
   prefix = "",
   lens,
+  annotate,
 }) {
   if (!text)
     return <Text color="secondary">This artifact does not exist yet.</Text>;
@@ -159,7 +160,13 @@ export function Artifact({
         {/* headingLevelStart=2: the page already owns the h1. `path` doubles as the base
             for resolving this document's own relative links. */}
         {bdd ? (
-          <SpecText text={text} prefix={prefix} base={path} lens={lens} />
+          <SpecText
+            text={text}
+            prefix={prefix}
+            base={path}
+            lens={lens}
+            annotate={annotate}
+          />
         ) : (
           <Markdown
             headingLevelStart={2}

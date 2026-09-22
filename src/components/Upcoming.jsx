@@ -1,24 +1,64 @@
+import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Card } from "@astryxdesign/core/Card";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Text } from "@astryxdesign/core/Text";
 import { ToggleButton } from "@astryxdesign/core/ToggleButton";
 import { useState } from "react";
 
 import {
-  buildUpcomingDocText,
   buildUpcomingText,
   changesTouching,
+  upcomingDocVersions,
+  upcomingKinds,
 } from "../upcoming.js";
 import { Artifact, LensControl } from "./bits.jsx";
 import WithOutline from "./WithOutline.jsx";
+
+const DOC_LABEL = {
+  shipped: "Shipped",
+  pending: "Not yet shipped",
+  disagreement: "Not yet shipped",
+};
+
+/** A badge only for a version that isn't the shipped one — the same color the section's
+ * own background is tinted, so the badge reads as a legend for it. */
+const DOC_BADGE = {
+  pending: { label: "PENDING", variant: "blue" },
+  disagreement: { label: "DISAGREEMENT", variant: "orange" },
+};
+
+/** One version of a document beside spec.md, tinted by whether it is shipped, an
+ * in-development change's own copy, or one of several disagreeing over the same file. */
+function DocVersion({ version }) {
+  const className = version.kind === "shipped" ? undefined : `upcoming-block upcoming-block--${version.kind}`;
+  const badge = DOC_BADGE[version.kind];
+  return (
+    <div className={className}>
+      <VStack gap={2}>
+        <HStack gap={2} align="center" wrap="wrap">
+          <Text size="sm" weight="medium" color="secondary">
+            {DOC_LABEL[version.kind]}
+            {version.changeId ? ` · via ${version.changeId}` : ""}
+          </Text>
+          {badge && <Badge variant={badge.variant} label={badge.label} />}
+        </HStack>
+        <Artifact text={version.text} prefix={version.changeId ?? "shipped"} />
+      </VStack>
+    </div>
+  );
+}
 
 /**
  * `spec/<id>`'s Upcoming reading: the same document Durable shows — spec.md, or whichever
  * of its documents is the active tab — with every enabled in-development change on the
  * capability folded onto it (see `server/upcoming.mjs` and `src/upcoming.js`). Same
  * headings, same order, same Purpose section for spec.md; a document beside it has no such
- * paragraph to fold, so every version present is shown in full instead.
+ * paragraph to fold, so every version present is shown in full instead. Either way, a
+ * touched section is tinted by what happened to it — ADDED, MODIFIED, REMOVED, or a
+ * disagreement between changes — so a reader scanning the page finds what changed without
+ * reading every line.
  *
  * Mounted once per capability regardless of which tab is active — `doc` is a prop that
  * changes underneath it, not something that remounts it — so which changes are enabled
@@ -39,13 +79,18 @@ export default function Upcoming({ cap, doc, lens, onLens }) {
 
   const drifted = doc ? [] : (cap.upcoming?.driftedChanges ?? []);
 
-  const text = doc
-    ? buildUpcomingDocText(
+  const specText = doc ? null : buildUpcomingText(cap.text, cap.upcoming?.requirements, enabled);
+  const kinds = doc ? null : upcomingKinds(cap.upcoming?.requirements, enabled);
+  const docVersions = doc
+    ? upcomingDocVersions(
         doc.text,
         cap.upcoming?.docs?.find((d) => d.name === doc.name)?.versions,
         enabled,
       )
-    : buildUpcomingText(cap.text, cap.upcoming?.requirements, enabled);
+    : null;
+
+  const hasContent = doc ? docVersions.length > 0 : Boolean(specText);
+  const docsDisagree = doc && docVersions.some((v) => v.kind === "disagreement");
 
   return (
     <>
@@ -70,6 +115,14 @@ export default function Upcoming({ cap, doc, lens, onLens }) {
         />
       )}
 
+      {docsDisagree && (
+        <Banner
+          status="warning"
+          title="These changes disagree here"
+          description={`More than one enabled change carries its own copy of ${doc.label}. Not merged, so every version is shown below rather than one chosen for you.`}
+        />
+      )}
+
       {changes.length > 0 && (
         <HStack gap={2} wrap="wrap">
           {changes.map((changeId) => (
@@ -84,17 +137,27 @@ export default function Upcoming({ cap, doc, lens, onLens }) {
         </HStack>
       )}
 
-      {text ? (
+      {hasContent ? (
         <WithOutline>
           <Card padding={4}>
             {doc ? (
-              <Artifact text={text} prefix={doc.name} />
+              <VStack gap={4}>
+                {docVersions.map((version) => (
+                  <DocVersion key={version.changeId ?? "shipped"} version={version} />
+                ))}
+              </VStack>
             ) : (
               <VStack gap={3}>
                 <HStack hAlign="end">
                   <LensControl value={lens} onChange={onLens} />
                 </HStack>
-                <Artifact text={text} bdd prefix={cap.capability} lens={lens} />
+                <Artifact
+                  text={specText}
+                  bdd
+                  prefix={cap.capability}
+                  lens={lens}
+                  annotate={(title) => kinds.get(title.trim())}
+                />
               </VStack>
             )}
           </Card>

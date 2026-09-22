@@ -13,9 +13,10 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { deltasInDevelopment, upcomingFor } from "../server/catalog.mjs";
 import { composeUpcoming } from "../server/upcoming.mjs";
 import {
-  buildUpcomingDocText,
   buildUpcomingText,
   changesTouching,
+  upcomingDocVersions,
+  upcomingKinds,
 } from "../src/upcoming.js";
 
 const baseline = [
@@ -480,46 +481,92 @@ describe("buildUpcomingText", () => {
   });
 });
 
-describe("buildUpcomingDocText", () => {
-  const durable = "A shopper checks out as a guest.";
+describe("upcomingKinds", () => {
+  const requirements = [
+    {
+      heading: "Cart totals",
+      baselineText: "...",
+      touches: [
+        { changeId: "a", operation: "MODIFIED", text: "" },
+        { changeId: "b", operation: "MODIFIED", text: "" },
+      ],
+    },
+    {
+      heading: "Guest checkout",
+      baselineText: "...",
+      touches: [{ changeId: "a", operation: "REMOVED", text: "" }],
+    },
+    {
+      heading: "Split payment",
+      baselineText: null,
+      touches: [{ changeId: "a", operation: "ADDED", text: "" }],
+    },
+  ];
 
-  it("reads exactly like the shipped document with nothing enabled", () => {
-    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
-    assert.equal(buildUpcomingDocText(durable, versions, []), durable);
+  it("names the operation for a requirement exactly one enabled change touches", () => {
+    const kinds = upcomingKinds(requirements, ["a"]);
+    assert.equal(kinds.get("Guest checkout"), "removed");
+    assert.equal(kinds.get("Split payment"), "added");
   });
 
-  it("shows the shipped text and the one enabled copy, marked", () => {
-    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
-    const text = buildUpcomingDocText(durable, versions, ["add-split-payment"]);
-
-    assert.equal(text.includes("**Shipped**"), true);
-    assert.equal(text.includes(durable), true);
-    assert.equal(text.includes("**Not yet shipped** · via `add-split-payment`"), true);
-    assert.equal(text.includes("A shopper splits a basket."), true);
+  it("is a disagreement once two enabled changes touch the same requirement", () => {
+    assert.equal(upcomingKinds(requirements, ["a", "b"]).get("Cart totals"), "disagreement");
+    assert.equal(upcomingKinds(requirements, ["a"]).get("Cart totals"), "modified");
   });
 
-  it("shows just the change's copy for a document with no shipped version", () => {
-    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
-    const text = buildUpcomingDocText(null, versions, ["add-split-payment"]);
+  it("carries no entry for a requirement nothing enabled touches", () => {
+    assert.equal(upcomingKinds(requirements, []).size, 0);
+  });
+});
 
-    assert.equal(text.includes("**Shipped**"), false);
-    assert.equal(text.includes("A shopper splits a basket."), true);
+describe("upcomingDocVersions", () => {
+  const shipped = "A shopper checks out as a guest.";
+
+  it("is just the shipped version with nothing enabled", () => {
+    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
+    assert.deepEqual(upcomingDocVersions(shipped, versions, []), [
+      { kind: "shipped", text: shipped },
+    ]);
   });
 
-  it("shows every enabled copy and the shipped text when two changes disagree", () => {
+  it("adds the one enabled copy as pending", () => {
+    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
+    const result = upcomingDocVersions(shipped, versions, ["add-split-payment"]);
+
+    assert.deepEqual(result, [
+      { kind: "shipped", text: shipped },
+      { kind: "pending", changeId: "add-split-payment", text: "A shopper splits a basket." },
+    ]);
+  });
+
+  it("is just the change's copy for a document with no shipped version", () => {
+    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
+    const result = upcomingDocVersions(null, versions, ["add-split-payment"]);
+
+    assert.deepEqual(result, [
+      { kind: "pending", changeId: "add-split-payment", text: "A shopper splits a basket." },
+    ]);
+  });
+
+  it("marks every enabled copy as disagreeing once there is more than one", () => {
     const versions = [
       { changeId: "add-split-payment", text: "A shopper splits a basket by card." },
       { changeId: "add-wallet-split", text: "A shopper splits a basket by wallet." },
     ];
-    const text = buildUpcomingDocText(durable, versions, [
+    const result = upcomingDocVersions(shipped, versions, [
       "add-split-payment",
       "add-wallet-split",
     ]);
 
-    assert.equal(text.includes("2 changes disagree here"), true);
-    assert.equal(text.includes("by card"), true);
-    assert.equal(text.includes("by wallet"), true);
-    assert.equal(text.includes(durable), true);
+    assert.deepEqual(
+      result.map((v) => v.kind),
+      ["shipped", "disagreement", "disagreement"],
+    );
+  });
+
+  it("is empty for an unshipped document with every chip disabled", () => {
+    const versions = [{ changeId: "add-split-payment", text: "A shopper splits a basket." }];
+    assert.deepEqual(upcomingDocVersions(null, versions, []), []);
   });
 });
 

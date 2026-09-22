@@ -153,3 +153,32 @@ cases are exactly as unshipped-or-not as its requirements, and had no way to pre
       end-to-end against a scratch store with a shipped `user-journeys.md` and an
       in-development change carrying its own copy, hitting `/api/spec` directly and
       confirming `docs`/`upcoming.docs` match the shape §7.1-7.3 expect.
+
+## 8. Follow-up: tint and badge a touched section
+
+`buildUpcomingDocText`'s single joined string (§7.3) could not be tinted or badged per
+version — a background needs its own element to sit behind, and a joined string is one
+element. Replaced with structured data both for spec.md's requirements and for a document's
+versions.
+
+- [x] 8.1 Add `upcomingKinds(requirements, enabled)` to `src/upcoming.js`: ADDED, MODIFIED
+      or REMOVED for a requirement exactly one enabled change touches, `"disagreement"` for
+      one two or more touch, nothing for one none do. Give `SpecText` an optional
+      `annotate(title)` prop and have `Requirement` add a `upcoming-block
+      upcoming-block--<kind>` class plus a matching `Badge` beside its heading when it
+      returns one; forward the prop through `Artifact`. Verify with
+      `node --test test/upcoming.test.mjs`.
+- [x] 8.2 Replace `buildUpcomingDocText`'s joined string with `upcomingDocVersions`,
+      returning `{ kind, changeId?, text }[]` — `"shipped"` for the baseline text,
+      `"pending"` for the one enabled copy, `"disagreement"` for every copy once there are
+      two or more. `Upcoming` renders each as its own `<div>`, tinted and badged the same
+      way a requirement is, with a `DocVersion` label naming the change (or "Shipped").
+- [x] 8.3 CSS: `.upcoming-block` (padding, radius) plus `--added`/`--modified`/`--removed`/
+      `--pending`/`--disagreement`, each `background-color` one of Astryx's own
+      `--color-background-<name>` tokens — the same ones its `green`/`yellow`/`red`/
+      `blue`/`orange` Badge variants already use, so a section's background and its badge
+      always agree.
+- [x] 8.4 Run `pnpm test && pnpm build` and confirm both succeed end to end; verified
+      against a scratch store with two changes MODIFYing the same requirement (disagreement,
+      orange) and a third ADDing a new one (green), confirming `upcoming.requirements`
+      carries the touches `upcomingKinds` needs.

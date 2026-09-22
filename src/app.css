@@ -1028,3 +1028,36 @@ body {
 .ref-preview {
   max-width: 34rem;
 }
+
+/*
+ * Upcoming: a requirement or a document version tinted by what happened to it, so a reader
+ * scanning the page finds what changed without reading every line. Colors are the same
+ * tokens Badge already tints its ADDED/MODIFIED/REMOVED-adjacent variants with, not a
+ * palette of this page's own.
+ */
+.upcoming-block {
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+
+.upcoming-block--added {
+  background-color: var(--color-background-green);
+}
+
+.upcoming-block--modified {
+  background-color: var(--color-background-yellow);
+}
+
+.upcoming-block--removed {
+  background-color: var(--color-background-red);
+}
+
+.upcoming-block--pending {
+  background-color: var(--color-background-blue);
+}
+
+/* Two or more changes disagreeing, whether over a requirement or a whole document — its
+   own color, distinct from any one operation, since it is not really one of them. */
+.upcoming-block--disagreement {
+  background-color: var(--color-background-orange);
+}

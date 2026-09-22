@@ -119,28 +119,51 @@ export function buildUpcomingText(baselineText, requirements, enabledChangeIds) 
 }
 
 /**
- * A document filed beside spec.md — a journey, a set of test cases — as it would read with
- * whichever in-development copies a reader has enabled. There is no paragraph here to fold
- * the way a requirement's is: a change carries its own whole copy of the file, or none at
- * all, so every version present — the shipped one, and every enabled change's own — is
- * shown in full, marked, rather than merged into a single guess.
+ * Which of ADDED/MODIFIED/REMOVED a requirement is, for the subset of changes currently
+ * enabled — or `"disagreement"` where more than one of them touches it, and nothing at all
+ * for a requirement none of them touches. Keyed by the requirement's own heading, trimmed,
+ * the same key `buildUpcomingText` splices its composite text back together by, so a
+ * heading found in the rendered document and a heading found here name the same requirement.
+ *
+ * Split out of `buildUpcomingText` rather than folded into its return value: the text is
+ * markdown handed to a renderer that knows nothing about deltas, and this is the one part of
+ * the fold a renderer *does* need to know, to tint a requirement's own section by what
+ * happened to it without re-parsing the text it was just given.
  */
-export function buildUpcomingDocText(durableText, versions, enabledChangeIds) {
+export function upcomingKinds(requirements, enabledChangeIds) {
+  const enabled = new Set(enabledChangeIds);
+  const kinds = new Map();
+  for (const entry of requirements ?? []) {
+    const touches = entry.touches.filter((t) => enabled.has(t.changeId));
+    if (touches.length === 0) continue;
+    kinds.set(
+      entry.heading.trim(),
+      touches.length > 1 ? "disagreement" : touches[0].operation.toLowerCase(),
+    );
+  }
+  return kinds;
+}
+
+/**
+ * A document filed beside spec.md — a journey, a set of test cases — as the versions
+ * currently worth showing: the shipped one, and every enabled change's own copy. There is
+ * no paragraph here to fold the way a requirement's is — a change carries its own whole copy
+ * of the file, or none at all — so this is a list to render one block per version, tinted by
+ * `kind`, rather than one string the way spec.md's composite is.
+ */
+export function upcomingDocVersions(durableText, versions, enabledChangeIds) {
   const enabled = new Set(enabledChangeIds);
   const touches = (versions ?? []).filter((v) => enabled.has(v.changeId));
-  if (touches.length === 0) return durableText ?? "";
 
-  const parts = [];
-  if (durableText) parts.push(`> **Shipped**\n\n${durableText}`);
+  if (touches.length === 0)
+    return durableText ? [{ kind: "shipped", text: durableText }] : [];
+
+  const kind = touches.length > 1 ? "disagreement" : "pending";
+  const out = [];
+  if (durableText) out.push({ kind: "shipped", text: durableText });
   for (const touch of touches)
-    parts.push(`${marker("Not yet shipped", touch.changeId)}\n\n${touch.text}`);
-
-  const warning =
-    touches.length > 1
-      ? `> ⚠ **${touches.length} changes disagree here** — shown separately, not merged\n\n`
-      : "";
-
-  return `${warning}${parts.join("\n\n---\n\n")}`;
+    out.push({ kind, changeId: touch.changeId, text: touch.text });
+  return out;
 }
 
 /**
