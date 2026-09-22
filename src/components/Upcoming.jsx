@@ -22,31 +22,27 @@ const DOC_LABEL = {
   disagreement: "Not yet shipped",
 };
 
-/** A badge only for a version that isn't the shipped one — the same color the section's
- * own background is tinted, so the badge reads as a legend for it. */
+/** A badge only for a version that isn't the shipped one. */
 const DOC_BADGE = {
   pending: { label: "PENDING", variant: "blue" },
   disagreement: { label: "DISAGREEMENT", variant: "orange" },
 };
 
-/** One version of a document beside spec.md, tinted by whether it is shipped, an
- * in-development change's own copy, or one of several disagreeing over the same file. */
+/** One version of a document beside spec.md — the shipped one, an in-development change's
+ * own copy, or one of several disagreeing over the same file, badged accordingly. */
 function DocVersion({ version }) {
-  const className = version.kind === "shipped" ? undefined : `upcoming-block upcoming-block--${version.kind}`;
   const badge = DOC_BADGE[version.kind];
   return (
-    <div className={className}>
-      <VStack gap={2}>
-        <HStack gap={2} align="center" wrap="wrap">
-          <Text size="sm" weight="medium" color="secondary">
-            {DOC_LABEL[version.kind]}
-            {version.changeId ? ` · via ${version.changeId}` : ""}
-          </Text>
-          {badge && <Badge variant={badge.variant} label={badge.label} />}
-        </HStack>
-        <Artifact text={version.text} prefix={version.changeId ?? "shipped"} />
-      </VStack>
-    </div>
+    <VStack gap={2}>
+      <HStack gap={2} align="center" wrap="wrap">
+        <Text size="sm" weight="medium" color="secondary">
+          {DOC_LABEL[version.kind]}
+          {version.changeId ? ` · via ${version.changeId}` : ""}
+        </Text>
+        {badge && <Badge variant={badge.variant} label={badge.label} />}
+      </HStack>
+      <Artifact text={version.text} prefix={version.changeId ?? "shipped"} />
+    </VStack>
   );
 }
 
@@ -56,7 +52,7 @@ function DocVersion({ version }) {
  * capability folded onto it (see `server/upcoming.mjs` and `src/upcoming.js`). Same
  * headings, same order, same Purpose section for spec.md; a document beside it has no such
  * paragraph to fold, so every version present is shown in full instead. Either way, a
- * touched section is tinted by what happened to it — ADDED, MODIFIED, REMOVED, or a
+ * touched section is badged by what happened to it — ADDED, MODIFIED, REMOVED, or a
  * disagreement between changes — so a reader scanning the page finds what changed without
  * reading every line.
  *

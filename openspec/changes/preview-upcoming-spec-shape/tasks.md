@@ -182,3 +182,14 @@ versions.
       against a scratch store with two changes MODIFYing the same requirement (disagreement,
       orange) and a third ADDing a new one (green), confirming `upcoming.requirements`
       carries the touches `upcomingKinds` needs.
+
+## 9. Follow-up: drop the tinted background, keep only the badge
+
+Raised once §8 shipped — a colored background behind a whole requirement's prose and
+scenarios read as heavier than the fact it was marking.
+
+- [x] 9.1 Remove the `upcoming-block`/`upcoming-block--<kind>` class from `Requirement` (in
+      `SpecText`) and from `DocVersion` (in `Upcoming`); the `Badge` beside each heading is
+      unchanged, and stays the only thing `kind` now controls. Delete the corresponding
+      `.upcoming-block*` rules from `src/app.css`.
+- [x] 9.2 Run `pnpm test && pnpm build` and confirm both succeed end to end.
