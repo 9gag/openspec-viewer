@@ -179,3 +179,36 @@ export function changesTouching(upcoming) {
     for (const version of doc.versions) seen.add(version.changeId);
   return [...seen];
 }
+
+/**
+ * Durable and Upcoming are a reading, the same kind of thing `?mode=` and `?board=` already
+ * are — not a position, so it belongs in the query rather than the fragment, and it is
+ * meant to be shared: a link opens straight on the reading it names. Unlike those two,
+ * though, the toggle rewrites the address bar the moment it is clicked rather than only
+ * ever being read on load — `SpecDetail` is the one reading in this store worth linking to
+ * exactly, since which changes are enabled lives in memory and cannot travel any other way.
+ */
+export const VERSION_KEY = "version";
+
+/** Durable unless the query says otherwise — `?version=upcoming` for a link written to
+ * open straight on it. Anything else, including nothing at all, is Durable: an address
+ * with no opinion about the reading means the one every capability opens on. */
+export function versionFromUrl(search = "") {
+  return new URLSearchParams(search).get(VERSION_KEY) === "upcoming"
+    ? "upcoming"
+    : "durable";
+}
+
+/**
+ * The address a switch to `version` writes into the bar — every other query parameter
+ * kept, `version` dropped entirely for Durable rather than written out as
+ * `?version=durable`. An address with the parameter absent already means Durable, so
+ * writing it anyway would make two spellings of the same link.
+ */
+export function withVersion({ pathname = "", search = "", hash = "" } = {}, version) {
+  const params = new URLSearchParams(search);
+  if (version === "upcoming") params.set(VERSION_KEY, "upcoming");
+  else params.delete(VERSION_KEY);
+  const query = params.toString();
+  return `${pathname}${query ? `?${query}` : ""}${hash}`;
+}

@@ -256,3 +256,39 @@ requirement Upcoming leaves untouched SHALL carry none.
 - **GIVEN** `storefront/pricing`'s Upcoming reading, with "Guest checkout" untouched
 - **WHEN** the outline rail is read
 - **THEN** its entry for "Guest checkout" carries no badge
+
+### Requirement: Durable and Upcoming travel in the address bar's query
+
+Which of Durable or Upcoming a reader has open SHALL be readable from a `version` query
+parameter, so a link opens straight on the reading it names, and SHALL be written into the
+address bar the moment a reader switches — unlike the store's other readings, which only
+ever take a query parameter's value on load. Upcoming SHALL be named explicitly
+(`?version=upcoming`); Durable SHALL be the absence of the parameter rather than a second
+spelling of it (`?version=durable`), since an address with no opinion about the reading
+already means Durable.
+
+#### Scenario: A link opens straight on Upcoming
+
+- **GIVEN** a link to `spec/storefront/pricing` with `?version=upcoming` in its query
+- **WHEN** the page loads
+- **THEN** it opens already showing Upcoming, with no click needed
+
+#### Scenario: Switching rewrites the address bar
+
+- **GIVEN** `spec/storefront/pricing` open on Durable, with no `version` parameter in the
+  address
+- **WHEN** a reader switches to Upcoming
+- **THEN** the address bar reads `?version=upcoming`, without adding a new entry to the
+  browser's back/forward history
+
+#### Scenario: Switching back to Durable removes the parameter
+
+- **GIVEN** the address bar reading `?version=upcoming`
+- **WHEN** a reader switches back to Durable
+- **THEN** the address bar no longer carries a `version` parameter at all
+
+#### Scenario: Every other query parameter survives the switch
+
+- **GIVEN** the address bar reading `?mode=dark`
+- **WHEN** a reader switches to Upcoming
+- **THEN** the address bar reads `?mode=dark&version=upcoming`, with `mode` unchanged

@@ -212,3 +212,25 @@ touches had no signal until opening the requirement itself.
 - [x] 10.3 Run `pnpm test && pnpm build` and confirm both succeed end to end; verified
       against a scratch store with a MODIFIED and an ADDED requirement that the API returns
       the touches `upcomingKinds` needs to badge both the heading and its rail entry.
+
+## 11. Follow-up: Durable/Upcoming travels in the address bar
+
+Clarified with the user before building: `?mode=`/`?board=`/`?filter=` are read-on-load only
+by explicit, commented design — this reading is meant to rewrite the address bar live
+instead, via `history.replaceState` so a click never adds a back-button entry.
+
+- [x] 11.1 Add `VERSION_KEY`, `versionFromUrl(search)` and `withVersion({pathname, search,
+      hash}, version)` to `src/upcoming.js`: Upcoming is named explicitly
+      (`?version=upcoming`); Durable is the parameter's absence, never a second spelling
+      of it, and every other query parameter passes through untouched. Verify with
+      `node --test test/upcoming.test.mjs`.
+- [x] 11.2 Fixtures: nothing in the query, an unrelated parameter, and an unrecognised
+      `version` value all read as Durable; `withVersion` round-trips through
+      `versionFromUrl`; switching to Durable removes the parameter rather than writing
+      `?version=durable`.
+- [x] 11.3 `SpecDetail` seeds `version` from `versionFromUrl(window.location.search)` on
+      first render and calls `history.replaceState(null, "", withVersion(window.location,
+      next))` on every switch, so the address bar and the toggle can never disagree.
+- [x] 11.4 Run `pnpm test && pnpm build` and confirm both succeed end to end; verified by
+      opening a capability at `?version=upcoming#/spec/<id>` directly and confirming it
+      opens already on Upcoming.

@@ -40,6 +40,7 @@ import {
 import References from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import Upcoming from "../components/Upcoming.jsx";
+import { versionFromUrl, withVersion } from "../upcoming.js";
 import { tabForAnchor } from "../tabs.js";
 import { HEADING_KEY } from "../toc.js";
 import WithOutline from "../components/WithOutline.jsx";
@@ -528,9 +529,16 @@ export function SpecDetail({ id, tab, position }) {
   };
 
   // Durable is the baseline as shipped; Upcoming is that baseline with every in-development
-  // change on it folded on. Not remembered across pages the way the lens is — which version
-  // a reader wants is a question about the one capability in front of them, not a habit.
-  const [version, setVersion] = useState("durable");
+  // change on it folded on. A reading, the same kind of thing `?mode=` and `?board=` are —
+  // read from the query on the way in, and, unlike those two, rewritten into the address
+  // bar the moment it changes: which changes are enabled lives in memory, so this is the
+  // one part of that state a link can still point at exactly.
+  const [version, setVersion] = useState(() => versionFromUrl(window.location.search));
+
+  const chooseVersion = (next) => {
+    setVersion(next);
+    window.history.replaceState(null, "", withVersion(window.location, next));
+  };
 
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
@@ -587,7 +595,7 @@ export function SpecDetail({ id, tab, position }) {
           {data.upcoming && (
             <SegmentedControl
               value={version}
-              onChange={setVersion}
+              onChange={chooseVersion}
               label="Version"
               size="sm"
             >

@@ -170,6 +170,22 @@ in sync on the four names and colors, which is what review is for. Rejected: tea
 `Outline` a badge concept upstream — this is a one-page feature of this store, not a change
 `@astryxdesign/core` should carry.
 
+**The version reading rewrites the address bar live, deliberately unlike `?mode=`,
+`?board=` and `?filter=`.** Those three are explicit, in their own comments, that selecting
+a reading does not touch the URL — `board.js`: "Not persisted: the override lasts the
+visit"; `summary.js`: "Transient: selecting a tile does not rewrite the URL." Durable/
+Upcoming breaks that precedent on purpose: `versionFromUrl`/`withVersion` (`src/upcoming.js`)
+read and write a `version` parameter, and `SpecDetail`'s `chooseVersion` calls
+`history.replaceState` on every switch. The other three are readings of the *whole store* a
+reader picks once per visit and mostly forgets about; Upcoming is a reading of *one
+capability*, computed from server data plus in-memory chip state that cannot travel any
+other way — a reader who wants to send a colleague exactly what they are looking at needs
+the address bar to already say so, not to remember to add `?version=upcoming` by hand.
+`replaceState`, not `pushState`: switching a reading is not a page navigation, and a back
+button that stepped through every Durable/Upcoming click would be worse than one that
+ignores them, the same reasoning `onRailClick`'s own heading navigation is not built on
+`pushState` for unrelated positions.
+
 ## Risks / Trade-offs
 
 - Two changes MODIFYing the same heading to text that turns out identical still renders as
