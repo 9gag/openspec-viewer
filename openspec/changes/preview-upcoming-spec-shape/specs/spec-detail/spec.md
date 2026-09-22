@@ -1,0 +1,319 @@
+## Purpose
+
+The page for one capability — its shipped baseline in full, every change that has ever
+touched it, and, for a capability at least one in-development change deltas, what it will
+read like once those changes land.
+
+## ADDED Requirements
+
+### Requirement: A shipped capability's baseline is shown in full
+
+A capability with a baseline in `openspec/specs/` SHALL show that baseline's requirements
+and scenarios in full on its own page.
+
+#### Scenario: A shipped capability
+
+- **GIVEN** a baseline at `openspec/specs/storefront/pricing/spec.md`
+- **WHEN** `spec/storefront/pricing` is read
+- **THEN** the page shows every requirement and scenario the baseline holds
+
+#### Scenario: An unshipped capability
+
+- **GIVEN** a capability only an in-development change deltas, with no baseline
+- **WHEN** its page is read
+- **THEN** the page says it is not shipped yet, and names the change that introduces it
+
+### Requirement: Every change that touched the capability appears, newest first
+
+The page SHALL list every change that has deltaed the capability — in development or
+archived — newest first, and SHALL state whether each is still in development or shipped.
+
+#### Scenario: A capability with a mixed history
+
+- **GIVEN** `storefront/pricing`, deltaed by two archived changes and one in-development one
+- **WHEN** its page is read
+- **THEN** all three appear, the in-development one first if it is the most recent
+
+#### Scenario: A capability with no history
+
+- **GIVEN** a capability no change in the store touches
+- **WHEN** its page is read
+- **THEN** the page says no change touches it
+
+### Requirement: A capability with an in-development change offers an Upcoming view
+
+The page SHALL offer a Durable / Upcoming toggle whenever at least one in-development
+change deltas the capability, and SHALL NOT offer it otherwise.
+
+#### Scenario: A quiet capability
+
+- **GIVEN** a shipped capability with no in-development change deltaing it
+- **WHEN** its page is read
+- **THEN** it shows only the durable baseline, with no toggle
+
+#### Scenario: A capability with one in-development change
+
+- **GIVEN** `storefront/pricing`, deltaed by exactly one in-development change,
+  `adjust-storefront-pricing-tiers`
+- **WHEN** its page is read
+- **THEN** a Durable / Upcoming toggle appears
+
+### Requirement: Upcoming is composite by default
+
+Upcoming SHALL fold every in-development change deltaing the capability onto the baseline
+at once, not one change at a time. A MODIFIED or REMOVED block is matched to the baseline
+requirement it names the same way `openspec archive` matches it: by its `### Requirement:`
+heading, whitespace- and case-insensitive. An ADDED block with no match in the baseline is
+appended.
+
+#### Scenario: Two changes on disjoint requirements
+
+- **GIVEN** `storefront/pricing` deltaed by `adjust-storefront-pricing-tiers`, which
+  MODIFIEs "Tier thresholds are configurable", and `add-bulk-discount-pricing`, which ADDs
+  "Bulk orders receive a volume discount"
+- **WHEN** Upcoming is read
+- **THEN** it shows the baseline with "Tier thresholds are configurable" rewritten and "Bulk
+  orders receive a volume discount" appended, each tagged with the change that touched it
+
+#### Scenario: An unshipped capability with two in-development changes
+
+- **GIVEN** a capability with no baseline, ADDed in part by each of two in-development
+  changes under different headings
+- **WHEN** Upcoming is read
+- **THEN** it shows both ADDed requirements, tagged with the change each came from, and
+  states that the capability is not shipped
+
+#### Scenario: A lone REMOVED touch
+
+- **GIVEN** `storefront/pricing` deltaed by one in-development change REMOVEing "Tier
+  thresholds are configurable"
+- **WHEN** Upcoming is read
+- **THEN** "Tier thresholds are configurable" still appears with its baseline text, tagged
+  as removed by that change, together with whatever Reason the REMOVED block itself gives
+
+### Requirement: Upcoming is the baseline's own document, not a separate list
+
+Upcoming SHALL show every requirement in the same order the baseline holds it, and SHALL
+leave any prose outside the requirements — a Purpose section, feature-set notes — exactly as
+the baseline has it. Touching a requirement changes what that requirement says; it does not
+move it, and does not turn the page into a list of only the requirements something touches.
+An ADDED requirement with no baseline counterpart is appended after every requirement the
+baseline holds, since there is no baseline position for it to take.
+
+#### Scenario: The Purpose section survives
+
+- **GIVEN** `storefront/pricing`'s baseline opens with a Purpose section before its
+  requirements
+- **WHEN** Upcoming is read
+- **THEN** the same Purpose section still opens the page, unchanged
+
+#### Scenario: Requirement order matches the baseline
+
+- **GIVEN** `storefront/pricing`'s baseline lists "Tier thresholds are configurable" before
+  "Bulk orders receive a volume discount", and an in-development change MODIFIEs the first
+- **WHEN** Upcoming is read
+- **THEN** "Tier thresholds are configurable" still reads before "Bulk orders receive a
+  volume discount"
+
+### Requirement: A requirement two changes both touch is a disagreement, not a merge
+
+A requirement heading touched by more than one in-development change SHALL be shown, in the
+requirement's own place in the document, as a disagreement: every touching change's version
+of it, side by side, and SHALL NOT be folded into a single reading.
+
+#### Scenario: Two changes modify the same requirement
+
+- **GIVEN** `storefront/pricing` deltaed by `adjust-storefront-pricing-tiers` and
+  `retire-legacy-pricing-flag`, both under `## MODIFIED Requirements` for "Tier thresholds
+  are configurable", with different resulting text
+- **WHEN** Upcoming is read
+- **THEN** "Tier thresholds are configurable" is shown as a disagreement holding both changes'
+  versions, and neither replaces the baseline in the composite
+
+#### Scenario: Two changes add the same heading
+
+- **GIVEN** two in-development changes, each ADDing a requirement titled "Bulk orders
+  receive a volume discount" with different text
+- **WHEN** Upcoming is read
+- **THEN** the heading is shown as a disagreement holding both versions, not appended twice
+
+#### Scenario: One change modifies what another removes
+
+- **GIVEN** `adjust-storefront-pricing-tiers` MODIFYing "Tier thresholds are configurable"
+  and another in-development change REMOVEing the same requirement
+- **WHEN** Upcoming is read
+- **THEN** the requirement is shown as a disagreement naming both changes and what each does to
+  it, rather than being silently rewritten or dropped
+
+#### Scenario: A MODIFIED block that matches nothing in the baseline
+
+- **GIVEN** an in-development change whose MODIFIED block's heading does not match any
+  requirement in the baseline
+- **WHEN** Upcoming is read
+- **THEN** that block is flagged as unable to fold, the same drift the change's own page
+  already warns about, and the baseline requirement it was meant to replace is shown
+  unchanged
+
+### Requirement: A reader can narrow the composite to a subset of changes
+
+The page SHALL show one toggle chip per in-development change touching the capability —
+through spec.md or through any document filed beside it — all enabled by default, and SHALL
+recompute Upcoming from only the enabled subset when a reader changes which chips are on.
+The chip row is one control for the whole capability: disabling a chip while reading spec.md
+SHALL leave it disabled on every document's own Upcoming reading too.
+
+#### Scenario: Narrowing to one change
+
+- **GIVEN** `storefront/pricing` deltaed by two in-development changes, both enabled
+- **WHEN** a reader disables one chip
+- **THEN** Upcoming shows only the remaining change's delta folded onto the baseline, with
+  no disagreement if the two did not touch the same requirement
+
+#### Scenario: Disabling every chip
+
+- **GIVEN** a capability with at least one in-development change
+- **WHEN** a reader disables every chip
+- **THEN** Upcoming shows the baseline exactly as Durable does
+
+#### Scenario: A chip stays disabled across tabs
+
+- **GIVEN** `storefront/pricing` deltaed by `adjust-storefront-pricing-tiers`, and a reader
+  disables its chip while reading spec.md's Upcoming
+- **WHEN** the reader switches to a document filed beside spec.md
+- **THEN** that document's own Upcoming reading treats the same chip as disabled, with
+  nothing to re-enable it
+
+### Requirement: A document beside spec.md has its own Upcoming reading
+
+A document filed beside spec.md — a journey, a set of test cases — SHALL offer the same
+Durable/Upcoming toggle spec.md does. A document is not a delta: nothing marks one of its
+paragraphs ADDED or another REMOVED, so an in-development change's own copy of it SHALL be
+shown in full — alongside the shipped version, not replacing it — rather than folded
+paragraph by paragraph the way spec.md's requirements are.
+
+#### Scenario: One change carries its own copy
+
+- **GIVEN** `storefront/pricing`'s shipped `user-journeys.md`, and an in-development change
+  carrying its own copy of `user-journeys.md`
+- **WHEN** Upcoming is read on the User Journeys tab
+- **THEN** the shipped text appears, and the change's own text appears after it, marked as
+  not yet shipped and naming the change
+
+#### Scenario: Two changes disagree over the same document
+
+- **GIVEN** two in-development changes, each carrying its own copy of `user-journeys.md`
+- **WHEN** Upcoming is read on the User Journeys tab with both enabled
+- **THEN** the shipped text and both changes' copies all appear, each marked, and the page
+  states that the changes disagree rather than choosing one
+
+#### Scenario: A document no in-development change touches
+
+- **GIVEN** `storefront/pricing` deltaed by a change that touches spec.md but carries no
+  copy of `user-journeys.md`
+- **WHEN** Upcoming is read on the User Journeys tab
+- **THEN** it shows exactly the shipped text, unchanged
+
+### Requirement: A touched section is badged by what happened to it
+
+A requirement Upcoming shows as ADDED, MODIFIED, REMOVED or a disagreement SHALL carry a
+badge beside its heading naming which of the four it is, and the four SHALL be visibly
+distinct from each other. A requirement Upcoming leaves untouched SHALL carry none. The
+same applies to a document's own versions: a version shown because an in-development change
+carries it, or because more than one disagree over it, SHALL be badged; the shipped
+version, when shown alongside them, SHALL NOT be.
+
+#### Scenario: Four requirements, four badges
+
+- **GIVEN** `storefront/pricing`'s Upcoming reading holding one ADDED, one MODIFIED, one
+  REMOVED and one disagreeing requirement, alongside untouched ones
+- **WHEN** the page is read
+- **THEN** each of the four carries its own badge naming it, distinct from the others, and
+  the untouched requirements around them carry none
+
+#### Scenario: A document's pending copy is badged, its shipped text is not
+
+- **GIVEN** `user-journeys.md`'s shipped text and one in-development change's own copy,
+  both shown
+- **WHEN** the page is read
+- **THEN** the change's copy carries a badge and the shipped text does not
+
+### Requirement: The outline rail carries the same badge as the heading it names
+
+`spec/<id>`'s "On this page" rail SHALL show, in front of the entry for a requirement
+Upcoming badges, the same badge — same label, same color — so a reader scanning the rail
+sees what changed without opening the disclosure the entry points to. An entry for a
+requirement Upcoming leaves untouched SHALL carry none.
+
+#### Scenario: A badge in the rail matches the one on the page
+
+- **GIVEN** `storefront/pricing`'s Upcoming reading, with "Tier thresholds are configurable"
+  badged MODIFIED
+- **WHEN** the outline rail is read
+- **THEN** its entry for "Tier thresholds are configurable" carries the same MODIFIED badge
+
+#### Scenario: An untouched requirement's entry carries no badge
+
+- **GIVEN** `storefront/pricing`'s Upcoming reading, with "Guest checkout" untouched
+- **WHEN** the outline rail is read
+- **THEN** its entry for "Guest checkout" carries no badge
+
+### Requirement: Durable and Upcoming travel in the address bar's query
+
+Which of Durable or Upcoming a reader has open SHALL be readable from a `version` query
+parameter, so a link opens straight on the reading it names, and SHALL be written into the
+address bar the moment a reader switches — unlike the store's other readings, which only
+ever take a query parameter's value on load. Upcoming SHALL open by default: a capability
+worth having this toggle on at all is one something is about to change, which is the more
+useful thing to see first. Durable SHALL be named explicitly (`?version=durable`); Upcoming
+SHALL be the absence of the parameter rather than a second spelling of it
+(`?version=upcoming`), since an address with no opinion about the reading already means the
+one the page opens on.
+
+#### Scenario: A link opens straight on Durable
+
+- **GIVEN** a link to `spec/storefront/pricing` with `?version=durable` in its query
+- **WHEN** the page loads
+- **THEN** it opens already showing Durable, with no click needed
+
+#### Scenario: A capability with in-development changes opens on Upcoming
+
+- **GIVEN** a link to `spec/storefront/pricing` with no `version` parameter, and at least
+  one in-development change touching it
+- **WHEN** the page loads
+- **THEN** it opens already showing Upcoming
+
+#### Scenario: Switching rewrites the address bar
+
+- **GIVEN** `spec/storefront/pricing` open on Upcoming, with no `version` parameter in the
+  address
+- **WHEN** a reader switches to Durable
+- **THEN** the address bar reads `?version=durable`, without adding a new entry to the
+  browser's back/forward history
+
+#### Scenario: Switching back to Upcoming removes the parameter
+
+- **GIVEN** the address bar reading `?version=durable`
+- **WHEN** a reader switches back to Upcoming
+- **THEN** the address bar no longer carries a `version` parameter at all
+
+#### Scenario: Every other query parameter survives the switch
+
+- **GIVEN** the address bar reading `?mode=dark`
+- **WHEN** a reader switches to Durable
+- **THEN** the address bar reads `?mode=dark&version=durable`, with `mode` unchanged
+
+### Requirement: Switching Durable and Upcoming drops a heading position
+
+A `?to=` naming a heading belongs to the reading it was followed or clicked on: Durable and
+Upcoming are not the same document, so a heading position from one carries no guarantee it
+still names anything, or the same thing, on the other. Switching between them SHALL drop
+`?to=` from the address entirely rather than carry it to a document it was never read
+against.
+
+#### Scenario: A heading position does not survive the switch
+
+- **GIVEN** `spec/storefront/pricing` open on a specific requirement, the address reading
+  `#/spec/storefront/pricing?to=tier-thresholds-are-configurable`
+- **WHEN** a reader switches to the other reading
+- **THEN** the address no longer carries `?to=`, and the page is not scrolled to a
+  requirement of that name on arrival

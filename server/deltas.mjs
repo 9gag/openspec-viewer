@@ -17,8 +17,15 @@
 /** A requirement heading — the line the fold pairs a delta with a baseline by. */
 const REQUIREMENT = /^###\s+Requirement:\s*(.+?)\s*$/gim;
 
-/** One requirement name, as the two sides are compared. */
-const key = (title) => title.trim().replace(/\s+/g, " ").toLowerCase();
+/**
+ * One requirement name, as the two sides are compared.
+ *
+ * Exported for `upcoming.mjs`, which runs the same match across every in-development delta
+ * on a capability rather than one delta against a baseline — the comparison has to stay the
+ * one comparison `openspec archive` itself is guessed to make, so there is exactly one place
+ * that defines it.
+ */
+export const key = (title) => title.trim().replace(/\s+/g, " ").toLowerCase();
 
 /**
  * The requirements a delta rewrites, and whether the baseline holds each one.

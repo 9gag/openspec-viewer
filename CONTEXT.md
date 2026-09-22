@@ -10,8 +10,8 @@ both; it is not a spec and carries no implementation detail.
 ### The store
 
 **Store**:
-The git repository an OpenSpec plan lives in — every change, spec and claim in one clone
-a team pushes to and pulls from.
+The git repository an OpenSpec plan lives in — every change, spec and claim, on the one
+main a team shares.
 _Avoid_: repo, project, workspace
 
 **Origin**:
@@ -20,9 +20,9 @@ it is reading.
 _Avoid_: root, target, cwd
 
 **Sync state**:
-How far the store clone has drifted from its remote — behind, ahead, uncommitted, or up
-to date. Because every claim is a commit, drift means the board is showing a plan the
-rest of the team cannot see.
+Where the plan is read — the store's main — and where the checkout disagrees with it:
+changes whose copy differs, changes not on main, and changes main has already archived. A
+change whose copy differs is showing a brief the team has not settled.
 _Avoid_: git status, freshness, health
 
 ### A change
@@ -33,7 +33,8 @@ built and shipped.
 _Avoid_: PR, ticket, epic, feature
 
 **In development**:
-A change that has been created and not yet archived. The board shows exactly these.
+A change that has been created and not yet archived on the store's main. The board shows
+exactly these.
 _Avoid_: open, active, WIP, in flight
 
 **Planning**:
@@ -132,8 +133,8 @@ a commit.
 _Avoid_: subtask, item, step
 
 **Claim**:
-A person's name on a task group, taken when they pick it up and recorded as a commit. An
-unpushed claim is not a claim.
+A person's name on a task group, taken when they pick it up and recorded as a commit on
+the store's main.
 _Avoid_: assignment, lock, reservation
 
 **Owner**:
@@ -200,6 +201,15 @@ Of a capability: the one a conflict is happening to. The conflict is the event, 
 capability is contested — the board counts the first, the catalog marks the second.
 _Avoid_: conflicted, disputed, hot
 
+**Disagreement**:
+Of a requirement, in Upcoming: touched by two or more enabled in-development changes at
+once. Never resolved into one reading — each touching change's version is shown side by
+side, because there is no landing order that says which one wins. Finer-grained than a
+**conflict**, which is the same kind of overlap read at the capability rather than the
+requirement — the two are never the same word on purpose, so a reader of both pages can
+tell which grain a page is talking about.
+_Avoid_: collision, clash, conflict, overlap
+
 **Ready to archive**:
 An in-development change with every task checked off.
 _Avoid_: complete, finished, done
@@ -230,6 +240,19 @@ _Avoid_: filter, bucket, category
 The index of every capability, grouped by namespace, with its size and whether a change is
 rewriting it. Not which changes have touched it — that is the capability's own page.
 _Avoid_: list, browser, directory
+
+**Status**:
+The catalog again, with each in-development change's own board progress — done/total,
+owner, idle signal — already on the row, so a reader does not open the board to see how
+far along the change rewriting a capability actually is.
+_Avoid_: dashboard, overview, health, readiness
+
+**Composite**:
+`spec/<id>`'s Upcoming reading: the baseline with every enabled in-development change on
+the capability folded onto it at once, rather than one change previewed at a time. There is
+no real order for two in-development changes to land in, so composite never invents one by
+folding one change's result into the next before folding in the one after it.
+_Avoid_: merge, combined view, diff
 
 **Timeline**:
 A dated sequence read down one column — a capability's history, or the archive.

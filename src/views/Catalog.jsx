@@ -7,6 +7,10 @@ import { Heading } from "@astryxdesign/core/Heading";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@astryxdesign/core/SegmentedControl";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
@@ -35,8 +39,10 @@ import {
 } from "../components/Timeline.jsx";
 import References from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
+import Upcoming from "../components/Upcoming.jsx";
+import { versionFromUrl, withVersion } from "../upcoming.js";
 import { tabForAnchor } from "../tabs.js";
-import { HEADING_KEY } from "../toc.js";
+import { HEADING_KEY, withPosition } from "../toc.js";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
 
@@ -522,6 +528,32 @@ export function SpecDetail({ id, tab, position }) {
     saveLens(next);
   };
 
+  // Durable is the baseline as shipped; Upcoming is that baseline with every in-development
+  // change on it folded on, and is what opens by default — a capability worth having this
+  // toggle on at all is one something is about to change, which is the more useful thing to
+  // see first. A reading, the same kind of thing `?mode=` and `?board=` are — read from the
+  // query on the way in, and, unlike those two, rewritten into the address bar the moment
+  // it changes: which changes are enabled lives in memory, so this is the one part of that
+  // state a link can still point at exactly.
+  const [version, setVersion] = useState(() => versionFromUrl(window.location.search));
+
+  const chooseVersion = (next) => {
+    setVersion(next);
+    // A heading position belongs to the reading it was clicked on — Durable's headings and
+    // Upcoming's are not the same document, so a `?to=` naming one carries no guarantee it
+    // still names anything, or the same thing, on the other. Dropped rather than carried
+    // over, the same way following a link elsewhere in the nav drops it.
+    const hash = withPosition(window.location.hash, HEADING_KEY, null);
+    window.history.replaceState(
+      null,
+      "",
+      withVersion(
+        { pathname: window.location.pathname, search: window.location.search, hash },
+        next,
+      ),
+    );
+  };
+
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
     return (
@@ -571,6 +603,20 @@ export function SpecDetail({ id, tab, position }) {
               </Text>
             )}
           </HStack>
+          {/* Only for a capability at least one in-development change touches — spec.md or
+              any document beside it. The toggle covers whichever tab is open, not only
+              Requirements: a journey or a set of test cases has its own Upcoming reading. */}
+          {data.upcoming && (
+            <SegmentedControl
+              value={version}
+              onChange={chooseVersion}
+              label="Version"
+              size="sm"
+            >
+              <SegmentedControlItem value="durable" label="Durable" />
+              <SegmentedControlItem value="upcoming" label="Upcoming" />
+            </SegmentedControl>
+          )}
         </VStack>
 
         <Card padding={4}>
@@ -599,11 +645,21 @@ export function SpecDetail({ id, tab, position }) {
           </TabList>
         )}
 
-        <WithOutline>
-          <Card padding={4}>
-            <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
-          </Card>
-        </WithOutline>
+        {version === "upcoming" && data.upcoming ? (
+          <Upcoming
+            key={data.capability}
+            cap={data}
+            doc={doc}
+            lens={lens}
+            onLens={chooseLens}
+          />
+        ) : (
+          <WithOutline>
+            <Card padding={4}>
+              <SpecBody cap={data} doc={doc} lens={lens} onLens={chooseLens} />
+            </Card>
+          </WithOutline>
+        )}
       </VStack>
     </ResolvedIds>
   );

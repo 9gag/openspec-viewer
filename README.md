@@ -109,6 +109,7 @@ and expanded it put six rows of shell commands between the reader and the board.
 | **Board**           | Every change in development and its overall progress; switched to full, its task groups, who owns each, and how long each claim has been idle                               |
 | **Change**          | Every artifact it carries, rendered — one tab per file, in the order its schema declares them — plus the capabilities it deltas, artifact completeness, `validate --strict` |
 | **Namespace**       | An index of every capability — shipped, unshipped or retired — grouped by namespace, marked where a change is rewriting it                                                  |
+| **Status**          | Every capability once, its shipped/unshipped/retired state, and — where a change is currently touching it — that change's own progress, owner(s) and idle signal, reused from the Board |
 | **Capability**      | One spec in full, with its history and an outline rail                                                                                                                      |
 | **Shipped changes** | The archive, and which capability each shipped change produced                                                                                                              |
 
@@ -324,6 +325,15 @@ this here, and what is about to change it"; both directions were in the tree alr
 only the index was missing. It is deliberately not on the index, where it was the same
 list repeated under every row.
 
+**Durable and Upcoming**, a toggle on `#/spec/<capability>` whenever at least one
+in-development change deltas it. Durable is the shipped baseline; Upcoming folds every
+enabled in-development change onto it at once — a **composite**, not one change previewed
+at a time, since there is no landing order for two in-development changes to reflect. A
+requirement two enabled changes both touch is a **disagreement** and is never folded into a
+guess at which one wins: both versions render side by side. A row of chips, one per
+in-development change, lets a reader narrow the composite down to a subset, down to the
+single-change preview that is its own special case.
+
 That view also lists capabilities that have **not** shipped. `openspec/specs/` holds only
 archived behavior, so a catalogue built from it alone silently omits everything in development —
 which on a store early in its life is most of what anyone wants to read.
@@ -429,11 +439,11 @@ with validation on. `--no-validate` drops the CLI runs, which are most of that t
 
 ## Read-only, deliberately
 
-No writes, and no write endpoint. Claims and checkmarks stay git commits made by the
-CLI, because an unpushed claim is not a claim and `git log` on a change's `tasks.md` is
-the build log. A dashboard that could edit the store would break both. It prints the
-command to run instead — under whatever name `OPENSPEC_VIEWER_CLI` gives it — so the
-action still lands as a commit someone can push.
+No writes, and no write endpoint. Claims and checkmarks stay git commits the CLI records
+on the store's main, and `git log` on a change's `tasks.md` there is the build log. A
+dashboard that could edit the store would break both. It prints the command to run
+instead — under whatever name `OPENSPEC_VIEWER_CLI` gives it — so the action still lands
+as that commit.
 
 ## Borrowing the readings
 
@@ -511,7 +521,7 @@ openspec-viewer/
 ├── vite.config.js           # the React plugin, the API, and the mount, for dev + preview
 ├── src/
 │   ├── App.jsx              # AppShell, nav, appearance, store warnings
-│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Search, Doc
+│   ├── views/               # Board, ChangeDetail, Catalog (specs + archive), Status, Search, Doc
 │   ├── components/bits.jsx  # owner, idle, progress, artifact rendering
 │   ├── toc.js               # anchors, and the address of a position inside a page
 │   ├── spec.js              # reading requirements and scenarios out of a spec
@@ -541,8 +551,13 @@ passes the CLI's own message through.
   when files actually appear or disappear. `validate --strict` has its own endpoint so
   the artifacts never wait on it.
 - **It does not fetch.** Polling every 5s while shelling out to the network would hammer
-  the remote, so the page shows your clone as of the last fetch somebody did — and says
-  loudly when that clone is behind or dirty.
+  the remote, so the page reads the store's main as of the clone's last fetch. Owners and
+  checkmarks are read there, where they are recorded, and so is which changes are in
+  development: one on main that the checkout lacks is still on the board, and one main has
+  archived is not. A plan main does not hold — a `tasks.md` written on a branch, or not
+  committed at all — is read from the checkout instead, and nothing in it can be claimed
+  until it lands. A change's artifacts are the checkout's copy, and the page says loudly
+  when that copy differs from main.
 - **It polls rather than watching.** The store changes when someone runs git, not while
   the page is open. Artifact bodies are fetched once per visit — re-rendering a proposal
   under the reader's cursor every 5s is worse than being 5s stale.

@@ -172,8 +172,146 @@ export function files(abs, ext = ".md") {
     .sort();
 }
 
-/** Sync state of the store clone: branch, uncommitted files, and drift from its remote. */
-export function storeStatus(root) {
+/**
+ * The store's shared main, where claims and checkmarks are recorded: `origin/HEAD` where
+ * the clone recorded it, because which branch a store calls main is the store's decision,
+ * else `origin/main`. With the commit it points at, or null when the clone has neither and
+ * its checkout is all there is to read.
+ *
+ * No fetch. Polling while shelling out to the network would hammer the remote, so this is
+ * main as of the clone's last fetch.
+ */
+export function mainOf(storePath) {
+  const head = git(storePath, [
+    "symbolic-ref",
+    "--quiet",
+    "refs/remotes/origin/HEAD",
+  ]);
+  const ref = head ? head.replace(/^refs\/remotes\//, "") : "origin/main";
+  const commit = git(storePath, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    `${ref}^{commit}`,
+  ]);
+  return commit ? { ref, commit } : null;
+}
+
+/**
+ * The changes at one commit: those in development, and those archived, each archived one by
+ * its id rather than the dated directory it sits in. One `git ls-tree` for both.
+ */
+export function changesAt(storePath, commit) {
+  const inDevelopment = [];
+  const archived = [];
+  const listed = git(storePath, [
+    "ls-tree",
+    "-d",
+    "--name-only",
+    commit,
+    "openspec/changes/",
+    "openspec/changes/archive/",
+  ]);
+  for (const path of (listed ?? "").split("\n")) {
+    const [, archive, name] =
+      path.match(/^openspec\/changes\/(archive\/)?([^/]+)$/) ?? [];
+    if (archive) archived.push(name.replace(/^\d{4}-\d{2}-\d{2}-/, ""));
+    else if (name && name !== "archive") inDevelopment.push(name);
+  }
+  return { inDevelopment, archived };
+}
+
+/**
+ * Changes whose copy in the checkout differs from one commit: edited, committed on another
+ * branch, untracked, or missing. A tasks.md both sides hold is left out, because every
+ * claim and checkmark moves it on main and a difference there says nothing about the
+ * artifacts on the page; one only one side holds is a plan the other has not got. Renames
+ * are not paired, because a file moved out of a change is a difference in the change it
+ * left, and a rename names only where the file went. Two spawns for the whole store rather
+ * than a pair per change, since the board runs this on every poll.
+ */
+export function changesDifferingFrom(storePath, commit) {
+  const diffed = (
+    git(storePath, [
+      "diff",
+      "--name-status",
+      "--no-renames",
+      // Paths from the store rather than the git root, for a store that sits below it.
+      "--relative",
+      commit,
+      "--",
+      "openspec/changes",
+    ]) ?? ""
+  )
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.split("\t"));
+  const untracked = (
+    git(storePath, [
+      "ls-files",
+      "--others",
+      "--exclude-standard",
+      "--",
+      "openspec/changes",
+    ]) ?? ""
+  )
+    .split("\n")
+    .filter(Boolean);
+  // Every status but an addition names a file the commit holds.
+  const atCommit = new Set(
+    diffed.filter(([status]) => status !== "A").map(([, file]) => file),
+  );
+
+  const ids = new Set();
+  for (const file of [...diffed.map(([, file]) => file), ...untracked]) {
+    const [, id, rest] = file.match(/^openspec\/changes\/([^/]+)\/(.+)$/) ?? [];
+    if (!id || id === "archive") continue;
+    const planOnBothSides =
+      rest === "tasks.md" &&
+      atCommit.has(file) &&
+      existsSync(join(storePath, file));
+    if (!planOnBothSides) ids.add(id);
+  }
+  return [...ids].sort();
+}
+
+/**
+ * The sync state: which changes the plan holds, and where this checkout disagrees with main.
+ *
+ * The plan is main's, so `changes` is every change in development there, whether or not this
+ * checkout has it, and every change only this checkout has — `unmerged`. `onMain` is the
+ * first half, whose task lists are read at main. A change main has archived is in neither,
+ * though this checkout still has it in development: it is `archived`, since it has shipped
+ * and no claim can land on it. `differs` names the changes on main whose copy here is not
+ * main's. With no main the checkout is all there is, and all of it is read.
+ */
+export function syncState(storePath, main) {
+  const local = changeIds(storePath);
+  if (!main)
+    return {
+      changes: local,
+      onMain: [],
+      unmerged: [],
+      archived: [],
+      differs: [],
+    };
+
+  const at = changesAt(storePath, main.commit);
+  const offMain = local.filter((id) => !at.inDevelopment.includes(id));
+  const unmerged = offMain.filter((id) => !at.archived.includes(id));
+  return {
+    changes: [...at.inDevelopment, ...unmerged].sort(),
+    onMain: at.inDevelopment,
+    unmerged,
+    archived: offMain.filter((id) => at.archived.includes(id)),
+    differs: changesDifferingFrom(storePath, main.commit).filter((id) =>
+      at.inDevelopment.includes(id),
+    ),
+  };
+}
+
+/** The store clone: the branch it is on, and the main its plan is read at. */
+export function storeStatus(root, main) {
   const path = root.path;
   // `cli` rides along with the store rather than in its own endpoint: every place the
   // page prints a command is a place that already has the store in hand.
@@ -182,29 +320,7 @@ export function storeStatus(root) {
 
   status.git = true;
   status.branch = git(path, ["rev-parse", "--abbrev-ref", "HEAD"]);
-  status.dirty = (git(path, ["status", "--porcelain"]) || "")
-    .split("\n")
-    .filter(Boolean).length;
-
-  // No fetch. Polling while shelling out to the network would hammer the remote, so
-  // this reports drift as of the last fetch somebody else did.
-  status.upstream = git(path, [
-    "rev-parse",
-    "--abbrev-ref",
-    "--symbolic-full-name",
-    "@{u}",
-  ]);
-  if (status.upstream) {
-    const counts = git(path, [
-      "rev-list",
-      "--left-right",
-      "--count",
-      `${status.upstream}...HEAD`,
-    ]);
-    const [behind, ahead] = (counts || "0\t0").split(/\s+/).map(Number);
-    status.behind = behind;
-    status.ahead = ahead;
-  }
+  status.main = main?.ref ?? null;
   return status;
 }
 

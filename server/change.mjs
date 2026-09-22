@@ -16,15 +16,17 @@ import {
   completeness,
   readDocs,
 } from "./artifacts.mjs";
-import { readGroups } from "./board.mjs";
+import { groupsAt, readGroups } from "./board.mjs";
 import { modifiedDrift } from "./deltas.mjs";
 import { checkReferences } from "./references.mjs";
 import {
   capabilityDirs,
   changeIds,
+  changesAt,
   dirs,
   files,
   lastCommit,
+  mainOf,
   openspecText,
   read,
   resolveRoot,
@@ -102,18 +104,36 @@ export function validate(changeId) {
   };
 }
 
-export function change(changeId) {
-  const root = resolveRoot();
+/** `root` is the resolved store, as `board()` takes it. */
+export function change(changeId, root = resolveRoot()) {
   const inDevelopment = changeIds(root.path).includes(changeId);
   const archived =
     !inDevelopment &&
     dirs(join(root.path, "openspec", "changes", "archive")).includes(changeId);
-  if (!inDevelopment && !archived) return null;
+  // Owners and checkmarks as the board reads them: at main, for a change in development there.
+  const main = archived ? null : mainOf(root.path);
+  const onMain =
+    main !== null &&
+    changesAt(root.path, main.commit).inDevelopment.includes(changeId);
+  if (!inDevelopment && !archived) {
+    // The board lists it, read at main, but a change's artifacts are this checkout's copy.
+    return onMain
+      ? {
+          error: `${changeId} is in development on ${main.ref}, and not in development in this checkout, whose copy of a change is what this page reads.`,
+        }
+      : null;
+  }
 
   const dir = archived
     ? join("openspec", "changes", "archive", changeId)
     : join("openspec", "changes", changeId);
-  const groups = readGroups(root.path, changeId, archived);
+  // Owners and checkmarks at main, where they are recorded — but only where main holds the
+  // plan at all. A tasks.md this checkout wrote and main has not seen is read from disk,
+  // the same rule the board's rows read by: the tab is onto the file the artifacts beside
+  // it say is there.
+  const groups =
+    (onMain ? groupsAt(root.path, main.commit, changeId) : null) ??
+    readGroups(root.path, changeId, archived);
 
   return {
     id: changeId,

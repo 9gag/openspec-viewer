@@ -109,6 +109,53 @@ describe("schemaArtifacts", () => {
     ]);
   });
 
+  it("sees a schema edited while the viewer is running", () => {
+    schema("moving", [
+      ["proposal", "proposal.md"],
+      ["specs", "specs/**/spec.md"],
+    ]);
+    assert.deepEqual(
+      schemaArtifacts(store, "moving").map((a) => a.id),
+      ["proposal", "specs"],
+    );
+
+    // A schema is a file in the store, and the store is edited while the viewer is
+    // reading it. Parsed once and kept for the life of the process, an artifact added to
+    // the schema this morning stayed off the change page until someone restarted the
+    // server — and, being a file nothing declared, it went to the end of the tab bar.
+    schema("moving", [
+      ["proposal", "proposal.md"],
+      ["decisions", "decisions.md"],
+      ["specs", "specs/**/spec.md"],
+    ]);
+    assert.deepEqual(
+      schemaArtifacts(store, "moving").map((a) => a.id),
+      ["proposal", "decisions", "specs"],
+    );
+  });
+
+  it("sees two artifacts swapped, which leaves the file the length it was", () => {
+    // The edit that changes the order changes nothing else: same artifacts, same bytes,
+    // so a cache that asks the file whether it moved has only the clock to go on.
+    schema("swapping", [
+      ["alpha", "alpha.md"],
+      ["omega", "omega.md"],
+    ]);
+    assert.deepEqual(
+      schemaArtifacts(store, "swapping").map((a) => a.id),
+      ["alpha", "omega"],
+    );
+
+    schema("swapping", [
+      ["omega", "omega.md"],
+      ["alpha", "alpha.md"],
+    ]);
+    assert.deepEqual(
+      schemaArtifacts(store, "swapping").map((a) => a.id),
+      ["omega", "alpha"],
+    );
+  });
+
   it("is empty for a change that names no schema", () => {
     // The important half is that it does not spawn the CLI to ask about a schema that
     // was never named — the board calls through here for every change on every poll.

@@ -6,32 +6,18 @@
  * the failure this file exists to make impossible.
  *
  * GET only: this is a viewer, and writes belong to `openspec claim` / `done` /
- * `unclaim` so that every change to the plan stays a commit somebody can push.
+ * `unclaim` so that every change to the plan stays a commit on the store's main.
  */
 
 import { board } from "./board.mjs";
-import {
-  archive,
-  capability,
-  capabilityCatalog,
-  conflicts,
-} from "./catalog.mjs";
+import { archive, capability, capabilityCatalog } from "./catalog.mjs";
 import { change, validate } from "./change.mjs";
 import { doc } from "./doc.mjs";
 import { corpus, search } from "./search.mjs";
-import { changeIds, resolveRoot } from "./store.mjs";
+import { resolveRoot } from "./store.mjs";
 
 const ROUTES = {
-  "/api/board": () => {
-    const data = board();
-    const root = resolveRoot();
-    // Folded into the board rather than given its own view: it is a directory scan per
-    // change, and it is the warning PM most needs before the archive that would expose it.
-    return {
-      ...data,
-      conflicts: conflicts(root.path, changeIds(root.path)),
-    };
-  },
+  "/api/board": () => board(),
   "/api/change": (url) => {
     const id = url.searchParams.get("id");
     if (!id) return { error: "missing ?id" };

@@ -92,11 +92,17 @@ export function parseTasks(text: string): TaskGroup[];
  * One change's `tasks.md` at every commit that touched it, newest first.
  *
  * Reads the file's state at each commit rather than parsing commit subjects, so a
- * reworded or amended commit changes no answer. Empty for a store that is not a git
- * checkout, or a change whose task list has never been committed. Cached against the
- * store's HEAD for the life of the process.
+ * reworded or amended commit changes no answer. Read back from `commit` when one is
+ * given — the store's main, where claims and checkmarks are recorded — and from HEAD
+ * otherwise. Empty for a store that is not a git checkout, or a change whose task list
+ * has never been committed. Cached for the life of the process against HEAD, or against
+ * `commit` as given, so pass a full commit id rather than a ref name that moves.
  */
-export function snapshots(storePath: string, changeId: string): TaskSnapshot[];
+export function snapshots(
+  storePath: string,
+  changeId: string,
+  commit?: string | null,
+): TaskSnapshot[];
 
 /**
  * How long a claimed group has sat without progress.
@@ -117,7 +123,7 @@ export function idleness(
 /**
  * Every in-development delta in the store, keyed by capability.
  *
- * @param changeIds Defaults to every change in development.
+ * @param changeIds Defaults to every change in development in this checkout.
  */
 export function deltasInDevelopment(
   storePath: string,
