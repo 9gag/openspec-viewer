@@ -1,10 +1,10 @@
-# @seankcw/openspec-viewer
+# @9gag/openspec-viewer
 
 A read-only dashboard over an [OpenSpec](https://github.com/Fission-AI/OpenSpec) store,
 for the three people who read one for different reasons.
 
 ```bash
-pnpm add -D @seankcw/openspec-viewer
+pnpm add -D @9gag/openspec-viewer
 pnpm exec openspec-viewer          # opens http://localhost:5175
 ```
 
@@ -422,7 +422,7 @@ request it stands for. The page asks relatively, as a snapshot does, and keeps p
 as the served page does; only the address differs.
 
 ```js
-import { hasPage, mounted } from "@seankcw/openspec-viewer/lib/mount";
+import { hasPage, mounted } from "@9gag/openspec-viewer/lib/mount";
 
 if (hasPage()) server.middlewares.use("/viewer", mounted()); // vite, express, connect
 ```
@@ -462,7 +462,7 @@ import {
   changeIds,
   conflicts,
   idleness,
-} from "@seankcw/openspec-viewer/lib/store";
+} from "@9gag/openspec-viewer/lib/store";
 
 // Isomorphic: pure string work. Also scenarioName, scenarioAnchor, stepKind.
 import {
@@ -470,7 +470,7 @@ import {
   parseSpec,
   scenarioIndex,
   splitSpec,
-} from "@seankcw/openspec-viewer/lib/spec";
+} from "@9gag/openspec-viewer/lib/spec";
 ```
 
 **The entries are the whole contract.** Everything under `server/` and `src/` is internal
@@ -619,6 +619,6 @@ Installing from GitHub Packages needs authentication even though the package is 
 A consumer repo wants an `.npmrc` with the scope and a token:
 
 ```
-@seankcw:registry=https://npm.pkg.github.com
+@9gag:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```

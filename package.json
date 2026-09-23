@@ -1,17 +1,17 @@
 {
-  "name": "@seankcw/openspec-viewer",
+  "name": "@9gag/openspec-viewer",
   "version": "0.3.9",
   "description": "A read-only web view of an OpenSpec store: changes in flight, capability specs, idle claims, and archive conflicts.",
   "license": "MIT",
-  "author": "seankcw",
+  "author": "9gag",
   "type": "module",
   "packageManager": "pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seankcw/openspec-viewer.git"
+    "url": "git+https://github.com/9gag/openspec-viewer.git"
   },
-  "homepage": "https://github.com/seankcw/openspec-viewer#readme",
-  "bugs": "https://github.com/seankcw/openspec-viewer/issues",
+  "homepage": "https://github.com/9gag/openspec-viewer#readme",
+  "bugs": "https://github.com/9gag/openspec-viewer/issues",
   "keywords": [
     "openspec",
     "spec-driven",

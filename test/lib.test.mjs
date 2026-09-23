@@ -3,7 +3,7 @@
  *
  * Everything else in this suite imports the implementation by relative path, which is
  * the right thing when the subject is an inference. Here the subject is the packaging:
- * that `@seankcw/openspec-viewer/lib/store` and `/lib/spec` resolve at all, that they
+ * that `@9gag/openspec-viewer/lib/store` and `/lib/spec` resolve at all, that they
  * export what `lib/*.d.mts` promises, and that a publish ships the files they lean on.
  * Node resolves a package's own name from inside it once `exports` is declared, so
  * these imports fail exactly when a consumer's would.
@@ -27,9 +27,9 @@ import { dirname, join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import * as mount from "@seankcw/openspec-viewer/lib/mount";
-import * as spec from "@seankcw/openspec-viewer/lib/spec";
-import * as store from "@seankcw/openspec-viewer/lib/store";
+import * as mount from "@9gag/openspec-viewer/lib/mount";
+import * as spec from "@9gag/openspec-viewer/lib/spec";
+import * as store from "@9gag/openspec-viewer/lib/store";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
