@@ -33,6 +33,19 @@ import {
 } from "./store.mjs";
 
 /**
+ * The archive's literal directory name for a change id: itself, or date-prefixed
+ * (`YYYY-MM-DD-<id>`), the form `openspec archive` actually writes to disk. Every reader
+ * of a change — the board, a direct URL, the CLI while it was still in development —
+ * knows it only by its bare id, so that naming convention can't leak past this lookup.
+ */
+function archivedDir(storePath, changeId) {
+  const entries = dirs(join(storePath, "openspec", "changes", "archive"));
+  return entries.includes(changeId)
+    ? changeId
+    : entries.find((name) => name.replace(/^\d{4}-\d{2}-\d{2}-/, "") === changeId);
+}
+
+/**
  * The capabilities this change touches, and whether each is new or a change to shipped
  * behavior.
  *
@@ -43,11 +56,12 @@ import {
  * it has to be listed, since the tabs for those documents are gathered from here.
  */
 export function capabilities(storePath, changeId, archived = false) {
+  const dirName = archived ? archivedDir(storePath, changeId) : changeId;
   const base = archived
-    ? join(storePath, "openspec", "changes", "archive", changeId, "specs")
+    ? join(storePath, "openspec", "changes", "archive", dirName, "specs")
     : join(storePath, "openspec", "changes", changeId, "specs");
 
-  const rel = `openspec/changes/${archived ? "archive/" : ""}${changeId}/specs`;
+  const rel = `openspec/changes/${archived ? `archive/${dirName}` : changeId}/specs`;
 
   return capabilityDirs(base).map((cap) => {
     const text = read(join(base, cap, "spec.md")) ?? "";
@@ -107,9 +121,10 @@ export function validate(changeId) {
 /** `root` is the resolved store, as `board()` takes it. */
 export function change(changeId, root = resolveRoot()) {
   const inDevelopment = changeIds(root.path).includes(changeId);
-  const archived =
-    !inDevelopment &&
-    dirs(join(root.path, "openspec", "changes", "archive")).includes(changeId);
+  const archivedName = inDevelopment
+    ? undefined
+    : archivedDir(root.path, changeId);
+  const archived = archivedName !== undefined;
   // Owners and checkmarks as the board reads them: at main, for a change in development there.
   const main = archived ? null : mainOf(root.path);
   const onMain =
@@ -125,7 +140,7 @@ export function change(changeId, root = resolveRoot()) {
   }
 
   const dir = archived
-    ? join("openspec", "changes", "archive", changeId)
+    ? join("openspec", "changes", "archive", archivedName)
     : join("openspec", "changes", changeId);
   // Owners and checkmarks at main, where they are recorded — but only where main holds the
   // plan at all. A tasks.md this checkout wrote and main has not seen is read from disk,
