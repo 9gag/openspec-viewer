@@ -14,13 +14,20 @@ import { Fragment, useState } from "react";
 import { href, useApi } from "../api.js";
 import { namespaceOf } from "../capabilities.js";
 import { NamespacePaths } from "../components/NamespacePath.jsx";
-import { Artifact, FileMeta, LensControl, Owner } from "../components/bits.jsx";
+import {
+  Artifact,
+  FileMeta,
+  LensControl,
+  Owner,
+  WidthControl,
+} from "../components/bits.jsx";
 import { mdComponents } from "../components/markdown.jsx";
 import References, { ReferenceBadge } from "../components/References.jsx";
 import { ResolvedIds } from "../components/ScenarioRef.jsx";
 import WithOutline from "../components/WithOutline.jsx";
 import { loadLens, saveLens } from "../spec.js";
 import { capabilityAsked, changeTabs, resolveTab, tabAsked } from "../tabs.js";
+import { loadWidth, saveWidth } from "../width.js";
 
 /** Which of the artifacts this change's schema asks for exist, per the CLI's own reading. */
 function Completeness({ completeness, id, references }) {
@@ -398,6 +405,13 @@ export default function ChangeDetail({ id, tab, position }) {
     `/api/change?id=${encodeURIComponent(id)}`,
     { poll: false },
   );
+  // Per-browser like the lens, not per-change: whether a table needs the room is a
+  // property of the tab you are on, and the reader is the one who notices.
+  const [width, setWidth] = useState(loadWidth);
+  const chooseWidth = (next) => {
+    setWidth(next);
+    saveWidth(next);
+  };
 
   if (loading) return <Spinner label={`Reading ${id}`} />;
   if (error) {
@@ -427,7 +441,10 @@ export default function ChangeDetail({ id, tab, position }) {
 
   return (
     <ResolvedIds value={data.references?.resolved}>
-      <VStack gap={4} className="doc-page">
+      <VStack
+        gap={4}
+        className={`doc-page${width === "full" ? " is-full" : ""}`}
+      >
         <VStack gap={2}>
           <Namespaces capabilities={data.capabilities} />
           <HStack gap={3} align="center" wrap="wrap">
@@ -471,6 +488,13 @@ export default function ChangeDetail({ id, tab, position }) {
             <Tab key={a.name} value={a.name} label={a.label} />
           ))}
         </TabList>
+
+        {/* The content column reads well as prose and poorly as a wide table — Full drops
+          every cap this page sets for itself so that table can use the width the window
+          actually has. */}
+        <HStack hAlign="end">
+          <WidthControl value={width} onChange={chooseWidth} />
+        </HStack>
 
         {/* One rail per tab body: the outline is read from the DOM, so switching tabs
           re-reads it without any wiring. Tasks has its own structure and no prose. */}
