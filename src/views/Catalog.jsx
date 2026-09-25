@@ -31,6 +31,7 @@ import {
   CapabilityFlag,
   CapabilitySize,
   LensControl,
+  WidthControl,
 } from "../components/bits.jsx";
 import {
   Timeline,
@@ -45,6 +46,7 @@ import { tabForAnchor } from "../tabs.js";
 import { HEADING_KEY, withPosition } from "../toc.js";
 import WithOutline from "../components/WithOutline.jsx";
 import { iso } from "../time.js";
+import { loadWidth, saveWidth } from "../width.js";
 
 /**
  * The capability index.
@@ -537,6 +539,14 @@ export function SpecDetail({ id, tab, position }) {
   // state a link can still point at exactly.
   const [version, setVersion] = useState(() => versionFromUrl(window.location.search));
 
+  // Per-browser like the lens, not per-capability: whether a table needs the room is a
+  // property of the tab you are on, and the reader is the one who notices.
+  const [width, setWidth] = useState(loadWidth);
+  const chooseWidth = (next) => {
+    setWidth(next);
+    saveWidth(next);
+  };
+
   const chooseVersion = (next) => {
     setVersion(next);
     // A heading position belongs to the reading it was clicked on — Durable's headings and
@@ -586,7 +596,10 @@ export function SpecDetail({ id, tab, position }) {
 
   return (
     <ResolvedIds value={data.references?.resolved}>
-      <VStack gap={4} className="doc-page">
+      <VStack
+        gap={4}
+        className={`doc-page${width === "full" ? " is-full" : ""}`}
+      >
         <VStack gap={2}>
           <Link href={href("specs")}>← Namespace</Link>
           <HStack gap={3} align="center" wrap="wrap">
@@ -644,6 +657,12 @@ export function SpecDetail({ id, tab, position }) {
             ))}
           </TabList>
         )}
+
+        {/* Full drops every cap this page sets for itself, for a table the store writes
+          wider than the prose column has room for. */}
+        <HStack hAlign="end">
+          <WidthControl value={width} onChange={chooseWidth} />
+        </HStack>
 
         {version === "upcoming" && data.upcoming ? (
           <Upcoming

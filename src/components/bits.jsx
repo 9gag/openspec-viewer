@@ -1,5 +1,6 @@
 import { Badge } from "@astryxdesign/core/Badge";
 import { Code } from "@astryxdesign/core/Code";
+import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Markdown } from "@astryxdesign/core/Markdown";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
@@ -11,6 +12,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { LENSES } from "../spec.js";
 import { exact, iso, level } from "../time.js";
+import { WIDTHS } from "../width.js";
 import { mdComponents } from "./markdown.jsx";
 import SpecText from "./SpecText.jsx";
 
@@ -197,6 +199,61 @@ export function LensControl({ value, onChange }) {
     >
       {LENSES.map((l) => (
         <SegmentedControlItem key={l.value} value={l.value} label={l.label} />
+      ))}
+    </SegmentedControl>
+  );
+}
+
+/**
+ * The glyph for "full" — Astryx ships no maximize/expand icon of its own, so this is
+ * drawn in the same hand as its built-in set: a 24x24 stroke at 1.5, round caps and
+ * joins. Two corner brackets pointing outward, same shape most toolbars use for "expand
+ * to fill". Passed to `Icon` in component mode, which is why the props spread at the
+ * end — that is how size and color reach it.
+ */
+function ExpandIcon(props) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </svg>
+  );
+}
+
+/** Which icon reads as which width — view-only, so it stays out of width.js. */
+const WIDTH_ICON = {
+  default: "viewColumns",
+  full: ExpandIcon,
+};
+
+/**
+ * How wide the page reads: the default column of prose, or the full width the window
+ * gives it — for a table wider than 52rem has room for. See ../width.js.
+ *
+ * Icon-only: "Default" and "Full" as visible text competed with the tabs sitting right
+ * above this row for the reader's attention, for a choice that is chrome rather than
+ * content. The label still reaches a screen reader through `isLabelHidden`, and a
+ * mouse gets the same words back as a native tooltip via `title`.
+ */
+export function WidthControl({ value, onChange }) {
+  return (
+    <SegmentedControl value={value} onChange={onChange} label="Width" size="sm">
+      {WIDTHS.map((w) => (
+        <SegmentedControlItem
+          key={w.value}
+          value={w.value}
+          label={w.label}
+          title={w.label}
+          isLabelHidden
+          icon={<Icon icon={WIDTH_ICON[w.value]} size="sm" />}
+        />
       ))}
     </SegmentedControl>
   );
