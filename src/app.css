@@ -308,6 +308,28 @@ body {
   max-width: var(--content-column);
 }
 
+/*
+ * The width toggle's "Full" state — for a table the store writes wider than the prose
+ * column has room for, which a card of Given/When/Then never is. Every cap this page sets
+ * for itself comes off; the outline rail keeps its own fixed width rather than growing
+ * with the column, since "On this page" is a list of headings and gains nothing from more
+ * of it on a line.
+ */
+.doc-page.is-full,
+.doc-page.is-full > :not(.with-outline) {
+  max-width: none;
+}
+
+.doc-page.is-full .artifact {
+  max-width: none;
+}
+
+@media (min-width: 1100px) {
+  .doc-page.is-full .with-outline {
+    grid-template-columns: minmax(0, 1fr) var(--outline-rail);
+  }
+}
+
 /* The same column, for the two lines about the clone that sit above every page. */
 .store-head {
   max-width: var(--content-column);
