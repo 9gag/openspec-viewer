@@ -489,9 +489,9 @@ export default function ChangeDetail({ id, tab, position }) {
           ))}
         </TabList>
 
-        {/* The content column reads well as prose and poorly as the twelve-column table
-          Rounds writes — Full drops every cap this page sets for itself so that table can
-          use the width the window actually has. */}
+        {/* The content column reads well as prose and poorly as a wide table — Full drops
+          every cap this page sets for itself so that table can use the width the window
+          actually has. */}
         <HStack hAlign="end">
           <WidthControl value={width} onChange={chooseWidth} />
         </HStack>
