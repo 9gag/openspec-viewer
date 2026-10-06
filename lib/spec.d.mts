@@ -38,6 +38,8 @@ export type ParsedScenario = {
   title: string;
   /** The scenario's body, verbatim, line breaks kept. */
   text: string;
+  /** Machine-readable trace marker immediately preceding this scenario, when present. */
+  trace?: { type: "trace"; kind: "scenario"; id: string; revision: string; covers: string[] };
 };
 
 /** A spec as `parseSpec` reads it: prose, and requirements carrying their scenarios. */

@@ -12,6 +12,7 @@
  */
 
 import { positionIn, SCENARIO_KEY } from "./toc.js";
+import { parseTrace } from "./trace.js";
 
 const REQUIREMENT = /^###\s+Requirement:\s*(.+?)\s*$/;
 const SCENARIO = /^####\s+Scenario:\s*(.+?)\s*$/;
@@ -83,6 +84,7 @@ export function parseSpec(text) {
   let prose = [];
   let requirement = null;
   let scenario = null;
+  let pendingTrace = null;
 
   const flushProse = () => {
     if (prose.join("").trim())
@@ -103,7 +105,14 @@ export function parseSpec(text) {
     requirement = null;
   };
 
-  for (const line of String(text ?? "").split("\n")) {
+  const lines = String(text ?? "").split("\n");
+  for (const [i, line] of lines.entries()) {
+    const trace = parseTrace(line);
+    if (requirement && trace?.kind === "scenario" && SCENARIO.test(lines[i + 1] ?? "")) {
+      closeScenario();
+      pendingTrace = trace;
+      continue;
+    }
     const isRequirement = line.match(REQUIREMENT);
     if (isRequirement) {
       flushProse();
@@ -121,7 +130,12 @@ export function parseSpec(text) {
       const isScenario = line.match(SCENARIO);
       if (isScenario) {
         closeScenario();
-        scenario = { ...scenarioName(isScenario[1]), text: [] };
+        scenario = {
+          ...scenarioName(isScenario[1]),
+          ...(pendingTrace ? { trace: pendingTrace } : {}),
+          text: [],
+        };
+        pendingTrace = null;
         continue;
       }
       // A group heading, or the next section: the requirement is over, and the heading

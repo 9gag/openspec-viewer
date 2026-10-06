@@ -1050,3 +1050,53 @@ body {
 .ref-preview {
   max-width: 34rem;
 }
+
+/* Machine-readable trace comments become small, navigable references beside the prose. */
+.trace-marker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin: 1.25rem 0 0.35rem;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.trace-marker-label,
+.trace-marker-revision {
+  color: var(--color-syntax-comment);
+  font-weight: 600;
+}
+
+.trace-marker-id {
+  padding: 0.1rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 0.35rem;
+  color: var(--color-syntax-function);
+  font-family: var(--font-family-code);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.trace-marker-id-muted {
+  color: var(--color-syntax-comment);
+  border-color: currentColor;
+}
+
+.trace-marker-id:hover,
+.trace-marker-id:focus-visible {
+  text-decoration: underline;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.trace-marker-covers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-basis: 100%;
+}
+
+.trace-marker + * > :is(h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
