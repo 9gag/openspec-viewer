@@ -17,6 +17,8 @@ import { join } from "node:path";
 
 import { sortChanges } from "../src/change-order.js";
 import {
+  acceptanceFingerprint,
+  acceptanceInputPaths,
   changeMetadata,
   parseAcceptance,
   parseProposedAt,
@@ -270,6 +272,68 @@ export function board(now = Date.now(), root = resolveRoot()) {
         ]),
       )
     : new Map();
+  // An acceptance is only current when its immutable history and snapshots are
+  // present too. The fingerprint comes from the current record, so batch the
+  // related blobs after the first metadata read instead of spawning per change.
+  const acceptanceHistoryRef = (id, file) =>
+    `${main.commit}:./openspec/changes/${id}/acceptance/${file}`;
+  const acceptanceRefs = [];
+  const acceptanceHistoryByChange = new Map();
+  const acceptanceInputsByChange = new Map();
+  if (main) {
+    for (const id of sync.onMain) {
+      const text = metadataOnMain.get(metadataRef(id, "acceptance.json"));
+      const fingerprint = acceptanceFingerprint(text);
+      if (fingerprint) {
+        const refs = {
+          fingerprint,
+          history: acceptanceHistoryRef(id, `${fingerprint}.json`),
+          snapshots: acceptanceHistoryRef(
+            id,
+            `${fingerprint}.snapshots.json`,
+          ),
+        };
+        acceptanceHistoryByChange.set(id, refs);
+        acceptanceRefs.push(refs.history, refs.snapshots);
+      }
+      const inputs = new Map(
+        acceptanceInputPaths(text).map((path) => [
+          path,
+          `${main.commit}:./${path}`,
+        ]),
+      );
+      acceptanceInputsByChange.set(id, inputs);
+      acceptanceRefs.push(...inputs.values());
+    }
+  }
+  const acceptanceBlobsOnMain = main
+    ? catFile(root.path, acceptanceRefs)
+    : new Map();
+  const acceptanceAtMain = (id) => {
+    const refs = acceptanceHistoryByChange.get(id);
+    const inputs = acceptanceInputsByChange.get(id);
+    return parseAcceptance(
+      metadataOnMain.get(metadataRef(id, "acceptance.json")),
+      id,
+      false,
+      {
+        readFile: (relativePath) => {
+          const ref =
+            relativePath === `acceptance/${refs?.fingerprint}.json`
+              ? refs?.history
+              : relativePath ===
+                  `acceptance/${refs?.fingerprint}.snapshots.json`
+                ? refs?.snapshots
+                : null;
+          return ref ? acceptanceBlobsOnMain.get(ref) ?? null : null;
+        },
+        readArtifact: (artifactPath) => {
+          const ref = inputs?.get(artifactPath);
+          return ref ? acceptanceBlobsOnMain.get(ref) ?? null : null;
+        },
+      },
+    );
+  };
   const store = {
     ...storeStatus(root, main),
     unmerged: sync.unmerged,
@@ -294,10 +358,7 @@ export function board(now = Date.now(), root = resolveRoot()) {
             proposedAt: parseProposedAt(
               metadataOnMain.get(metadataRef(id, ".openspec.yaml")),
             ),
-            acceptance: parseAcceptance(
-              metadataOnMain.get(metadataRef(id, "acceptance.json")),
-              id,
-            ),
+            acceptance: acceptanceAtMain(id),
           }
         : changeMetadata(root.path, id);
       // The plan is read at main where main holds one. A tasks.md only this checkout has —
