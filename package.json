@@ -42,6 +42,7 @@
     "dist",
     "lib",
     "src/spec.js",
+    "src/trace.js",
     "src/bdd.js",
     "src/search.js",
     "src/snapshot.js",

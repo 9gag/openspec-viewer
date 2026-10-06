@@ -58,15 +58,26 @@ export default function DocDetail({ id }) {
         <BackLink />
         <Heading level={1}>{data.title}</Heading>
         <Text size="sm" color="secondary">
-          A document in the store, outside <span className="mono">openspec/</span>
-          . Nothing here is normative: the requirement it explains lives in a
-          capability spec.
+          {data.path.startsWith("openspec/") ? (
+            "A document in the OpenSpec store."
+          ) : (
+            <>
+              A document in the store, outside <span className="mono">openspec/</span>.
+              Nothing here is normative: the requirement it explains lives in a capability spec.
+            </>
+          )}
         </Text>
       </VStack>
 
       <WithOutline>
         <Card padding={4}>
-          <Artifact text={data.text} path={data.path} commit={data.commit} />
+          <Artifact
+            text={data.text}
+            path={data.path}
+            commit={data.commit}
+            bdd={data.path.endsWith("/spec.md")}
+            lens="full"
+          />
         </Card>
       </WithOutline>
     </VStack>

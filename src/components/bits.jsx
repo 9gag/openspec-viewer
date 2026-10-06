@@ -14,6 +14,8 @@ import { LENSES } from "../spec.js";
 import { exact, iso, level } from "../time.js";
 import { WIDTHS } from "../width.js";
 import { mdComponents } from "./markdown.jsx";
+import { splitTraces } from "../trace.js";
+import TraceMarker from "./TraceMarker.jsx";
 import SpecText from "./SpecText.jsx";
 
 /** Owner tag, or the absence of one — unassigned is a state, not missing data. */
@@ -170,12 +172,19 @@ export function Artifact({
             annotate={annotate}
           />
         ) : (
-          <Markdown
-            headingLevelStart={2}
-            components={mdComponents({ prefix, base: path })}
-          >
-            {text}
-          </Markdown>
+          splitTraces(text).map((block, i) =>
+            block.type === "trace" ? (
+              <TraceMarker key={`${block.id}-${i}`} marker={block} path={path} />
+            ) : (
+              <Markdown
+                key={i}
+                headingLevelStart={2}
+                components={mdComponents({ prefix, base: path })}
+              >
+                {block.text}
+              </Markdown>
+            ),
+          )
         )}
       </div>
     </VStack>

@@ -18,6 +18,7 @@ import {
 } from "../spec.js";
 import { anchor } from "../toc.js";
 import CopyLink from "./CopyLink.jsx";
+import TraceMarker from "./TraceMarker.jsx";
 import { HeadingWithLink, mdComponents } from "./markdown.jsx";
 
 /**
@@ -166,7 +167,7 @@ function Blocks({ text, components, scenarios }) {
  * name one — this is that id as somewhere to point: the heading carries it, and the button
  * copies a link that lands on it.
  */
-function Scenario({ scenario, id, components }) {
+function Scenario({ scenario, id, components, base }) {
   return (
     <section className="scenario" id={id}>
       <HStack gap={2} align="baseline" className="scenario-head">
@@ -179,6 +180,7 @@ function Scenario({ scenario, id, components }) {
           label={`Copy link to ${scenario.id ?? scenario.title}`}
         />
       </HStack>
+      {scenario.trace && <TraceMarker marker={scenario.trace} path={base} />}
       <Blocks text={scenario.text} components={components} />
     </section>
   );
@@ -201,6 +203,7 @@ function Requirement({
   isOpen,
   onOpenChange,
   kind,
+  base,
 }) {
   const id = anchor(prefix, node.title);
   const count = node.scenarios.length;
@@ -238,6 +241,7 @@ function Requirement({
                   scenario={scenario}
                   id={scenarioAnchor(scenario, prefix)}
                   components={components}
+                  base={base}
                 />
               ))}
           </VStack>
@@ -320,6 +324,7 @@ export default function SpecText({
             components={components}
             scenarios={scenarios}
             kind={annotate?.(node.title)}
+            base={base}
             isOpen={
               opened[node.title] ??
               (node.title === holding ? true : rules.scenarios)
