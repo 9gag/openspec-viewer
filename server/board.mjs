@@ -15,6 +15,14 @@
 
 import { join } from "node:path";
 
+import { sortChanges } from "../src/change-order.js";
+import {
+  acceptanceFingerprint,
+  acceptanceInputPaths,
+  changeMetadata,
+  parseAcceptance,
+  parseProposedAt,
+} from "./acceptance.mjs";
 import { changeArtifacts } from "./artifacts.mjs";
 import { conflicts } from "./catalog.mjs";
 import {
@@ -250,6 +258,82 @@ export function board(now = Date.now(), root = resolveRoot()) {
   const tasksOnMain = main
     ? tasksAt(root.path, main.commit, sync.onMain)
     : new Map();
+  // The board's plan comes from main where main holds the change. Read the decision
+  // and proposal date from that same commit, including changes absent in this checkout.
+  const onMain = new Set(sync.onMain);
+  const metadataRef = (id, file) =>
+    `${main.commit}:./openspec/changes/${id}/${file}`;
+  const metadataOnMain = main
+    ? catFile(
+        root.path,
+        sync.onMain.flatMap((id) => [
+          metadataRef(id, ".openspec.yaml"),
+          metadataRef(id, "acceptance.json"),
+        ]),
+      )
+    : new Map();
+  // An acceptance is only current when its immutable history and snapshots are
+  // present too. The fingerprint comes from the current record, so batch the
+  // related blobs after the first metadata read instead of spawning per change.
+  const acceptanceHistoryRef = (id, file) =>
+    `${main.commit}:./openspec/changes/${id}/acceptance/${file}`;
+  const acceptanceRefs = [];
+  const acceptanceHistoryByChange = new Map();
+  const acceptanceInputsByChange = new Map();
+  if (main) {
+    for (const id of sync.onMain) {
+      const text = metadataOnMain.get(metadataRef(id, "acceptance.json"));
+      const fingerprint = acceptanceFingerprint(text);
+      if (fingerprint) {
+        const refs = {
+          fingerprint,
+          history: acceptanceHistoryRef(id, `${fingerprint}.json`),
+          snapshots: acceptanceHistoryRef(
+            id,
+            `${fingerprint}.snapshots.json`,
+          ),
+        };
+        acceptanceHistoryByChange.set(id, refs);
+        acceptanceRefs.push(refs.history, refs.snapshots);
+      }
+      const inputs = new Map(
+        acceptanceInputPaths(text).map((path) => [
+          path,
+          `${main.commit}:./${path}`,
+        ]),
+      );
+      acceptanceInputsByChange.set(id, inputs);
+      acceptanceRefs.push(...inputs.values());
+    }
+  }
+  const acceptanceBlobsOnMain = main
+    ? catFile(root.path, acceptanceRefs)
+    : new Map();
+  const acceptanceAtMain = (id) => {
+    const refs = acceptanceHistoryByChange.get(id);
+    const inputs = acceptanceInputsByChange.get(id);
+    return parseAcceptance(
+      metadataOnMain.get(metadataRef(id, "acceptance.json")),
+      id,
+      false,
+      {
+        readFile: (relativePath) => {
+          const ref =
+            relativePath === `acceptance/${refs?.fingerprint}.json`
+              ? refs?.history
+              : relativePath ===
+                  `acceptance/${refs?.fingerprint}.snapshots.json`
+                ? refs?.snapshots
+                : null;
+          return ref ? acceptanceBlobsOnMain.get(ref) ?? null : null;
+        },
+        readArtifact: (artifactPath) => {
+          const ref = inputs?.get(artifactPath);
+          return ref ? acceptanceBlobsOnMain.get(ref) ?? null : null;
+        },
+      },
+    );
+  };
   const store = {
     ...storeStatus(root, main),
     unmerged: sync.unmerged,
@@ -268,7 +352,15 @@ export function board(now = Date.now(), root = resolveRoot()) {
     // and a namespace is in the directory name. Reading the deltas for their kinds as well
     // would put a file read per capability per change on every poll to learn nothing this
     // needs.
-    changes: sync.changes.map((id) => {
+    changes: sortChanges(sync.changes.map((id) => {
+      const metadata = onMain.has(id)
+        ? {
+            proposedAt: parseProposedAt(
+              metadataOnMain.get(metadataRef(id, ".openspec.yaml")),
+            ),
+            acceptance: acceptanceAtMain(id),
+          }
+        : changeMetadata(root.path, id);
       // The plan is read at main where main holds one. A tasks.md only this checkout has —
       // written on a planning branch, or not committed at all — is read here, exactly as a
       // change main does not have is: the work is there to read, and no claim on it has
@@ -305,6 +397,7 @@ export function board(now = Date.now(), root = resolveRoot()) {
           lastActivity: null,
           artifacts,
           capabilities,
+          ...metadata,
         };
       }
 
@@ -322,6 +415,7 @@ export function board(now = Date.now(), root = resolveRoot()) {
         lastActivity: snaps[0]?.at ?? null,
         artifacts,
         capabilities,
+        ...metadata,
         groups: groups.map((g) => {
           const done = g.tasks.filter((t) => t.done).length;
           return {
@@ -337,6 +431,6 @@ export function board(now = Date.now(), root = resolveRoot()) {
           };
         }),
       };
-    }),
+    })),
   };
 }

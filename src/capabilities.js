@@ -1,3 +1,5 @@
+import { compareChanges } from "./change-order.js";
+
 /**
  * The namespace rule, and the two lists arranged by it: the catalog, and the in-development
  * changes in the nav. Kept out of the views so the ordering can be tested.
@@ -67,7 +69,7 @@ export const NO_CAPABILITY = "no capability yet";
  * `rows` are `{ namespace, item }` pairs — one item can be filed under two namespaces,
  * and `idOf` is how the counts tell that from two items.
  */
-function buildTree(rows, idOf) {
+function buildTree(rows, idOf, compareItems) {
   const empty = () => ({ children: new Map(), items: [] });
   const root = empty();
 
@@ -86,7 +88,7 @@ function buildTree(rows, idOf) {
     name === NO_CAPABILITY ? 2 : name === TOP_LEVEL ? 1 : 0;
 
   return [...root.children.entries()]
-    .map(([name, node]) => shape(name, name, node, idOf))
+    .map(([name, node]) => shape(name, name, node, idOf, compareItems))
     .sort(
       (a, b) => rank(a.path) - rank(b.path) || a.name.localeCompare(b.name),
     );
@@ -100,24 +102,30 @@ function buildTree(rows, idOf) {
  * both `shared/ui` and `shared/design-sync` is one change to `shared`, and adding the
  * children's counts would say two.
  */
-function shape(name, path, node, idOf) {
+function shape(name, path, node, idOf, compareItems) {
   // A namespace with nothing of its own and one namespace inside it is one level, not
   // two: `storefront` alone on a row above a lone `checkout` is a row that says nothing
   // the row beneath it does not, and it costs a whole level of indent to say it.
   if (node.items.length === 0 && node.children.size === 1) {
     const [childName, child] = [...node.children][0];
-    return shape(`${name}/${childName}`, `${path}/${childName}`, child, idOf);
+    return shape(
+      `${name}/${childName}`,
+      `${path}/${childName}`,
+      child,
+      idOf,
+      compareItems,
+    );
   }
 
   const children = [...node.children.entries()]
     .map(([childName, child]) =>
-      shape(childName, `${path}/${childName}`, child, idOf),
+      shape(childName, `${path}/${childName}`, child, idOf, compareItems),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const items = node.items
     .slice()
-    .sort((a, b) => idOf(a).localeCompare(idOf(b)));
+    .sort(compareItems ?? ((a, b) => idOf(a).localeCompare(idOf(b))));
   const ids = new Set(items.map(idOf));
   for (const child of children) for (const id of child.ids) ids.add(id);
 
@@ -148,7 +156,7 @@ export function changeTreeByNamespace(changes) {
     else for (const ns of spaces) rows.push({ namespace: ns, item: change });
   }
 
-  return buildTree(rows, (change) => change.id);
+  return buildTree(rows, (change) => change.id, compareChanges);
 }
 
 /**

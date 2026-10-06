@@ -5,6 +5,7 @@ import { isUnder, leafOf, namespaceOf, TOP_LEVEL } from "../capabilities.js";
 import { displayName } from "../names.js";
 import { ago, exact, STALE_DAYS } from "../time.js";
 import { Progress } from "./bits.jsx";
+import { AcceptanceMarker } from "./AcceptanceMarker.jsx";
 
 /**
  * The changes filed directly under one namespace.
@@ -50,6 +51,7 @@ export function ChangeRows({ changes, conflicting, plainNames, band, within }) {
               {conflicting.has(ch.id) && (
                 <Badge variant="warning" label="conflict" />
               )}
+              <AcceptanceMarker acceptance={ch.acceptance} />
               <Elsewhere
                 change={ch}
                 band={band}

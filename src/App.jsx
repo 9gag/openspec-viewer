@@ -31,6 +31,7 @@ import {
   isCurrent,
   leafOf,
 } from "./capabilities.js";
+import { AcceptanceMarker } from "./components/AcceptanceMarker.jsx";
 import { loadMode, MODES, saveMode } from "./mode.js";
 import { displayName, loadPlainNames, savePlainNames } from "./names.js";
 import { suggestions } from "./suggest.js";
@@ -166,6 +167,7 @@ function changeItem(node, change, view, arg, plain) {
     isSelected: view === "change" && arg === change.id,
     endContent: (
       <HStack gap={2} align="center">
+        <AcceptanceMarker acceptance={change.acceptance} />
         <Text size="sm" color="secondary" hasTabularNumbers>
           {change.done}/{change.total}
         </Text>

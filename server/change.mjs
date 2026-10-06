@@ -11,6 +11,13 @@
 import { join } from "node:path";
 
 import {
+  acceptanceFingerprint,
+  acceptanceInputPaths,
+  changeMetadata,
+  parseAcceptance,
+  parseProposedAt,
+} from "./acceptance.mjs";
+import {
   capabilityDocs,
   changeArtifacts,
   completeness,
@@ -21,6 +28,7 @@ import { modifiedDrift } from "./deltas.mjs";
 import { checkReferences } from "./references.mjs";
 import {
   capabilityDirs,
+  catFile,
   changeIds,
   changesAt,
   dirs,
@@ -149,10 +157,57 @@ export function change(changeId, root = resolveRoot()) {
   const groups =
     (onMain ? groupsAt(root.path, main.commit, changeId) : null) ??
     readGroups(root.path, changeId, archived);
+  let metadata = changeMetadata(
+    root.path,
+    archived ? archivedName : changeId,
+    archived,
+  );
+  if (onMain) {
+    const manifest = `${main.commit}:./openspec/changes/${changeId}/.openspec.yaml`;
+    const record = `${main.commit}:./openspec/changes/${changeId}/acceptance.json`;
+    const texts = catFile(root.path, [manifest, record]);
+    const fingerprint = acceptanceFingerprint(texts.get(record));
+    const history = fingerprint
+      ? `${main.commit}:./openspec/changes/${changeId}/acceptance/${fingerprint}.json`
+      : null;
+    const snapshots = fingerprint
+      ? `${main.commit}:./openspec/changes/${changeId}/acceptance/${fingerprint}.snapshots.json`
+      : null;
+    const inputRefs = new Map(
+      acceptanceInputPaths(texts.get(record)).map((path) => [
+        path,
+        `${main.commit}:./${path}`,
+      ]),
+    );
+    const immutable = catFile(
+      root.path,
+      [history, snapshots, ...inputRefs.values()].filter(Boolean),
+    );
+    metadata = {
+      proposedAt: parseProposedAt(texts.get(manifest)),
+      acceptance: parseAcceptance(texts.get(record), changeId, false, {
+        readFile: (relativePath) => {
+          const ref =
+            relativePath === `acceptance/${fingerprint}.json`
+              ? history
+              : relativePath ===
+                  `acceptance/${fingerprint}.snapshots.json`
+                ? snapshots
+                : null;
+          return ref ? immutable.get(ref) ?? null : null;
+        },
+        readArtifact: (artifactPath) => {
+          const ref = inputRefs.get(artifactPath);
+          return ref ? immutable.get(ref) ?? null : null;
+        },
+      }),
+    };
+  }
 
   return {
     id: changeId,
     archived,
+    ...metadata,
     dir,
     // Only the artifacts that exist — this is what the page turns into tabs, and a tab
     // onto a file nobody has written is a dead end. What is *missing* is a different
