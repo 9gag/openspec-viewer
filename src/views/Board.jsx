@@ -14,6 +14,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useState } from "react";
 import { href } from "../api.js";
+import { AcceptanceMarker } from "../components/AcceptanceMarker.jsx";
 import { loadSimple, saveSimple, splitIntoColumns } from "../board.js";
 import {
   changeTreeByNamespace,
@@ -93,7 +94,14 @@ function ChangeCard({ change, ready }) {
     return (
       <Card padding={4}>
         <VStack gap={2}>
-          <Link href={href("change", change.id)}>{change.id}</Link>
+          <HStack gap={2} align="center" wrap="wrap">
+            <Link href={href("change", change.id)}>{change.id}</Link>
+            <AcceptanceMarker
+              acceptance={change.acceptance}
+              proposedAt={change.proposedAt}
+              showDetails
+            />
+          </HStack>
           <Text color="secondary">No tasks.md yet — still being planned.</Text>
         </VStack>
       </Card>
@@ -110,6 +118,11 @@ function ChangeCard({ change, ready }) {
           <Text size="sm" color="secondary" hasTabularNumbers>
             {change.done}/{change.total} tasks
           </Text>
+          <AcceptanceMarker
+            acceptance={change.acceptance}
+            proposedAt={change.proposedAt}
+            showDetails
+          />
           {ready && <Badge variant="success" label="ready to archive" />}
           {change.lastActivity && (
             <HStack gap={1} align="center">
@@ -555,11 +568,7 @@ export default function Board({ board, plainNames }) {
   const [filter, setFilter] = useState(initialFilter);
   const [simple, setSimple] = useState(loadSimple);
   const summary = summarize(board);
-  // Ready to archive first, order otherwise untouched. Archiving is the one move on this
-  // board that only PM can make, and a finished change reads as just another card if it
-  // sits where it happened to fall — so it comes up to meet the panels above it.
   const isReady = (ch) => summary.ready.includes(ch.id);
-  const readyFirst = (a, b) => Number(isReady(b)) - Number(isReady(a));
 
   const chooseSimple = (next) => {
     setSimple(next);
@@ -613,9 +622,7 @@ export default function Board({ board, plainNames }) {
     );
   }
 
-  const changes = [...applyFilter(board.changes, filter, summary)].sort(
-    readyFirst,
-  );
+  const changes = applyFilter(board.changes, filter, summary);
 
   // Every panel that has something to say, in one order for everyone. A tile is a
   // request for one queue, so selecting it narrows the panels to that queue as well as

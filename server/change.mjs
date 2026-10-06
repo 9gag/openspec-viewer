@@ -11,6 +11,11 @@
 import { join } from "node:path";
 
 import {
+  changeMetadata,
+  parseAcceptance,
+  parseProposedAt,
+} from "./acceptance.mjs";
+import {
   capabilityDocs,
   changeArtifacts,
   completeness,
@@ -21,6 +26,7 @@ import { modifiedDrift } from "./deltas.mjs";
 import { checkReferences } from "./references.mjs";
 import {
   capabilityDirs,
+  catFile,
   changeIds,
   changesAt,
   dirs,
@@ -149,10 +155,25 @@ export function change(changeId, root = resolveRoot()) {
   const groups =
     (onMain ? groupsAt(root.path, main.commit, changeId) : null) ??
     readGroups(root.path, changeId, archived);
+  let metadata = changeMetadata(
+    root.path,
+    archived ? archivedName : changeId,
+    archived,
+  );
+  if (onMain) {
+    const manifest = `${main.commit}:./openspec/changes/${changeId}/.openspec.yaml`;
+    const record = `${main.commit}:./openspec/changes/${changeId}/acceptance.json`;
+    const texts = catFile(root.path, [manifest, record]);
+    metadata = {
+      proposedAt: parseProposedAt(texts.get(manifest)),
+      acceptance: parseAcceptance(texts.get(record), changeId),
+    };
+  }
 
   return {
     id: changeId,
     archived,
+    ...metadata,
     dir,
     // Only the artifacts that exist — this is what the page turns into tabs, and a tab
     // onto a file nobody has written is a dead end. What is *missing* is a different

@@ -13,6 +13,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { Fragment, useState } from "react";
 import { href, useApi } from "../api.js";
 import { namespaceOf } from "../capabilities.js";
+import { AcceptanceMarker } from "../components/AcceptanceMarker.jsx";
 import { NamespacePaths } from "../components/NamespacePath.jsx";
 import {
   Artifact,
@@ -449,6 +450,12 @@ export default function ChangeDetail({ id, tab, position }) {
           <Namespaces capabilities={data.capabilities} />
           <HStack gap={3} align="center" wrap="wrap">
             <Heading level={1}>{data.id}</Heading>
+            <AcceptanceMarker
+              acceptance={data.acceptance}
+              proposedAt={data.proposedAt}
+              showDetails
+              archived={data.archived}
+            />
             {data.archived && <Badge variant="neutral" label="archived" />}
           </HStack>
           <FileMeta path={data.dir} />
